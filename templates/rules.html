@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* small overrides for gallery layout */
+    .gallery-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        justify-content: center;
+    }
+
+    .gallery-card img {
+        max-width: 160px;
+        max-height: 120px;
+    }
+
+    .page-desc {
+        margin-bottom: 24px;
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-step">--</div>
+    <h1 class="page-title">Dos and Don'ts</h1>
+    <p class="page-desc">Follow these guidelines for a smooth and fair interview experience.</p>
+</div>
+
+<div class="card">
+    <div class="dos-title">Dos</div>
+    <div class="gallery-row">
+        <div class="card gallery-card">
+            <img src="/static/img/Look At Screen.png" alt="Look At Screen" onerror="this.src=''">
+            <div class="card-desc">Look at the screen</div>
+        </div>
+        <div class="card gallery-card">
+            <img src="/static/img/Don,t Look Away.png" alt="Don't Look Away" onerror="this.src=''">
+            <div class="card-desc">Don't look away</div>
+        </div>
+    </div>
+
+    <div class="donts-title">Don'ts</div>
+    <div class="gallery-row">
+        <div class="card gallery-card">
+            <img src="/static/img/No Copy Paste.png" alt="No Copy Paste" onerror="this.src=''">
+            <div class="card-desc">No copy-paste</div>
+        </div>
+        <div class="card gallery-card">
+            <img src="/static/img/No Screenshot.png" alt="No Screenshot" onerror="this.src=''">
+            <div class="card-desc">No screenshots</div>
+        </div>
+        <div class="card gallery-card">
+            <img src="/static/img/No Tab Switching.png" alt="No Tab Switching" onerror="this.src=''">
+            <div class="card-desc">No tab switching</div>
+        </div>
+    </div>
+</div>
+
+<div style="text-align: center; margin-top: 32px; margin-bottom: 24px;">
+    <a href="/interview" class="btn btn-primary" style="font-size: 16px; padding: 12px 32px;">
+        I Understand — Proceed to Interviews
+    </a>
+</div>
+
+{% endblock %}

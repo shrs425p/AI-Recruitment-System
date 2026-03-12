@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-step">Step 06</div>
+    <h1 class="page-title">Reports</h1>
+    <p class="page-desc">AI generates comprehensive post-interview reports and a final hiring decision summary.</p>
+</div>
+
+<div class="stats-row">
+    <div class="stat-chip">
+        <div class="stat-value" data-stat="interview_count">{{ reports | length }}</div>
+        <div class="stat-label">Interviews Done</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value" data-stat="report_count">{{ reports | length }}</div>
+        <div class="stat-label">Reports Generated</div>
+    </div>
+</div>
+
+
+<div class="card">
+    <div class="card-title">Generate Reports</div>
+    <div class="card-desc">AI analyzes all interview transcripts and generates a detailed report with hire
+        recommendations for each candidate.</div>
+
+    <button class="btn btn-primary" id="genBtn" onclick="generateReports()">
+        Generate All Reports
+    </button>
+
+    <!-- Live progress bar -->
+    <div id="genProgressWrap" style="display:none; margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-600);margin-bottom:6px;">
+            <span id="genProgressText">Generating reports…</span>
+        </div>
+        <div style="background:var(--gray-100);border-radius:99px;height:8px;overflow:hidden;">
+            <div id="genProgressBar"
+                style="height:100%;background:linear-gradient(90deg,#34a853,#1a73e8);border-radius:99px;width:4%;transition:width 0.5s ease;">
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% if summary %}
+<!-- Final Summary Table -->
+<div style="margin-top:24px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <h2 style="font-size:18px; font-weight:600;">Final Hiring Summary</h2>
+        <span style="font-size:13px; color:var(--gray-400);">{{ summary.total }} candidates — ranked by combined
+            score</span>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Candidate</th>
+                    <th>Combined Score</th>
+                    <th>Resume</th>
+                    <th>Interview</th>
+                    <th>Proctoring</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in summary.candidates | sort(attribute='combined_score', reverse=True) %}
+                <tr>
+                    <td><span class="rank-badge">#{{ loop.index }}</span></td>
+                    <td>
+                        <div style="font-weight:500;">{{ c.candidate_name }}</div>
+                        <div style="font-size:11px; color:var(--gray-400); font-family:var(--font-mono);">{{
+                            c.source_file }}</div>
+                    </td>
+                    <td>
+                        <div class="score-bar-wrap">
+                            <div class="score-bar">
+                                <div class="score-fill" data-score="{{ c.combined_score }}"></div>
+                            </div>
+                            <span class="score-text">{{ c.combined_score }}</span>
+                        </div>
+                    </td>
+                    <td><span class="score-text" style="font-size:13px;">{{ c.ranking_score }}/100</span></td>
+                    <td><span class="score-text" style="font-size:13px;">{{ c.interview_pct }}%</span></td>
+                    <td>
+                        <span
+                            class="badge {% if c.proctoring_status == 'CLEAN' %}badge-green{% else %}badge-red{% endif %}">
+                            {{ c.proctoring_status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% set rec = c.hire_recommendation | lower %}
+                        {% if 'strongly' in rec %}
+                        <span class="badge badge-green">Strongly Recommend</span>
+                        {% elif 'not' in rec %}
+                        <span class="badge badge-red">Not Recommend</span>
+                        {% elif 'neutral' in rec %}
+                        <span class="badge badge-amber">Neutral</span>
+                        {% else %}
+                        <span class="badge badge-blue">Recommend</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Individual Reports -->
+{% if reports %}
+<div style="margin-top:32px;">
+    <h2 style="font-size:18px; font-weight:600; margin-bottom:16px;">Individual Reports</h2>
+
+    {% for r in reports %}
+    <div class="report-card">
+        <div class="report-header">
+            <div>
+                <div class="report-name">{{ r.candidate_name }}</div>
+                <div class="report-meta">{{ r.job_title }} &nbsp;·&nbsp; {{ r.interview_date }}</div>
+            </div>
+            <div>
+                {% set rec = r.ai_report.hire_recommendation | lower %}
+                {% if 'strongly' in rec %}
+                <span class="badge badge-green">Strongly Recommend</span>
+                {% elif 'not' in rec %}
+                <span class="badge badge-red">Not Recommend</span>
+                {% elif 'neutral' in rec %}
+                <span class="badge badge-amber">Neutral</span>
+                {% else %}
+                <span class="badge badge-blue">Recommend</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="score-trio">
+            <div class="score-item">
+                <div class="score-num">{{ r.scores.combined_score }}</div>
+                <div class="score-lbl">Combined</div>
+            </div>
+            <div class="score-item">
+                <div class="score-num">{{ r.scores.ranking_score }}</div>
+                <div class="score-lbl">Resume</div>
+            </div>
+            <div class="score-item">
+                <div class="score-num">{{ r.scores.interview_pct }}%</div>
+                <div class="score-lbl">Interview</div>
+            </div>
+            <div class="score-item">
+                <div class="score-num">{{ r.scores.technical_pct }}%</div>
+                <div class="score-lbl">Technical</div>
+            </div>
+            <div class="score-item">
+                <div class="score-num">{{ r.scores.behavioral_pct }}%</div>
+                <div class="score-lbl">Behavioral</div>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        {% if r.ai_report.overall_summary %}
+        <div style="font-size:13px; color:var(--gray-600); margin-bottom:12px; line-height:1.6;">
+            {{ r.ai_report.overall_summary }}
+        </div>
+        {% endif %}
+
+        <!-- Strengths & Gaps -->
+        <div class="grid-2">
+            {% if r.ai_report.key_strengths %}
+            <div>
+                <div
+                    style="font-size:11px; font-weight:600; color:var(--green); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
+                    Strengths</div>
+                {% for s in r.ai_report.key_strengths[:3] %}
+                <div style="font-size:12px; color:var(--gray-800); margin-bottom:3px;">+ {{ s }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if r.ai_report.key_gaps %}
+            <div>
+                <div
+                    style="font-size:11px; font-weight:600; color:var(--red); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
+                    Gaps</div>
+                {% for g in r.ai_report.key_gaps[:3] %}
+                <div style="font-size:12px; color:var(--gray-800); margin-bottom:3px;">- {{ g }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Proctoring -->
+        <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="badge {% if r.proctoring.status == 'CLEAN' %}badge-green{% else %}badge-red{% endif %}">
+                {{ r.proctoring.status }}
+            </span>
+            <span style="font-size:12px; color:var(--gray-400);">{{ r.proctoring.flagged_count }} proctoring
+                flag(s)</span>
+            <span style="font-size:12px; color:var(--gray-400);">Risk: {{ r.ai_report.risk_level }}</span>
+            {% if r._filename %}
+            <button onclick="downloadPdf('{{ r._filename }}', '{{ r.candidate_name|default('report') }}')"
+               style="margin-left:auto; padding:6px 14px; font-size:12px; font-weight:600;
+                      background:#18181b; color:#fff; border-radius:8px; border:none; cursor:pointer;
+                      display:inline-flex; align-items:center; gap:6px;">
+                📄 Download PDF
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% elif not summary %}
+    <div class="card" style="margin-top:24px;">
+        <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <div class="empty-text">No reports yet. Run interviews first, then click Generate All Reports.</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:24px; display:flex; justify-content:flex-start;">
+        <a href="/interview" class="btn btn-secondary">← Interview Bot</a>
+    </div>
+
+    {% endblock %}
+
+    {% block scripts %}
+    <script>
+        async function downloadPdf(filename, candidateName) {
+            try {
+                const res = await fetch('/api/save-report-pdf/' + encodeURIComponent(filename));
+                const data = await res.json();
+                if (data.error) { showToast('PDF failed: ' + data.error, 'error'); return; }
+                showToast('PDF opened — check your PDF viewer', 'success');
+            } catch (e) {
+                showToast('Download failed: ' + e.message, 'error');
+            }
+        }
+
+        let _genAnim = null;
+
+        function _startGenAnim() {
+            document.getElementById('genProgressWrap').style.display = 'block';
+            let pct = 4;
+            _genAnim = setInterval(() => {
+                if (pct < 90) pct += (90 - pct) * 0.03;
+                document.getElementById('genProgressBar').style.width = pct + '%';
+                document.getElementById('genProgressText').textContent =
+                    'Generating reports… ' + Math.round(pct) + '%';
+            }, 700);
+        }
+        function _stopGenAnim(msg) {
+            clearInterval(_genAnim);
+            document.getElementById('genProgressBar').style.width = '100%';
+            document.getElementById('genProgressText').textContent = msg || '✓ Done';
+        }
+
+        async function generateReports() {
+            const btn = document.getElementById('genBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Generating...';
+            _startGenAnim();
+
+            const res = await fetch('/api/generate-reports', { method: 'POST' });
+            const data = await res.json();
+
+            _stopGenAnim(data.error ? '✗ Failed' : `✓ Generated ${data.count} report(s)`);
+            btn.disabled = false;
+            btn.textContent = 'Generate All Reports';
+
+            if (data.error) { showToast(data.error, 'error'); return; }
+
+            showToast(`Generated ${data.count} report(s)! Refreshing…`, 'success');
+            // Short delay then reload to show new reports from server
+            setTimeout(() => location.reload(), 1500);
+        }
+
+        // Restore running state if report generation was in progress
+        (async function _restoreState() {
+            try {
+                const res = await fetch('/api/task-status');
+                const tasks = await res.json();
+                if (tasks.reports && tasks.reports.status === 'running') {
+                    const btn = document.getElementById('genBtn');
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner"></span> Generating...';
+                    _startGenAnim();
+                    const _waitDone = setInterval(async () => {
+                        try {
+                            const r2 = await fetch('/api/task-status');
+                            const t2 = await r2.json();
+                            if (!t2.reports || t2.reports.status !== 'running') {
+                                clearInterval(_waitDone);
+                                _stopGenAnim('✓ Done');
+                                btn.disabled = false;
+                                btn.textContent = 'Generate All Reports';
+                                showToast('Reports generated! Refreshing…', 'success');
+                                setTimeout(() => location.reload(), 1500);
+                            }
+                        } catch(e) {}
+                    }, 2000);
+                }
+            } catch(e) {}
+        })();
+    </script>
+    {% endblock %}

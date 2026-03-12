@@ -1,0 +1,38 @@
+# Core PDF / OCR
+pytesseract>=0.3.10
+Pillow>=10.0
+PyMuPDF>=1.23
+numpy>=1.26
+
+# AI / LLM
+ollama>=0.1.7
+
+# GUI / Web
+pywebview>=5.0
+Flask>=3.0
+
+# Calendar
+icalendar>=5.0
+
+# Face detection
+mediapipe>=0.10
+opencv-python>=4.9
+
+# Voice / Speech
+pyttsx3>=2.90
+SpeechRecognition>=3.10
+
+# Google Calendar integration
+google-api-python-client>=2.100
+google-auth-httplib2>=0.2
+google-auth-oauthlib>=1.1
+cryptography>=42.0
+
+# PDF export
+fpdf2>=2.7
+
+# Offline open-source speech recognition (Apache 2.0, no API key)
+# After pip install, run:   python setup_vosk.py
+#   This downloads vosk-model-small-en-in-0.4 (36 MB, Indian English, Apache 2.0)
+#   For higher accuracy:    python setup_vosk.py --large  (1 GB model)
+vosk>=0.3
