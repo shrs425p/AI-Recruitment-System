@@ -16,7 +16,7 @@ installer_output/*
 *.spec.bak
 
 # Local installer tools
-Inno Setup 6/
+# Inno Setup 6/
 
 # Runtime data
 output/*
