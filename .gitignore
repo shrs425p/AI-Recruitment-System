@@ -11,15 +11,16 @@ venv/
 # Build artifacts
 build/
 dist/
-installer_output/
+installer_output/*
+!installer_output/.gitkeep
 *.spec.bak
 
 # Local installer tools
 Inno Setup 6/
 
 # Runtime data
-output/
-resumes/
+output/*
+resumes/*
 ars.db
 token.json
 

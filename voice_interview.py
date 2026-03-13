@@ -276,8 +276,10 @@ def listen_for_answer(timeout: int = SPEECH_TIMEOUT,
         'duration': float
     }
     """
+    # Retry lazy init once in case startup init failed transiently.
     if not _sr_initialized or not _recognizer or not _microphone:
-        return {'success': False, 'text': '', 'error': 'Speech recognition not initialized', 'duration': 0}
+        if not init_speech_recognition():
+            return {'success': False, 'text': '', 'error': 'Speech recognition not initialized', 'duration': 0}
 
     if status_callback:
         status_callback('listening')

@@ -1891,7 +1891,14 @@ def api_voice_start():
 
     # sr_ok = True if the microphone was calibrated successfully
     sr_ok = create_voice_session(session_id, candidate_name, job_title)
-    return jsonify({"success": True, "mic_available": sr_ok})
+    if not sr_ok:
+        return jsonify({
+            "success": False,
+            "mic_available": False,
+            "error": "Microphone initialization failed. Check default microphone permissions/device."
+        }), 400
+
+    return jsonify({"success": True, "mic_available": True})
 
 @app.route("/api/voice/speak-question", methods=["POST"])
 def api_voice_speak_question():
@@ -2345,14 +2352,16 @@ def api_save_report_pdf(filename):
 # ─────────────────────────────────────────────
 # The pywebview desktop window is created on the MAIN thread (required by some
 # OS window managers), while Flask runs in a background daemon thread.
-# A 1-second sleep gives Flask time to bind its port before the window loads
-# http://localhost:5000.  The Api class exposes JavaScript-callable Python
+# A 1-second sleep gives Flask time to bind its ports before the window loads.
+# Desktop window uses local HTTP (127.0.0.1:5001) to avoid certificate warnings,
+# while LAN candidate links continue to use HTTPS (0.0.0.0:5000).
+# The Api class exposes JavaScript-callable Python
 # methods for native window controls (minimize, maximize, close) that the
 # custom frameless title bar uses.
 # ─────────────────────────────────────────────
 
-def run_flask():
-    """Start the Flask development server on all interfaces (0.0.0.0:5000) over HTTPS.
+def run_flask_https():
+    """Start HTTPS server on all interfaces for LAN candidate interview links.
 
     HTTPS is required so that candidates' browsers allow getUserMedia (camera)
     when accessing the interview page over LAN (non-localhost origins).
@@ -2362,11 +2371,24 @@ def run_flask():
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False,
             ssl_context=(cert_path, key_path))
 
+
+def run_flask_http_local():
+    """Start local HTTP server for the desktop webview only.
+
+    This avoids certificate warning pages inside the desktop app while keeping
+    HTTPS available separately for LAN interview links.
+    """
+    app.run(host="127.0.0.1", port=5001, debug=False, use_reloader=False)
+
 if __name__ == "__main__":
-    # Start Flask in a background daemon thread so it dies when the window closes
-    t = threading.Thread(target=run_flask, daemon=True)
-    t.start()
-    time.sleep(1)  # give Flask time to bind port 5000 before the window loads
+    # Start both servers in background daemon threads so they die when the window closes
+    t_https = threading.Thread(target=run_flask_https, daemon=True)
+    t_https.start()
+
+    t_http = threading.Thread(target=run_flask_http_local, daemon=True)
+    t_http.start()
+
+    time.sleep(1)  # give Flask time to bind ports before the window loads
 
     class Api:
         """JavaScript-callable Python class for native window controls.
@@ -2385,7 +2407,7 @@ if __name__ == "__main__":
     api = Api()
     webview.create_window(
         title     = "AI Recruitment System",
-        url       = "https://localhost:5000",
+        url       = "http://127.0.0.1:5001",
         width     = 1280,
         height    = 800,
         min_size  = (1024, 700),
