@@ -672,11 +672,18 @@
 
         // Start voice session if voice mode
         if (interviewMode === 'voice') {
-            await fetch('/api/voice/start', {
+            const voiceRes = await fetch('/api/voice/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, candidate_name: name, job_title: JOB_TITLE })
             });
+            const voiceData = await voiceRes.json();
+            if (!voiceRes.ok || !voiceData.success) {
+                showToast(voiceData.error || 'Voice mode unavailable. Switching to Text mode.', 'error');
+                interviewMode = 'text';
+                document.getElementById('modeTextBtn').classList.add('active');
+                document.getElementById('modeVoiceBtn').classList.remove('active');
+            }
         }
 
         showQuestion(0);
@@ -749,24 +756,31 @@
         statusText.textContent = 'Listening... speak now';
         transcript.textContent = '';
 
-        const res = await fetch('/api/voice/listen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: sessionId })
-        });
-        const data = await res.json();
+        try {
+            const res = await fetch('/api/voice/listen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+            const data = await res.json();
 
-        wave.classList.remove('active');
+            wave.classList.remove('active');
 
-        if (data.success && data.text) {
-            statusText.textContent = '✓ Answer recorded';
-            transcript.textContent = `"${data.text}"`;
-            listenBtn.textContent = '✓ Got it — Submitting...';
+            if (res.ok && data.success && data.text) {
+                statusText.textContent = '✓ Answer recorded';
+                transcript.textContent = `"${data.text}"`;
+                listenBtn.textContent = '✓ Got it — Submitting...';
 
-            // Auto submit the voice answer
-            await submitVoiceAnswer(data.text, data.duration || 0);
-        } else {
-            statusText.textContent = `⚠ ${data.error || 'Could not hear you'}`;
+                // Auto submit the voice answer
+                await submitVoiceAnswer(data.text, data.duration || 0);
+            } else {
+                statusText.textContent = `⚠ ${data.error || 'Could not hear you'}`;
+                listenBtn.disabled = false;
+                listenBtn.textContent = '🎤 Try Again';
+            }
+        } catch (err) {
+            wave.classList.remove('active');
+            statusText.textContent = '⚠ Voice request failed';
             listenBtn.disabled = false;
             listenBtn.textContent = '🎤 Try Again';
         }
