@@ -9,8 +9,8 @@ venv/*
 .venv/*
 
 # Build artifacts
-build/
-dist/
+build/*
+dist/*
 installer_output/*
 !installer_output/.gitkeep
 *.spec.bak
