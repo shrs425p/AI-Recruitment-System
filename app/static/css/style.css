@@ -1,0 +1,1181 @@
+/* ─────────────────────────────────────────────
+   MATERIAL DESIGN 3 (M3) SYSTEM VARIABLES
+   ───────────────────────────────────────────── */
+:root {
+    /* M3 Tonal Palette - Soft Periwinkle & Warm Slate */
+    --md-sys-color-primary:           #65558f; /* Soft periwinkle/violet */
+    --md-sys-color-primary-container: #eaddff; /* Soft lavender container tint */
+    --md-sys-color-on-primary-container: #21005d;
+    --md-sys-color-surface:           #fef7ff; /* Tonal off-white base */
+    --md-sys-color-surface-container-low: #f7f2fa; /* Cards */
+    --md-sys-color-surface-container: #f3edf7; /* Inner panels / Telemetries */
+    --md-sys-color-surface-container-high: #ece6f0; /* Hover highlights */
+    --md-sys-color-outline-variant:   #e7e0ec; /* Clean, thin outline separators */
+    --md-sys-color-on-surface:        #1d1b20; /* Charcoal text, avoids stark pitch black */
+    --md-sys-color-on-surface-variant: #49454f;
+
+    /* Semantic Tonal Pastels */
+    --green:       #146c3a; /* Soft sage green */
+    --green-soft:  #e8f5e9;
+    --red:         #b3261e; /* Terracotta red */
+    --red-soft:    #f9dedc;
+    --amber:       #8a5a00; /* Ochre amber */
+    --amber-soft:  #fff8e1;
+    --blue:        #026aa2; /* Muted slate blue */
+    --blue-soft:   #f0f9ff;
+
+    /* Core Typographies */
+    --font-sans:  'Outfit', 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono:  'JetBrains Mono', 'DM Mono', SFMono-Regular, Consolas, monospace;
+
+    /* Material 3 Corner Radii Spec */
+    --radius-xs:   8px;
+    --radius-sm:   12px;
+    --radius-md:   16px;   /* Standard M3 Card Radius */
+    --radius-lg:   24px;   /* Large Containers */
+    --radius-pill: 99px;   /* Pill Buttons, Active Nav, Badges */
+
+    /* M3 Tonal Surface Elevation Shadows (Level 1) */
+    --elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.08);
+
+    /* System legacy map styles */
+    --white:       var(--md-sys-color-surface);
+    --off-white:   var(--md-sys-color-surface);
+    --gray-50:     var(--md-sys-color-surface-container-low);
+    --gray-100:    var(--md-sys-color-outline-variant);
+    --gray-200:    var(--md-sys-color-outline-variant);
+    --gray-400:    var(--md-sys-color-on-surface-variant);
+    --gray-600:    var(--md-sys-color-on-surface-variant);
+    --gray-800:    var(--md-sys-color-on-surface);
+    --black:       var(--md-sys-color-on-surface);
+    --accent:      var(--md-sys-color-primary);
+    --accent-soft: var(--md-sys-color-primary-container);
+    
+    --radius:      var(--radius-sm);
+    --radius-lg:   var(--radius-md);
+    --shadow:      var(--elevation-1);
+    --shadow-md:   var(--elevation-1);
+    --shadow-lg:   var(--elevation-1);
+    --sidebar-w:   240px;
+}
+
+/* ─────────────────────────────────────────────
+   M3 DARK THEME OVERRIDES (Tonal Dark Purple)
+   ───────────────────────────────────────────── */
+html.dark {
+    --md-sys-color-primary:           #d0bcff;
+    --md-sys-color-primary-container: #4f378b;
+    --md-sys-color-on-primary-container: #eaddff;
+    --md-sys-color-surface:           #141218;
+    --md-sys-color-surface-container-low: #1d1b20;
+    --md-sys-color-surface-container: #211f26;
+    --md-sys-color-surface-container-high: #2b2930;
+    --md-sys-color-outline-variant:   #49454f;
+    --md-sys-color-on-surface:        #e6e1e5;
+    --md-sys-color-on-surface-variant: #cac4d0;
+
+    --green:       #81c784;
+    --green-soft:  #1b5e20;
+    --red:         #e57373;
+    --red-soft:    #b71c1c;
+    --amber:       #ffd54f;
+    --amber-soft:  #f57f17;
+    --blue:        #4fc3f7;
+    --blue-soft:   #01579b;
+}
+
+/* ─────────────────────────────────────────────
+   RESET & BASE STYLES
+   ───────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    font-family: var(--font-sans);
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Minimal M3 Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--md-sys-color-surface-container-high);
+    border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--md-sys-color-outline-variant);
+}
+
+/* ─────────────────────────────────────────────
+   APP SHELL LAYOUT
+   ───────────────────────────────────────────── */
+.app-shell {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────
+   SIDEBAR COMPONENT (M3 SPEC)
+   ───────────────────────────────────────────── */
+.sidebar {
+    width: var(--sidebar-w);
+    background: var(--md-sys-color-surface-container-low);
+    border-right: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 20px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.logo-mark {
+    width: 34px;
+    height: 34px;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-surface);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.logo-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    letter-spacing: -0.2px;
+}
+
+.logo-sub {
+    font-size: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: 500;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: var(--radius-pill); /* Fully rounded M3 navigation items */
+    text-decoration: none;
+    color: var(--md-sys-color-on-surface-variant);
+    transition: all 0.2s ease;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.nav-item:hover {
+    background: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+}
+
+.nav-item.active {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+
+.nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-sys-color-on-surface-variant);
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+}
+
+.nav-item.active .nav-icon {
+    color: var(--md-sys-color-on-primary-container);
+}
+
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-low);
+}
+
+.status-label {
+    font-size: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.status-bar {
+    height: 4px;
+    background: var(--md-sys-color-surface-container-high);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.status-fill {
+    height: 100%;
+    background: var(--md-sys-color-primary);
+    border-radius: var(--radius-pill);
+    width: 0%;
+    transition: width 0.4s ease;
+}
+
+/* ─────────────────────────────────────────────
+   MAIN CONTENT AREA
+   ───────────────────────────────────────────── */
+.main-content {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--md-sys-color-surface);
+}
+
+.page-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 36px 24px;
+}
+
+/* ─────────────────────────────────────────────
+   PAGE HEADER
+   ───────────────────────────────────────────── */
+.page-header {
+    margin-bottom: 28px;
+}
+
+.page-step {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-primary-container);
+    padding: 3px 10px;
+    border-radius: var(--radius-pill); /* Rounded M3 tag */
+    display: inline-block;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.page-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    letter-spacing: -0.5px;
+    line-height: 1.25;
+}
+
+.page-desc {
+    margin-top: 6px;
+    font-size: 13.5px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: 400;
+}
+
+/* ─────────────────────────────────────────────
+   M3 COMPONENT CARDS (TONAL SHIFT BASED)
+   ───────────────────────────────────────────── */
+.card {
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-md); /* M3 Card Radius 16px */
+    padding: 24px;
+    box-shadow: var(--elevation-1);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+    border-color: var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container);
+}
+
+.card-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    margin-bottom: 4px;
+    letter-spacing: -0.1px;
+}
+
+.card-desc {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 18px;
+}
+
+.card + .card {
+    margin-top: 18px;
+}
+
+/* ─────────────────────────────────────────────
+   STAT CHIPS / COUNTERS
+   ───────────────────────────────────────────── */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}
+
+.stat-chip {
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    box-shadow: var(--elevation-1);
+    transition: all 0.2s ease;
+}
+
+.stat-chip:hover {
+    background: var(--md-sys-color-surface-container);
+    transform: translateY(-1px);
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    line-height: 1;
+    font-family: var(--font-mono);
+    letter-spacing: -0.5px;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ─────────────────────────────────────────────
+   M3 PILL BUTTONS
+   ───────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-radius: var(--radius-pill); /* Authentic M3 Pill Buttons */
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    text-decoration: none;
+    outline: none;
+}
+
+.btn-primary {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-surface);
+    border-color: var(--md-sys-color-primary);
+}
+
+.btn-primary:hover {
+    background: #503d77;
+    border-color: #503d77;
+    box-shadow: var(--elevation-1);
+}
+
+.btn-primary:disabled {
+    background: var(--md-sys-color-surface-container);
+    border-color: var(--md-sys-color-outline-variant);
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-secondary {
+    background: var(--md-sys-color-surface-container-low);
+    color: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-outline-variant);
+}
+
+.btn-secondary:hover {
+    background: var(--md-sys-color-surface-container-high);
+    border-color: var(--md-sys-color-primary);
+}
+
+.btn-danger {
+    background: var(--md-sys-color-surface-container-low);
+    color: var(--red);
+    border-color: var(--red-soft);
+}
+
+.btn-danger:hover {
+    background: var(--red-soft);
+    border-color: var(--red);
+}
+
+/* ─────────────────────────────────────────────
+   FORM ELEMENTS
+   ───────────────────────────────────────────── */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+    margin-bottom: 6px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-sm); /* rounded fields */
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface);
+    background: var(--md-sys-color-surface);
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.form-input:focus {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
+}
+
+textarea.form-input {
+    resize: vertical;
+    min-height: 130px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* ─────────────────────────────────────────────
+   M3 DRAG AND DROP UPLOAD ZONE
+   ───────────────────────────────────────────── */
+.upload-zone {
+    border: 2px dashed var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-md);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    background: var(--md-sys-color-surface-container-low);
+    position: relative;
+}
+
+.upload-zone:hover,
+.upload-zone.drag-over {
+    border-color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+
+.upload-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-sys-color-primary);
+    margin: 0 auto 14px;
+    width: 40px;
+    height: 40px;
+}
+
+.upload-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    margin-bottom: 4px;
+}
+
+.upload-sub {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ─────────────────────────────────────────────
+   FILE LISTS
+   ───────────────────────────────────────────── */
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: var(--md-sys-color-surface-container-low);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    font-size: 13px;
+    box-shadow: var(--elevation-1);
+    transition: all 0.2s ease;
+}
+
+.file-item:hover {
+    border-color: var(--md-sys-color-primary);
+}
+
+.file-name {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--md-sys-color-on-surface);
+    font-weight: 500;
+}
+
+.file-status {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+
+.status-success { background: var(--green-soft); color: var(--green); border: 1px solid rgba(20,108,58,0.15); }
+.status-pending { background: var(--amber-soft); color: var(--amber); border: 1px solid rgba(138,90,0,0.15); }
+.status-error   { background: var(--red-soft);   color: var(--red);   border: 1px solid rgba(179,38,30,0.15); }
+.status-skipped { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); border: 1px solid var(--md-sys-color-outline-variant); }
+
+/* ─────────────────────────────────────────────
+   TABLE VIEWS
+   ───────────────────────────────────────────── */
+.table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    box-shadow: var(--elevation-1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--md-sys-color-surface-container-low);
+    font-size: 13px;
+    text-align: left;
+}
+
+thead th {
+    padding: 14px 18px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1.5px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container);
+}
+
+tbody td {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--md-sys-color-surface-container);
+    color: var(--md-sys-color-on-surface);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+tbody tr:hover td {
+    background: var(--md-sys-color-surface-container-high);
+}
+
+.rank-badge {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+    background: var(--md-sys-color-surface-container);
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.score-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.score-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--md-sys-color-surface-container-high);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.score-fill {
+    height: 100%;
+    background: var(--md-sys-color-primary);
+    border-radius: var(--radius-pill);
+    transition: width 0.6s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.score-text {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    min-width: 32px;
+    text-align: right;
+}
+
+/* ─────────────────────────────────────────────
+   PIPELINE STEP BADGES (M3 PILL SHAPES)
+   ───────────────────────────────────────────── */
+.badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: var(--radius-pill); /* Pill Badge M3 spec */
+    display: inline-block;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    border: 1px solid transparent;
+}
+
+.badge-green  { background: var(--green-soft); color: var(--green); border-color: rgba(20,108,58,0.15); }
+.badge-red    { background: var(--red-soft);   color: var(--red); border-color: rgba(179,38,30,0.15); }
+.badge-amber  { background: var(--amber-soft); color: var(--amber); border-color: rgba(138,90,0,0.15); }
+.badge-gray   { background: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface-variant); border-color: var(--md-sys-color-outline-variant); }
+.badge-blue   { background: var(--blue-soft);  color: var(--blue); border-color: rgba(2,106,162,0.15); }
+
+.hidden {
+    display: none !important;
+}
+
+/* ─────────────────────────────────────────────
+   M3 TELEMETRY MONOSECTION LOG BLOCK
+   ───────────────────────────────────────────── */
+.log-box {
+    background: var(--md-sys-color-surface-container);
+    color: var(--md-sys-color-on-surface);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+
+.log-line {
+    display: block;
+    border-left: 2px solid transparent;
+    padding-left: 8px;
+    margin-bottom: 2px;
+}
+
+.log-line.success { color: var(--green); border-left-color: var(--green); }
+.log-line.error   { color: var(--red);   border-left-color: var(--red); }
+.log-line.skip    { color: var(--md-sys-color-on-surface-variant); border-left-color: var(--md-sys-color-outline-variant); }
+
+/* ─────────────────────────────────────────────
+   INTERVIEW PORTAL & CHAT COMPONENT
+   ───────────────────────────────────────────── */
+.question-card {
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-md);
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: var(--elevation-1);
+}
+
+.q-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.q-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: 600;
+}
+
+.q-type {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+
+.q-type-tech { background: var(--blue-soft);  color: var(--blue); border: 1px solid rgba(2,106,162,0.15); }
+.q-type-beh  { background: var(--amber-soft); color: var(--amber); border: 1px solid rgba(138,90,0,0.15); }
+
+.q-topic {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: 500;
+}
+
+.q-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+    line-height: 1.45;
+    margin-bottom: 18px;
+    letter-spacing: -0.3px;
+}
+
+.timer {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.timer.warning { color: var(--amber); }
+.timer.danger  { color: var(--red); }
+
+.eval-result {
+    margin-top: 18px;
+    padding: 16px;
+    background: var(--md-sys-color-surface-container);
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--md-sys-color-primary);
+    animation: fadeIn 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.eval-score {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+}
+
+.eval-feedback {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 2px;
+}
+
+/* ─────────────────────────────────────────────
+   CALENDAR / SLOT SELECTION GRID
+   ───────────────────────────────────────────── */
+.slot-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.slot-option {
+    padding: 12px 18px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-pill); /* Pill shapes */
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    background: var(--md-sys-color-surface-container-low);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.slot-option:hover {
+    border-color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-surface-container);
+}
+
+.slot-option.selected {
+    border-color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-surface);
+}
+
+/* ─────────────────────────────────────────────
+   PROGRESS SPINNERS
+   ───────────────────────────────────────────── */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2.5px solid var(--md-sys-color-surface-container-high);
+    border-top-color: var(--md-sys-color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+}
+
+.btn-primary .spinner {
+    border-color: rgba(255, 255, 255, 0.25);
+    border-top-color: var(--md-sys-color-surface);
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+.loading-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ─────────────────────────────────────────────
+   TOAST NOTIFICATION LAYER (M3 PILL OVERLAYS)
+   ───────────────────────────────────────────── */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10000;
+}
+
+.toast {
+    padding: 12px 20px;
+    border-radius: var(--radius-pill); /* Pill shapes M3 */
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: var(--elevation-1);
+    animation: slideIn 0.25s cubic-bezier(0.2, 0, 0, 1);
+    max-width: 340px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--md-sys-color-on-surface);
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.toast-success { border-left: 4px solid var(--green); }
+.toast-error   { border-left: 4px solid var(--red); }
+.toast-info    { border-left: 4px solid var(--blue); }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ─────────────────────────────────────────────
+   DIVIDERS & GRID STRUCTURES
+   ───────────────────────────────────────────── */
+.divider {
+    height: 1px;
+    background: var(--md-sys-color-outline-variant);
+    margin: 24px 0;
+}
+
+/* ─────────────────────────────────────────────
+   EMPTY STATE CONTAINER
+   ───────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    padding: 56px 20px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.empty-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+}
+
+.empty-text {
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────
+   REPORTS STYLING OVERHAUL
+   ───────────────────────────────────────────── */
+.about-card {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.about-card ol {
+    padding-left: 24px;
+    margin-bottom: 18px;
+}
+.about-card ol li {
+    margin-bottom: 8px;
+}
+
+.report-card {
+    background: var(--md-sys-color-surface-container-low);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    box-shadow: var(--elevation-1);
+    margin-bottom: 16px;
+}
+
+.report-card:hover {
+    border-color: var(--md-sys-color-primary);
+}
+
+.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.report-name {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+}
+
+.report-meta {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 2px;
+    font-weight: 500;
+}
+
+.score-trio {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.score-item {
+    text-align: center;
+    flex: 1;
+    background: var(--md-sys-color-surface-container);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+.score-num {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface);
+}
+.score-lbl {
+    font-size: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 2px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* ─────────────────────────────────────────────
+   SLOT INPUT GROUP
+   ───────────────────────────────────────────── */
+.slot-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.slot-input-row .form-input {
+    flex: 1;
+}
+
+.btn-remove {
+    background: none;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--radius-pill);
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.btn-remove:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: var(--red-soft);
+}
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE GRIDS
+   ───────────────────────────────────────────── */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    :root { --sidebar-w: 0px; }
+    .sidebar { display: none; }
+}
+
+/* ─────────────────────────────────────────────
+   EMPTY STATE STYLING (M3 SPEC)
+   ───────────────────────────────────────────── */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.85;
+}
+
+.empty-text {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface-variant);
+    max-width: 320px;
+    line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────
+   DYNAMIC COLOR PALETTES (MATERIAL YOU SPEC)
+   ───────────────────────────────────────────── */
+
+/* --- Palette: Organic Sage --- */
+html[data-palette="sage"] {
+    --md-sys-color-primary:           #386a20; /* Sage primary */
+    --md-sys-color-primary-container: #bbf2a6; /* Light green container */
+    --md-sys-color-on-primary-container: #042100;
+    --md-sys-color-surface:           #f7faf5; /* Off-white green surface */
+    --md-sys-color-surface-container-low: #f1f4ee;
+    --md-sys-color-surface-container: #e9eee6;
+    --md-sys-color-surface-container-high: #e2e8de;
+    --md-sys-color-outline-variant:   #dfebd9;
+    --md-sys-color-on-surface:        #1a1c18;
+    --md-sys-color-on-surface-variant: #43483e;
+}
+html[data-palette="sage"].dark {
+    --md-sys-color-primary:           #a0d688;
+    --md-sys-color-primary-container: #205107;
+    --md-sys-color-on-primary-container: #bbf2a6;
+    --md-sys-color-surface:           #11140f;
+    --md-sys-color-surface-container-low: #191c16;
+    --md-sys-color-surface-container: #1d211a;
+    --md-sys-color-surface-container-high: #272b24;
+    --md-sys-color-outline-variant:   #43483e;
+    --md-sys-color-on-surface:        #e2e3dd;
+    --md-sys-color-on-surface-variant: #c3c8bc;
+}
+
+/* --- Palette: Slate Blue --- */
+html[data-palette="blue"] {
+    --md-sys-color-primary:           #0f61a4; /* Slate primary */
+    --md-sys-color-primary-container: #d2e4ff; /* Light blue container */
+    --md-sys-color-on-primary-container: #001d36;
+    --md-sys-color-surface:           #f8f9ff; /* Off-white blue surface */
+    --md-sys-color-surface-container-low: #f1f4fa;
+    --md-sys-color-surface-container: #e9eef6;
+    --md-sys-color-surface-container-high: #e1e7f0;
+    --md-sys-color-outline-variant:   #dbe3f0;
+    --md-sys-color-on-surface:        #191c20;
+    --md-sys-color-on-surface-variant: #43474e;
+}
+html[data-palette="blue"].dark {
+    --md-sys-color-primary:           #a0c9ff;
+    --md-sys-color-primary-container: #004987;
+    --md-sys-color-on-primary-container: #d2e4ff;
+    --md-sys-color-surface:           #0f1318;
+    --md-sys-color-surface-container-low: #171c22;
+    --md-sys-color-surface-container: #1c2027;
+    --md-sys-color-surface-container-high: #262a32;
+    --md-sys-color-outline-variant:   #43474e;
+    --md-sys-color-on-surface:        #e2e2e5;
+    --md-sys-color-on-surface-variant: #c3c7cf;
+}
+
+/* --- Palette: Terracotta Rose --- */
+html[data-palette="rose"] {
+    --md-sys-color-primary:           #984061; /* Rose primary */
+    --md-sys-color-primary-container: #ffd9e2; /* Light pink container */
+    --md-sys-color-on-primary-container: #3e001d;
+    --md-sys-color-surface:           #fff8f8; /* Off-white rose surface */
+    --md-sys-color-surface-container-low: #fcf0f2;
+    --md-sys-color-surface-container: #f7e5e8;
+    --md-sys-color-surface-container-high: #f1dae0;
+    --md-sys-color-outline-variant:   #f0d5db;
+    --md-sys-color-on-surface:        #201a1c;
+    --md-sys-color-on-surface-variant: #514347;
+}
+html[data-palette="rose"].dark {
+    --md-sys-color-primary:           #ffb1c8;
+    --md-sys-color-primary-container: #7d2649;
+    --md-sys-color-on-primary-container: #ffd9e2;
+    --md-sys-color-surface:           #161113;
+    --md-sys-color-surface-container-low: #20191b;
+    --md-sys-color-surface-container: #251e20;
+    --md-sys-color-surface-container-high: #30282b;
+    --md-sys-color-outline-variant:   #514347;
+    --md-sys-color-on-surface:        #ebdbe0;
+    --md-sys-color-on-surface-variant: #d5c2c6;
+}

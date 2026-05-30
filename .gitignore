@@ -37,3 +37,4 @@ credentials.json
 .idea/
 .DS_Store
 Thumbs.db
+data/*
