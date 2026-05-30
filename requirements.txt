@@ -19,7 +19,7 @@ mediapipe>=0.10
 opencv-python>=4.9
 
 # Voice / Speech
-pyttsx3>=2.90
+pyttsx3>=2.99
 SpeechRecognition>=3.10
 
 # Google Calendar integration
