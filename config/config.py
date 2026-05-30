@@ -29,8 +29,8 @@ CLOUD_MODEL = 'claude-3-5-haiku-latest'
 # SMTP / Email
 SMTP_HOST = 'smtp.gmail.com'
 SMTP_PORT = 587
-SMTP_EMAIL = 'pawarshreyas425@gmail.com'
-SMTP_PASSWORD = 'rvxi pjhu gylk zrsa'
+SMTP_EMAIL = ''
+SMTP_PASSWORD = ''
 
 # Retry / Backoff
 AI_RETRY_ATTEMPTS = 3
@@ -44,7 +44,7 @@ ANTHROPIC_KEY = 'sk-ant-...'
 GEMINI_KEY = ''
 GROQ_KEY = ''
 OPENAI_KEY = ''
-NVIDIA_KEY = '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'
+NVIDIA_KEY = 'nvapi-...'
 OPENROUTER_KEY = ''
 GITHUB_KEY = ''
 OLLAMA_CLOUD_KEY = ''
