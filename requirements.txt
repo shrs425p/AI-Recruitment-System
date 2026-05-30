@@ -30,7 +30,7 @@ cryptography>=42.0
 pyopenssl>=24.0
 
 # PDF export
-fpdf2>=2.7
+fpdf2>=2.8.7
 
 # Offline open-source speech recognition (Apache 2.0, no API key)
 # After pip install, run:   python scripts/setup_vosk.py
