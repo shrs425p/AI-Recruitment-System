@@ -4,7 +4,6 @@ import hashlib # Hash-based candidate deduplication
 from pathlib import Path       # Cross-platform path handling
 from datetime import datetime  # Timestamps in output filenames
 from concurrent.futures import ThreadPoolExecutor, as_completed  # Parallel scoring
-from config import OLLAMA_MODEL            # AI model name from central config
 import sys
 from utils import clean_json_response, call_ollama  # Shared AI utilities
 from app_paths import data_path

@@ -26,6 +26,7 @@ token.json
 
 # Secrets and local config copies
 credentials.json
+config/config.py
 
 # Logs and temp files
 *.log

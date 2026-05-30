@@ -50,7 +50,7 @@ body:
       description: |
         Run `python --version` and paste the output.
       placeholder: |
-        - OS: Windows 11 / Ubuntu 24.04 / macOS 15
+        - OS: Windows 10 / 11
         - Python: 3.12.x
         - App version / git commit: v1.0.0
         - AI mode: Cloud / Privacy

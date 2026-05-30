@@ -27,14 +27,14 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 
 ```
  ┌──────────────────────────────────────────────────────────┐
- │           app.py (Flask + pywebview Desktop)             │
+ │           main.py (Flask + pywebview Desktop)            │
  │   20+ routes │ Session auth │ SSE log streaming          │
  └──────────────────────┬───────────────────────────────────┘
                         │
     ┌───────────────────┼───────────────────────┐
     ▼                   ▼                       ▼
  Upload            Pipeline Stages         External Services
- /resumes/     ┌─────────────────┐      ┌──────────────────┐
+ data/resumes/ ┌─────────────────┐      ┌──────────────────┐
                │ 1. pdf_to_txt   │      │ Ollama (local)   │
                │ 2. nlp_extractor│      │ Google Calendar  │
                │ 3. ranking      │      │ Gmail SMTP       │
@@ -43,18 +43,18 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
                │ 6. reports      │      └──────────────────┘
                └────────┬────────┘
                         ▼
-              database.py → ars.db (SQLite)
+           app/database.py → data/ars.db (SQLite)
 ```
 
 ### Pipeline Flow
 
-1. **Upload** — PDFs stored in `/resumes/`
-2. **PDF → Text** — Output to `/output/txt/`
-3. **NLP Extraction** — JSON profiles in `/output/nlp/`
-4. **Ranking** — Leaderboard in `/output/ranking/`
-5. **Scheduling** — Schedules + `.ics` files in `/output/scheduling/`
-6. **Interview** — Transcripts in `/output/interviews/`
-7. **Reports** — Final reports in `/output/reports/`
+1. **Upload** — PDFs stored in `data/resumes/`
+2. **PDF → Text** — Output to `data/output/txt/`
+3. **NLP Extraction** — JSON profiles in `data/output/nlp/`
+4. **Ranking** — Leaderboard in `data/output/ranking/`
+5. **Scheduling** — Schedules + `.ics` files in `data/output/scheduling/`
+6. **Interview** — Transcripts in `data/output/interviews/`
+7. **Reports** — Final reports in `data/output/reports/`
 
 ---
 
@@ -62,11 +62,11 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 
 ### 1. Application Startup
 
-- User launches the app (double-click `.exe` or `run.bat`)
+- User launches the app (double-click `.exe` or run `Start.vbs`)
 - **pywebview** opens a frameless native desktop window pointing to the Flask server
 - Flask initializes on a free local port, sets up routes, and starts serving
-- **database.py** creates/opens `ars.db` (SQLite) and ensures all tables exist (`pipeline_runs`, `candidates`, `schedules`, `email_log`, `interview_tokens`)
-- Previous session state is restored from `/output/session_state.json` and `/output/task_state.json` so the user can resume where they left off
+- **app/database.py** creates/opens `data/ars.db` (SQLite) and ensures all tables exist (`pipeline_runs`, `candidates`, `schedules`, `email_log`, `interview_tokens`)
+- Previous session state is restored from `data/output/session_state.json` and `data/output/task_state.json` so the user can resume where they left off
 - A logging system with `QueueHandler` is set up for real-time SSE log streaming to the browser
 
 ### 2. Login
@@ -82,7 +82,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 
 **Backend:**
 - Files are sent as multipart form data to the `/upload` endpoint
-- Flask validates file extensions (PDF, PNG, JPG only) and saves them to `/resumes/`
+- Flask validates file extensions (PDF, PNG, JPG only) and saves them to `data/resumes/`
 - A new `pipeline_run` record is created in the database
 - The dashboard pipeline card for "Upload" updates to completed
 
@@ -91,19 +91,19 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 **User Experience:** Clicks "Convert" on the dashboard or upload page → progress bar shows extraction status per file
 
 **Backend:**
-- For each file in `/resumes/`, the system determines the extraction method:
+- For each file in `data/resumes/`, the system determines the extraction method:
   - **Digital PDFs** → PyMuPDF (`fitz`) extracts text directly (fast, milliseconds)
   - **Scanned PDFs** → `pdf2image` converts pages to images → Tesseract OCR extracts text
   - **Images (PNG/JPG)** → Pillow loads the image → Tesseract OCR extracts text
 - If PyMuPDF returns empty/minimal text, it falls back to OCR automatically
-- Extracted text is cleaned and saved as `.txt` files in `/output/txt/`
+- Extracted text is cleaned and saved as `.txt` files in `data/output/txt/`
 
 ### 5. NLP Extraction (AI Resume Parsing)
 
 **User Experience:** Clicks "Extract" → sees real-time progress as each resume is parsed → can view extracted profiles (name, skills, experience, etc.) in a detailed card view
 
 **Backend:**
-- For each `.txt` file in `/output/txt/`, the system sends the resume text to **Ollama** with a structured prompt asking the AI to extract:
+- For each `.txt` file in `data/output/txt/`, the system sends the resume text to **Ollama** with a structured prompt asking the AI to extract:
   - Name, email, phone, location
   - Professional domain (e.g., "Web Development", "Data Science")
   - Technical skills (list)
@@ -112,8 +112,8 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
   - Work experience (company, role, duration, highlights)
   - Projects
   - Total years of experience
-- The AI returns structured JSON, which is parsed (with markdown stripping via `utils.py`)
-- Each candidate profile JSON is saved to `/output/nlp/`
+- The AI returns structured JSON, which is parsed (with markdown stripping via `app/utils.py`)
+- Each candidate profile JSON is saved to `data/output/nlp/`
 - Candidate records are inserted/updated in the `candidates` database table
 
 ### 6. AI Candidate Ranking
@@ -122,7 +122,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 
 **Backend:**
 - The job description text is first sent to **Ollama** to extract structured requirements (required domain, skills, experience, education, certifications)
-- All candidate NLP profiles are loaded from `/output/nlp/`
+- All candidate NLP profiles are loaded from `data/output/nlp/`
 - Using a **ThreadPoolExecutor (5 parallel workers)**, each candidate is scored by the AI against the JD across 5 weighted criteria:
   - **Skills Match** — 35 points (highest weight)
   - **Domain Match** — 20 points
@@ -131,7 +131,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
   - **Certifications** — 10 points
 - The AI provides a score + justification for each criterion; total out of 100
 - All scoring explicitly **excludes demographic data** (name, age, gender) for fairness
-- Results are sorted by total score → saved as leaderboard JSON + TXT in `/output/ranking/`
+- Results are sorted by total score → saved as leaderboard JSON + TXT in `data/output/ranking/`
 - `candidates.score` is updated in the database
 
 ### 7. Interview Scheduling
@@ -147,7 +147,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 - Slots are distributed to candidates using a rotation strategy — **3 slot options per candidate**
 - For each candidate-slot assignment:
   - An `.ics` calendar invite file is generated using the `icalendar` library
-  - Saved to `/output/scheduling/`
+  - Saved to `data/output/scheduling/`
 - A master schedule JSON is saved and the `schedules` database table is populated
 
 ### 8. Email Invitations
@@ -198,7 +198,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 - AI scores the answer on 4 dimensions: **relevance**, **depth**, **clarity**, **correctness**
 - Each dimension gets a score with reasoning
 - Interview session is saved to disk after every answer (survives crashes)
-- Full transcript + scores + proctoring flags saved to `/output/interviews/`
+- Full transcript + scores + proctoring flags saved to `data/output/interviews/`
 
 ### 10. Report Generation
 
@@ -218,7 +218,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
   - **Risk Level** — Low / Medium / High
   - **Hire Recommendation** — Hire / No Hire / Consider with reasoning
   - **Combined Score** — 40% resume ranking + 60% interview performance
-- Reports are saved in multiple formats: JSON (machine-readable) + TXT (HR-readable) + HTML in `/output/reports/`
+- Reports are saved in multiple formats: JSON (machine-readable) + TXT (HR-readable) + HTML in `data/output/reports/`
 - A final hiring summary aggregates all candidates into a single decision table
 
 ### 11. Settings & Configuration
@@ -232,7 +232,7 @@ An end-to-end automated recruitment pipeline that uses artificial intelligence t
 - **Logs:** View and clear application logs
 - **About:** System info, version, and project details
 
-All settings are persisted to `config.py` and take effect immediately.
+All settings are persisted to `config/config.py` and take effect immediately.
 
 ### 12. Real-Time Log Streaming
 
@@ -409,39 +409,60 @@ google-auth-oauthlib >= 1.1
 ## Project Structure
 
 ```
-ars/
-├── app.py                  # Flask app + pywebview (main entry)
-├── config.py               # Central configuration
-├── database.py             # SQLite database layer
-├── pdf_to_txt.py           # PDF/image → text extraction
-├── nlp_extractor.py        # AI resume parsing
-├── ranking_engine.py       # AI candidate scoring
-├── scheduling.py           # Interview scheduling
-├── interview_bot.py        # AI interview conductor
-├── voice_interview.py      # Voice I/O (Vosk + pyttsx3)
-├── webcam_proctor.py       # Webcam face detection
-├── report_generator.py     # AI post-interview reports
-├── email_sender.py         # Gmail SMTP invitations
-├── google_calendar.py      # Google Calendar integration
-├── utils.py                # Shared utilities (JSON parsing, Ollama calls)
-├── setup_vosk.py           # Vosk model downloader
-├── requirements.txt        # Python dependencies
-├── build.spec              # PyInstaller build config
-├── installer.iss           # Inno Setup installer config
-├── build_installer.bat     # Build automation script
-├── credentials.json        # Google OAuth credentials
-├── token.json              # Google OAuth token
-├── templates/              # 14 Jinja2 HTML templates
-├── static/                 # CSS, JS, images, icons
-├── resumes/                # Uploaded resume files
-├── output/                 # All pipeline outputs
-│   ├── txt/                # Extracted text
-│   ├── nlp/                # NLP JSON profiles
-│   ├── ranking/            # Ranking results
-│   ├── scheduling/         # Schedules + .ics files
-│   ├── interviews/         # Interview transcripts
-│   ├── reports/            # Generated reports
-│   └── ssl/                # SSL certificates (reserved)
-├── Tesseract-OCR/          # Bundled Tesseract binary
-└── vosk-model-small-en-in-0.4/  # Vosk speech model
+AI-Recruitment-System/
+├── main.py                  # Main desktop entry (Flask + pywebview wrapper)
+├── pyproject.toml           # Modern python packaging & tool configuration (Ruff/pytest)
+├── requirements.txt         # Production dependencies
+├── requirements-dev.txt     # Development and testing tools
+├── Start.vbs                # One-click background launcher
+├── LICENSE                  # MIT License
+├── README.md                # System documentation
+│
+├── app/                     # Flask Web Application Layer
+│   ├── __init__.py          # Flask app creator & initializer
+│   ├── core.py              # Blueprint registrations, route setup, configuration loading
+│   ├── app_paths.py         # Dynamic OS-independent database and directory path resolver
+│   ├── database.py          # SQLite database wrapper (schema initialization & WAL mode)
+│   ├── utils.py             # Custom markdown/JSON utility parsers
+│   ├── routes/              # Sub-handlers for each module
+│   │   ├── auth.py          # Session authentication routes
+│   │   ├── dashboard.py     # SSE logging & pipeline controller
+│   │   ├── nlp.py           # NLP parse handlers
+│   │   ├── ranking.py       # Candidate evaluation endpoints
+│   │   ├── scheduling.py    # Google Calendar & scheduling routes
+│   │   ├── interview.py     # Live stateful interview flows
+│   │   ├── reports.py       # Hiring report rendering
+│   │   └── settings.py      # App configuration updates
+│   ├── templates/           # 14 Jinja2 HTML templates for the dashboard & candidates
+│   └── static/              # Premium custom stylesheets and Javascript files
+│
+├── src/                     # Core Business Logic & Pipelines
+│   ├── pdf_to_txt.py        # PDF extraction & Tesseract OCR fallback
+│   ├── nlp_extractor.py     # Structured candidate profiling (Ollama)
+│   ├── ranking_engine.py    # Parallel multi-criteria scorer (ThreadPoolExecutor)
+│   ├── scheduling.py        # Time slot allocator
+│   ├── interview_bot.py     # Stateful interview conductor & answer evaluator
+│   ├── voice_interview.py   # Vosk offline STT & pyttsx3 offline TTS engine
+│   ├── webcam_proctor.py    # MediaPipe real-time face detection tracker
+│   ├── report_generator.py  # Comprehensive report writer
+│   ├── email_sender.py      # SMTP invite mailer
+│   ├── google_calendar.py   # Google Calendar OAuth 2.0 interface
+│   ├── provider_router.py   # Load-balancing model router
+│   └── ai_mode.py           # Ollama check and routing setup
+│
+├── config/                  # Configuration Layer
+│   └── config.py            # Active settings file (overwritten dynamically via Settings UI)
+│
+├── data/                    # Local Storage Directory
+│   ├── ars.db               # SQLite database file
+│   ├── resumes/             # Raw candidate resume documents
+│   └── output/              # Pipeline stage outputs
+│       ├── txt/             # Extracted plain text
+│       ├── nlp/             # AI candidate profiles (JSON)
+│       ├── ranking/         # Leaderboard scoring results
+│       ├── scheduling/      # Calendar invitations (.ics) and schedule configurations
+│       ├── interviews/      # Voice/text transcripts with answer scoring
+│       └── reports/         # HTML/TXT report summaries
+│
+└── tests/                   # Test suite for components & APIs
 ```

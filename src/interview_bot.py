@@ -4,7 +4,6 @@ import time    # time.time() for measuring answer duration (proctoring)
 from pathlib import Path       # Cross-platform path handling
 from datetime import datetime  # Timestamp for output filenames
 import sys
-from config import OLLAMA_MODEL            # AI model name from central config
 from utils import clean_json_response as clean_json, call_ollama  # AI utilities
 from app_paths import data_path
 

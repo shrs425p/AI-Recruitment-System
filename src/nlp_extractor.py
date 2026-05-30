@@ -3,7 +3,6 @@ import re       # Regular expressions (used when building prompts)
 import time     # Sleep between polling cycles in the watcher loop
 from pathlib import Path  # Cross-platform file/folder path handling
 import sys
-from config import OLLAMA_MODEL            # AI model name from central config
 from utils import clean_json_response, call_ollama  # Shared AI calling utilities
 from app_paths import data_path
 
@@ -326,7 +325,8 @@ def run_watcher():
     print("=" * 50)
     print(f"> Watching folder : {INPUT_FOLDER}/")
     print(f"> Output folder   : {OUTPUT_FOLDER}/")
-    print(f"> Model           : {OLLAMA_MODEL}")
+    import config
+    print(f"> Model           : {getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')}")
     print(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
     print(f"> Press Ctrl+C to stop\n")
 

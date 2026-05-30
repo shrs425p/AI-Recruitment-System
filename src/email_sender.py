@@ -81,3 +81,31 @@ def send_interview_email(
         return True, ""
     except Exception as e:
         return False, str(e)
+
+
+def test_smtp_connection() -> tuple[bool, str]:
+    """
+    Test the connection and login to the SMTP server using values currently in config.py.
+    Returns (True, "") on success, or (False, error_message) on failure.
+    """
+    import config as cfg
+    smtp_host = getattr(cfg, "SMTP_HOST", "").strip()
+    try:
+        smtp_port = int(getattr(cfg, "SMTP_PORT", 587))
+    except (TypeError, ValueError):
+        smtp_port = 587
+    smtp_email = getattr(cfg, "SMTP_EMAIL", "").strip()
+    smtp_password = getattr(cfg, "SMTP_PASSWORD", "").strip()
+
+    if not smtp_host:
+        return False, "SMTP Host is not configured."
+    if not smtp_email or not smtp_password:
+        return False, "SMTP credentials are not configured."
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(smtp_email, smtp_password)
+        return True, ""
+    except Exception as e:
+        return False, str(e)

@@ -24,11 +24,8 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
-# Import project-wide settings from config.py
-from config import (
-    OLLAMA_MODEL, AI_RETRY_ATTEMPTS, AI_RETRY_BACKOFF,
-    CLOUD_ENABLED, CLOUD_MODEL, ANTHROPIC_KEY
-)
+# All project configurations are imported dynamically inside functions
+# to prevent startup-time config caching, enabling instant hot-reloads.
 
 # ─────────────────────────────────────────────
 # SHARED: App root path (works in both dev and frozen .exe)
@@ -88,12 +85,15 @@ async def call_ollama_async(system_msg: str, user_msg: str,
                             num_predict: int = 2048) -> str:
     """Non-blocking Ollama call — runs in thread pool so it doesn't freeze app."""
     import config
+    attempts = getattr(config, "AI_RETRY_ATTEMPTS", 3)
+    backoff  = getattr(config, "AI_RETRY_BACKOFF", 2)
+    model    = getattr(config, "OLLAMA_MODEL", "llama3.2:3b")
 
     def _sync_call():
-        for attempt in range(1, AI_RETRY_ATTEMPTS + 1):
+        for attempt in range(1, attempts + 1):
             try:
                 response = ollama.chat(
-                    model=config.OLLAMA_MODEL,
+                    model=model,
                     messages=[
                         {"role": "system", "content": system_msg},
                         {"role": "user",   "content": user_msg},
@@ -103,8 +103,8 @@ async def call_ollama_async(system_msg: str, user_msg: str,
                 return response["message"]["content"]
             except Exception as e:
                 print(f"  [ERROR] Ollama attempt {attempt}: {e}")
-                if attempt < AI_RETRY_ATTEMPTS:
-                    time.sleep(AI_RETRY_BACKOFF * attempt)
+                if attempt < attempts:
+                    time.sleep(backoff * attempt)
         return ""
 
     # Run blocking ollama.chat() in a thread — keeps event loop free
@@ -113,11 +113,16 @@ async def call_ollama_async(system_msg: str, user_msg: str,
 
 async def call_cloud_async(system_msg: str, user_msg: str,
                            max_tokens: int = 2048) -> str:
-    if not ANTHROPIC_AVAILABLE or not CLOUD_ENABLED:
+    import config
+    cloud_enabled = getattr(config, "CLOUD_ENABLED", False)
+    cloud_model   = getattr(config, "CLOUD_MODEL", "claude-3-5-haiku-latest")
+    anthropic_key = getattr(config, "ANTHROPIC_KEY", "")
+
+    if not ANTHROPIC_AVAILABLE or not cloud_enabled:
         return ""
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_KEY)
+    client = anthropic.AsyncAnthropic(api_key=anthropic_key)
     msg = await client.messages.create(
-        model=CLOUD_MODEL,
+        model=cloud_model,
         max_tokens=max_tokens,
         system=system_msg,
         messages=[{"role": "user", "content": user_msg}]
@@ -144,7 +149,10 @@ async def call_ai_async(system_msg: str, user_msg: str,
             )
         except asyncio.TimeoutError:
             print(f"  [WARNING] Local Ollama call timed out ({local_timeout}s).")
-            if CLOUD_ENABLED and ANTHROPIC_AVAILABLE and ANTHROPIC_KEY and ANTHROPIC_KEY != 'sk-ant-...':
+            import config
+            cloud_enabled = getattr(config, "CLOUD_ENABLED", False)
+            anthropic_key = getattr(config, "ANTHROPIC_KEY", "")
+            if cloud_enabled and ANTHROPIC_AVAILABLE and anthropic_key and anthropic_key != 'sk-ant-...':
                 print("  [INFO] Attempting Cloud Fallback (Anthropic) because local Ollama timed out...")
                 try:
                     return await call_cloud_async(system_msg, user_msg, num_predict)
@@ -153,7 +161,10 @@ async def call_ai_async(system_msg: str, user_msg: str,
             return ""
         except Exception as e:
             print(f"  [ERROR] Local Ollama call failed: {e}")
-            if CLOUD_ENABLED and ANTHROPIC_AVAILABLE and ANTHROPIC_KEY and ANTHROPIC_KEY != 'sk-ant-...':
+            import config
+            cloud_enabled = getattr(config, "CLOUD_ENABLED", False)
+            anthropic_key = getattr(config, "ANTHROPIC_KEY", "")
+            if cloud_enabled and ANTHROPIC_AVAILABLE and anthropic_key and anthropic_key != 'sk-ant-...':
                 print("  [INFO] Attempting Cloud Fallback (Anthropic) due to local failure...")
                 try:
                     return await call_cloud_async(system_msg, user_msg, num_predict)
@@ -181,11 +192,14 @@ def call_ollama(system_msg: str, user_msg: str,
         # asyncio.run() cannot be called inside an already-running event loop
         # (e.g. called from inside an async context). Fall back to direct sync.
         if "cannot be called when another event loop is running" in err_str:
-            for attempt in range(1, AI_RETRY_ATTEMPTS + 1):
+            import config as _cfg
+            attempts = getattr(_cfg, "AI_RETRY_ATTEMPTS", 3)
+            backoff  = getattr(_cfg, "AI_RETRY_BACKOFF", 2)
+            model    = getattr(_cfg, "OLLAMA_MODEL", "llama3.2:3b")
+            for attempt in range(1, attempts + 1):
                 try:
-                    import config as _cfg
                     response = ollama.chat(
-                        model=getattr(_cfg, "OLLAMA_MODEL", OLLAMA_MODEL),
+                        model=model,
                         messages=[
                             {"role": "system", "content": system_msg},
                             {"role": "user",   "content": user_msg},
@@ -195,8 +209,8 @@ def call_ollama(system_msg: str, user_msg: str,
                     return response["message"]["content"]
                 except Exception as se:
                     print(f"  [ERROR] Ollama attempt {attempt}: {se}")
-                    if attempt < AI_RETRY_ATTEMPTS:
-                        time.sleep(AI_RETRY_BACKOFF * attempt)
+                    if attempt < attempts:
+                        time.sleep(backoff * attempt)
             return ""
 
         # Any other RuntimeError (e.g. "No cloud providers enabled") is a
