@@ -27,12 +27,13 @@ google-api-python-client>=2.100
 google-auth-httplib2>=0.2
 google-auth-oauthlib>=1.1
 cryptography>=42.0
+pyopenssl>=24.0
 
 # PDF export
 fpdf2>=2.7
 
 # Offline open-source speech recognition (Apache 2.0, no API key)
-# After pip install, run:   python setup_vosk.py
+# After pip install, run:   python scripts/setup_vosk.py
 #   This downloads vosk-model-small-en-in-0.4 (36 MB, Indian English, Apache 2.0)
-#   For higher accuracy:    python setup_vosk.py --large  (1 GB model)
+#   For higher accuracy:    python scripts/setup_vosk.py --large  (1 GB model)
 vosk>=0.3

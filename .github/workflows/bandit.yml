@@ -1,0 +1,51 @@
+name: Bandit Security Scan
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '33 9 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bandit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bandit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Bandit
+        run: pip install bandit[sarif]
+
+      - name: Run Bandit Scan
+        run: |
+          bandit -r app/ src/ main.py \
+            --severity-level medium \
+            --confidence-level medium \
+            --format sarif \
+            --output bandit-results.sarif \
+            --skip B101,B603,B602,B605,B607,B404 \
+            --exclude venv,build,dist,tests \
+            --exit-zero
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: bandit-results.sarif
+          category: bandit

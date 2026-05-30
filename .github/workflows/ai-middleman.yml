@@ -1,0 +1,41 @@
+# name: AI Middleman (Gemini to Jules)
+
+# Uncomment to enable: automatically pings @google-labs-jules to implement
+# feedback left by Gemini Code Assist on pull requests.
+
+# on:
+#   issue_comment:
+#     types: [created]
+#   pull_request_review:
+#     types: [submitted]
+
+# jobs:
+#   tag-jules:
+#     if: |
+#       (github.actor == 'gemini-code-assist[bot]' || github.actor == 'shrs425p') &&
+#       (github.event.issue.pull_request || github.event.pull_request)
+#
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Trigger Jules
+#         uses: actions/github-script@v7
+#         with:
+#           github-token: ${{ secrets.HUMAN_PROXY_PAT }}
+#           script: |
+#             const payload = context.payload;
+#             const body = (payload.comment ? payload.comment.body : payload.review.body).toLowerCase();
+#             const issueNumber = context.issue.number || payload.pull_request.number;
+#
+#             // Stop if it's an approval
+#             if (body.includes("lgtm") || body.includes("looks good") || body.includes("approved")) {
+#               console.log("Approval detected. Standing down.");
+#               return;
+#             }
+#
+#             // Ping Jules
+#             await github.rest.issues.createComment({
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               issue_number: issueNumber,
+#               body: "@google-labs-jules, please implement the latest feedback from @gemini-code-assist. Push your fixes when done."
+#             });

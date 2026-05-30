@@ -1,50 +1,71 @@
 """
 config.py — Central Configuration for AI Recruitment System
-=============================================================
-All project-wide settings live here so you only need to change
-one file when tuning the AI model or retry behaviour.
-
-How to use:
-  from config import OLLAMA_MODEL, AI_RETRY_ATTEMPTS, AI_RETRY_BACKOFF
+All settings are written here automatically when saved via the Settings UI.
 """
 
-# ─────────────────────────────────────────────
-# HR LOGIN / SECURITY
-# ─────────────────────────────────────────────
-
-LOGIN_ENABLED = False
+# Login / Security
+LOGIN_ENABLED = True
 HR_USERNAME = 'admin'
-HR_PASSWORD = 'admin'
+HR_PASSWORD = 'shrs'
 FLASK_SECRET_KEY = 'ars_secure_key_2026'
 
-# ─────────────────────────────────────────────
-# HR PROFILE (shown on Settings page)
-# ─────────────────────────────────────────────
+# HR Profile
 HR_DISPLAY_NAME = 'HR Admin'
-HR_EMAIL        = ''
-HR_COMPANY      = ''
+HR_EMAIL = ''
+HR_COMPANY = ''
 
-# ─────────────────────────────────────────────
-# UI THEME  ("light" or "dark")
-# ─────────────────────────────────────────────
+# UI Theme
 THEME = 'light'
+COLOR_PALETTE = 'lavender'
 
-# ─────────────────────────────────────────────
-# OLLAMA SETTINGS
-# ─────────────────────────────────────────────
-OLLAMA_MODEL    = 'cogito-2.1:671b-cloud'
+# Ollama
+OLLAMA_MODEL = 'llama3.2:3b'
 OLLAMA_BASE_URL = 'http://localhost:11434'
 
-# ─────────────────────────────────────────────
-# EMAIL / SMTP SETTINGS (Gmail App Password)
-# ─────────────────────────────────────────────
-SMTP_HOST     = 'smtp.gmail.com'
-SMTP_PORT     = 587
-SMTP_EMAIL    = 'pawarshreyas425@gmail.com'
+# Legacy cloud aliases (kept for compatibility)
+CLOUD_ENABLED = True
+CLOUD_MODEL = 'claude-3-5-haiku-latest'
+
+# SMTP / Email
+SMTP_HOST = 'smtp.gmail.com'
+SMTP_PORT = 587
+SMTP_EMAIL = 'pawarshreyas425@gmail.com'
 SMTP_PASSWORD = 'rvxi pjhu gylk zrsa'
 
-# ─────────────────────────────────────────────
-# RETRY / BACKOFF SETTINGS
-# ─────────────────────────────────────────────
-AI_RETRY_ATTEMPTS  = 3
-AI_RETRY_BACKOFF   = 2
+# Retry / Backoff
+AI_RETRY_ATTEMPTS = 3
+AI_RETRY_BACKOFF = 2
+
+# AI Mode  ('privacy' = local Ollama, 'cloud' = external API)
+APP_MODE = 'cloud'
+
+# API Keys
+ANTHROPIC_KEY = 'sk-ant-...'
+GEMINI_KEY = ''
+GROQ_KEY = ''
+OPENAI_KEY = ''
+NVIDIA_KEY = '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'
+OPENROUTER_KEY = ''
+GITHUB_KEY = ''
+OLLAMA_CLOUD_KEY = ''
+
+# Models
+PRIVACY_MODEL = 'llama3.2:3b'
+ANTHROPIC_MODEL = 'claude-3-5-haiku-latest'
+GEMINI_MODEL = 'gemini-1.5-flash'
+GROQ_MODEL = 'llama3-8b-8192'
+OPENAI_MODEL = 'gpt-4o-mini'
+NVIDIA_MODEL = 'openai/gpt-oss-120b'
+OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
+GITHUB_MODEL = 'gpt-4o-mini'
+OLLAMA_CLOUD_MODEL = 'llama3.2:3b'
+
+# Enabled Providers
+ANTHROPIC_ENABLED = False
+GEMINI_ENABLED = False
+GROQ_ENABLED = False
+OPENAI_ENABLED = False
+NVIDIA_ENABLED = True
+OPENROUTER_ENABLED = False
+GITHUB_ENABLED = False
+OLLAMA_CLOUD_ENABLED = False

@@ -1,0 +1,52 @@
+name: Mark Stale Issues and Pull Requests
+
+on:
+  schedule:
+    - cron: '21 14 * * *'
+  workflow_dispatch:
+  issues:
+    types: [edited, unlabeled]
+  pull_request:
+    types: [edited, unlabeled]
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/stale@v10
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issues
+          days-before-issue-stale: 30
+          days-before-issue-close: 14
+          stale-issue-label: stale
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had
+            any activity in the last 30 days. It will be closed in 14 days if no
+            further activity occurs. If this is still relevant, please leave a comment
+            or update the issue. Thank you for contributing to AI Recruitment System!
+          close-issue-message: >
+            This issue was closed automatically after 14 days of inactivity following
+            the stale notice. Feel free to reopen it if the problem persists.
+
+          # Pull Requests
+          days-before-pr-stale: 21
+          days-before-pr-close: 7
+          stale-pr-label: stale
+          stale-pr-message: >
+            This pull request has been automatically marked as stale because it has
+            not had any activity in the last 21 days. It will be closed in 7 days if
+            no further activity occurs. If this PR is still in progress, please push
+            an update or leave a comment. Thank you!
+          close-pr-message: >
+            This pull request was closed automatically after 7 days of inactivity
+            following the stale notice. Feel free to reopen it when ready.
+
+          # Never mark items with these labels as stale
+          exempt-issue-labels: pinned,security,in-progress,help-wanted
+          exempt-pr-labels: pinned,security,in-progress,do-not-merge
