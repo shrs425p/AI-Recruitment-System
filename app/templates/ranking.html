@@ -104,10 +104,12 @@
                         {% set rec = c.hire_recommendation | lower %}
                         {% if 'strongly' in rec %}
                         <span class="badge badge-green">Strongly Recommend</span>
-                        {% elif 'recommend' in rec %}
-                        <span class="badge badge-blue">Recommend</span>
+                        {% elif 'not' in rec %}
+                        <span class="badge badge-red">Not Recommend</span>
                         {% elif 'neutral' in rec %}
                         <span class="badge badge-amber">Neutral</span>
+                        {% elif 'recommend' in rec %}
+                        <span class="badge badge-blue">Recommend</span>
                         {% else %}
                         <span class="badge badge-red">Not Recommend</span>
                         {% endif %}
@@ -176,24 +178,42 @@
         tbody.innerHTML = '';
         data.ranked.forEach((c, i) => {
             const rec = (c.hire_recommendation || '').toLowerCase();
-            const badge = rec.includes('strongly') ? 'badge-green' :
-                rec.includes('neutral') ? 'badge-amber' :
-                    rec.includes('not') ? 'badge-red' : 'badge-blue';
+            // Evaluate in priority order: strongly → not → neutral → recommend
+            let badge, label;
+            if (rec.includes('strongly')) {
+                badge = 'badge-green';  label = 'Strongly Recommend';
+            } else if (rec.includes('not') || rec.includes('do not') || rec.includes('cannot')) {
+                badge = 'badge-red';   label = 'Not Recommend';
+            } else if (rec.includes('neutral') || rec.includes('consider')) {
+                badge = 'badge-amber'; label = 'Neutral';
+            } else if (rec.includes('recommend')) {
+                badge = 'badge-blue';  label = 'Recommend';
+            } else {
+                badge = 'badge-red';   label = 'Not Recommend';
+            }
+            const score = c.total_score || 0;
+            const conf  = c.confidence || '';
+            const confBadge = conf === 'High'   ? 'style="background:#dcfce7;color:#166534;"' :
+                              conf === 'Medium' ? 'style="background:#fef9c3;color:#854d0e;"' :
+                              conf === 'Low'    ? 'style="background:#fee2e2;color:#991b1b;"' : '';
             tbody.innerHTML += `
         <tr>
             <td><span class="rank-badge">#${i + 1}</span></td>
             <td>
-                <div style="font-weight:500;">${c.candidate_name || c._source_file}</div>
+                <div style="font-weight:500;display:flex;align-items:center;gap:6px;">
+                    ${c.candidate_name || c._source_file}
+                    ${conf ? `<span class="badge" ${confBadge} style="font-size:0.68rem;padding:2px 7px;">${conf}</span>` : ''}
+                </div>
                 <div style="font-size:11px;color:var(--gray-400);font-family:var(--font-mono);">${c._source_file}</div>
             </td>
             <td style="font-size:12px;color:var(--gray-600);">${c.domain || 'General'}</td>
             <td>
                 <div class="score-bar-wrap">
-                    <div class="score-bar"><div class="score-fill" style="width:${c.total_score}%"></div></div>
-                    <span class="score-text">${c.total_score}</span>
+                    <div class="score-bar"><div class="score-fill" style="width:${score}%"></div></div>
+                    <span class="score-text">${score}</span>
                 </div>
             </td>
-            <td><span class="badge ${badge}">${c.hire_recommendation || 'N/A'}</span></td>
+            <td><span class="badge ${badge}">${label}</span></td>
         </tr>`;
         });
 
