@@ -1,219 +1,89 @@
 # Pipeline Guide
 
-The recruitment pipeline consists of six sequential steps. Each step can be run individually (manual mode) or chained automatically (auto mode). This document explains each step, its inputs and outputs, and the controls available in the UI.
-
----
+The recruitment workflow is organized as repeatable stages. Each stage can be run manually from its page, and the dashboard can run the operational stages automatically in one click.
 
 ## Overview
 
-| Step | Name | Input | Output | Engine |
-|---|---|---|---|---|
-| 1 | Upload | PDF / image files | `data/resumes/` | Flask upload handler |
-| 2 | PDF to Text | `data/resumes/` | `data/output/txt/` | Tesseract OCR / PyMuPDF |
-| 3 | NLP Extract | `data/output/txt/` | `data/output/nlp/` | LLM prompt via Ollama or cloud |
-| 4 | AI Rank | `data/output/nlp/` + job description | `data/output/ranking/` | LLM scoring engine |
-| 5 | Schedule | Ranking results + HR calendar slots | `data/output/scheduling/` | Slot assignment + ICS |
-| 6 | Interview | Schedule + candidate tokens | `data/output/interviews/` | Interview bot + report |
+| Stage | Input | Output | Main module |
+|---|---|---|---|
+| Upload | Resume files | `data/resumes/` | `app/routes/upload.py` |
+| Text extraction | PDF/image resumes | `data/output/txt/` | `src/pdf_to_txt.py` |
+| NLP extraction | Text resumes | `data/output/nlp/` | `src/nlp_extractor.py` |
+| Ranking | Candidate profiles and job description | `data/output/ranking/` | `src/ranking_engine.py` |
+| Scheduling | Ranking results and available slots | `data/output/scheduling/` | `src/scheduling.py` |
+| Interview | Candidate tokens and live answers | `data/output/interviews/` | `src/interview_bot.py` |
+| Reports | Interview transcripts | `data/output/reports/` | `src/report_generator.py` |
 
----
+## One-Click Auto-Pipeline
 
-## Step 1 — Upload
+The dashboard Auto-Pipeline runs in a background thread and updates progress through `/api/task-status`.
 
-**Route:** `POST /api/upload`
-
-HR uploads one or more PDF, PNG, JPG, or JPEG resume files. Each file is saved to `data/resumes/` with its original filename preserved.
-
-**Supported formats:**
-- PDF (digital text or scanned image)
-- PNG, JPG, JPEG (image resumes)
-
-**Limits:** No hard limit is enforced in code. Recommended: batch uploads of up to 200 files at a time for stable performance.
-
-**Notes:**
-- Duplicate filenames are silently overwritten.
-- Only uploaded files are processed in subsequent steps. Already-existing TXT files are skipped by the PDF-to-text watcher (idempotent).
-
----
-
-## Step 2 — PDF to Text
-
-**Route:** `POST /api/run-pdf`  
-**Engine:** `src/pdf_to_txt.py`
-
-Converts each resume in `data/resumes/` to a plain `.txt` file in `data/output/txt/`.
-
-### Conversion Logic
-
-```
-For each file in data/resumes/:
-    if output/txt/<stem>.txt already exists:
-        skip (idempotent)
-    elif file is PDF:
-        try direct text extraction (PyMuPDF)
-        if extracted text length < 800 characters:
-            fall back to OCR (Tesseract at 300 dpi)
-    elif file is PNG / JPG:
-        OCR with Tesseract
-    clean text (normalise whitespace, remove null bytes)
-    write to output/txt/<stem>.txt
+```text
+1. Convert resumes to text
+2. Extract candidate profiles
+3. Update ranking from the active job description
+4. Schedule ranked candidates and create interview tokens
+5. Generate reports for completed interviews
 ```
 
-**Tesseract binary:** `models/Tesseract-OCR/tesseract.exe` (bundled, no system install required)
+The run is idempotent where possible. Existing text files, NLP JSON files, ranked candidates, scheduled candidates, and generated reports are skipped instead of overwritten.
 
-**Output files:** One `.txt` file per resume, UTF-8 encoded.
+The interview stage itself is not automated because it requires candidate participation, voice/text answers, and proctoring. Once transcripts exist, the report stage can be run automatically.
 
----
+## Manual Workflow
 
-## Step 3 — NLP Extraction
+1. Upload all resumes for the hiring batch.
+2. Convert resumes to text.
+3. Run NLP extraction.
+4. Paste or load a job description and run ranking.
+5. Review the leaderboard.
+6. Generate the schedule from available slots or Google Calendar.
+7. Send or copy interview links for confirmed candidates.
+8. Let candidates complete interviews.
+9. Generate final reports and review recommendations.
 
-**Route:** `POST /api/run-nlp`  
-**Engine:** `src/nlp_extractor.py`
+## Stage Details
 
-Sends each `.txt` resume to the configured AI model and extracts structured candidate data as JSON.
+### Upload
 
-### Extracted Fields
+Supported formats:
 
-```json
-{
-  "personal_info": { "name", "email", "phone", "location", "linkedin", "portfolio_or_github" },
-  "domain": "",
-  "summary": "",
-  "total_experience_years": null,
-  "skills": { "technical_skills", "tools_and_technologies", "soft_skills", "domain_specific_skills", "languages_known" },
-  "education": [ { "degree", "field_of_study", "institution", "year_of_completion", "grade_or_cgpa" } ],
-  "work_experience": [ { "job_title", "company", "start_date", "end_date", "duration", "responsibilities", "achievements" } ],
-  "projects": [ { "title", "description", "technologies_used", "outcome" } ],
-  "certifications": [ { "name", "issuer", "year" } ],
-  "awards_and_achievements": [],
-  "publications_or_research": [],
-  "volunteer_or_extracurricular": [],
-  "languages": [],
-  "candidate_strength_summary": ""
-}
-```
+- `.pdf`
+- `.png`
+- `.jpg`
+- `.jpeg`
 
-**Output files:**
-- `data/output/nlp/<stem>_nlp.json` — machine-readable structured data
-- `data/output/nlp/<stem>_nlp.txt` — human-readable summary
+Uploaded files are stored with their original names. Avoid duplicate filenames in the same batch because later uploads can replace earlier files with the same name.
 
-**Idempotency:** Files already having a `_nlp.json` counterpart are skipped.
+### Text Extraction
 
-**Fallback:** If the AI cannot detect the candidate name, the filename stem is used as the identifier.
+Digital PDFs are processed with PyMuPDF. Scanned PDFs and images use Tesseract OCR. The output is UTF-8 plain text in `data/output/txt/`.
 
----
+### NLP Extraction
 
-## Step 4 — AI Ranking
+The configured AI model converts resume text into structured JSON. The most important fields are candidate identity, contact information, skills, education, experience, projects, certifications, and summary.
 
-**Route:** `POST /api/run-ranking`  
-**Engine:** `src/ranking_engine.py`
+### Ranking
 
-Scores each candidate against a job description provided by HR, producing a ranked list with scores from 0–100.
+Ranking requires an active job description. The engine extracts role requirements and scores each candidate against them. Results are saved as timestamped JSON and text leaderboard files.
 
-### Scoring Criteria
+Ranking also creates a pre-interview shortlist report. This report helps HR review interview priority, score distribution, candidate strengths, and key gaps before scheduling.
 
-| Criterion | Weight | Description |
-|---|---|---|
-| Skills match | 30% | Technical skills alignment with JD requirements |
-| Experience | 25% | Years of experience and relevance |
-| Education | 15% | Degree field and institution calibre |
-| Domain fit | 20% | Industry/domain match |
-| Achievements | 10% | Notable certifications, projects, awards |
+### Scheduling
 
-**Output files:**
-- `data/output/ranking/ranking_scores_<timestamp>.json` — full ranked list with scores and reasoning per candidate
+The scheduler loads top ranked candidates and assigns available slots. It writes schedule JSON files and ICS calendar files. Confirmed candidates receive interview tokens.
 
-The latest ranking file is automatically loaded on the Scheduling page.
+### Interviews
 
----
+Candidates open a tokenized interview link and answer generated questions. The app records answers, scores, timing, and proctoring data in a transcript JSON file.
 
-## Step 5 — Scheduling
+### Reports
 
-**Route:** `POST /api/schedule`  
-**Engine:** `src/scheduling.py`
+Reports combine ranking scores, interview performance, and proctoring signals. Outputs include individual JSON/TXT reports and a final summary.
 
-Assigns interview time slots to the top-ranked candidates. HR provides available slots; the engine distributes them across candidates and generates ICS calendar files.
+## Safety Notes
 
-### Slot Assignment
-
-- Top 10 candidates by score are selected by default.
-- Each candidate is offered up to 3 time slot options (`SLOTS_TO_OFFER`).
-- The first available slot is auto-confirmed.
-- HR can override any slot from the Scheduling UI.
-
-### Google Calendar Integration
-
-If Google Calendar is authenticated, interview events are created automatically. See [Google Calendar](google-calendar.md).
-
-**Output files:**
-- `data/output/scheduling/schedule_<timestamp>.json` — full schedule with status per candidate
-- `data/output/scheduling/<candidate>_<timestamp>.ics` — individual ICS files for calendar import
-
----
-
-## Step 6 — Interview
-
-**Route:** `POST /api/generate-interview-links`  
-**Engine:** `src/interview_bot.py`
-
-Generates one-time interview tokens for each confirmed candidate. Candidates receive a unique URL and complete the interview in their browser.
-
-### Interview Flow
-
-```
-HR generates tokens
-    |
-    v
-Candidate opens interview URL (https://<ip>:5000/candidate-interview/<token>)
-    |
-    v
-System generates personalised questions (technical + behavioural) via AI
-    |
-    v
-Candidate answers each question (text or voice)
-    |
-    v
-Each answer is evaluated in real time (AI scoring 0-10 per question)
-    |
-    v
-Proctoring runs concurrently (webcam face detection, browser tab flags)
-    |
-    v
-Session ends -> transcript saved to data/output/interviews/
-    |
-    v
-Report generated to data/output/reports/
-```
-
-### Question Structure
-
-| Type | Count | Scoring Dimensions |
-|---|---|---|
-| Technical | 5 | Relevance (0-3), Depth (0-3), Clarity (0-2), Correctness (0-2) |
-| Behavioural | 3 | Same dimensions, STAR-format expected |
-
-### Token Lifecycle
-
-Tokens are single-use. Once a candidate completes the interview, the token is marked `used = 1` in the database and cannot be reused. Regenerating tokens invalidates all existing unused tokens for that batch.
-
----
-
-## Automatic (Pipeline) Mode
-
-The Dashboard page provides a **Run All** control that executes Steps 2 through 4 sequentially. Step 5 (Scheduling) and Step 6 (Interview) are always manual — they require HR input (slot selection and token dispatch) before proceeding.
-
-### Concurrency Safety
-
-Adding new resumes while a pipeline run is in progress is safe only if the new files have not yet been processed. The NLP and PDF-to-text stages are idempotent — already-processed files are skipped. However, adding new files mid-ranking or mid-scheduling will result in those candidates being excluded from the current run. Always complete the current run before uploading a new batch.
-
-### Recommended Workflow
-
-```
-1. Upload all resumes for the current batch.
-2. Run Steps 2, 3, and 4 (or use Run All).
-3. Review ranked results.
-4. Enter the job description and available slots.
-5. Run Step 5 (Schedule).
-6. Dispatch interview tokens to candidates.
-7. Monitor interviews from the Interview page.
-8. Download reports after all candidates complete.
-```
+- Finish a pipeline run before adding more resumes to the same batch.
+- Keep `LOGIN_ENABLED = True` when the app is exposed beyond a single trusted user.
+- Do not delete `data/output/` during a run.
+- Keep cloud AI providers disabled unless candidate data is allowed to leave the machine.

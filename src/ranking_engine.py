@@ -1,12 +1,12 @@
-import json    # JSON serialisation for candidate data and output files
-import re      # Regex (used when building AI prompts)
-import hashlib # Hash-based candidate deduplication
-from pathlib import Path       # Cross-platform path handling
-from datetime import datetime  # Timestamps in output filenames
+import hashlib  # Hash-based candidate deduplication
+import json  # JSON serialisation for candidate data and output files
 from concurrent.futures import ThreadPoolExecutor, as_completed  # Parallel scoring
-import sys
-from utils import clean_json_response, call_ollama  # Shared AI utilities
-from app_paths import data_path
+from datetime import datetime  # Timestamps in output filenames
+from pathlib import Path  # Cross-platform path handling
+
+from utils import call_ollama, clean_json_response  # Shared AI utilities
+
+from app.app_paths import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -208,7 +208,7 @@ def load_candidates(nlp_folder: Path) -> list:
     dupes = 0
     for jf in json_files:
         try:
-            with open(jf, "r", encoding="utf-8") as f:
+            with open(jf, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Build a dedup key from name + domain + top skills
@@ -383,13 +383,13 @@ def save_leaderboard_txt(ranked: list, jd: dict, output_path: Path):
 
             strengths = candidate.get("strengths") or []
             if strengths:
-                f.write(f"\n  STRENGTHS:\n")
+                f.write("\n  STRENGTHS:\n")
                 for s in strengths:
                     f.write(f"    + {s}\n")
 
             gaps = candidate.get("gaps") or []
             if gaps:
-                f.write(f"\n  GAPS:\n")
+                f.write("\n  GAPS:\n")
                 for g in gaps:
                     f.write(f"    - {g}\n")
 
@@ -515,7 +515,7 @@ def run_ranking():
 
     # ── Step 7: Print ranked summary table ──
     print(f"\n{'=' * 55}")
-    print(f"  RANKING COMPLETE — TOP CANDIDATES")
+    print("  RANKING COMPLETE — TOP CANDIDATES")
     print(f"{'=' * 55}")
     for rank, c in enumerate(ranked, start=1):
         name     = c.get("candidate_name") or "Unknown"

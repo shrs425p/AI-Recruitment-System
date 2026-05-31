@@ -1,19 +1,29 @@
-# privacy_setup.py — Silent Ollama Install + Model Pull
+# privacy_setup.py - Silent Ollama Install + Model Pull
 
-import subprocess
-import urllib.request
-import os
+import subprocess  # nosec B404
 import time
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
+
 import ai_mode
 
 _cancelled = False
 
+
+def _validate_download_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise RuntimeError("Ollama installer downloads must use HTTPS.")
+
 def is_ollama_installed() -> bool:
     """Check if Ollama is already installed and running in the path or local folder."""
     try:
-        result = subprocess.run(["ollama", "--version"],
-                                capture_output=True, timeout=5)
+        # Fixed local CLI command.
+        result = subprocess.run(  # nosec B603, B607
+            ["ollama", "--version"],
+            capture_output=True, timeout=5,
+        )
         return result.returncode == 0
     except Exception:
         return False
@@ -22,8 +32,11 @@ def is_ollama_installed() -> bool:
 def is_model_pulled(model: str) -> bool:
     """Check if the required model is already downloaded."""
     try:
-        result = subprocess.run(["ollama", "list"],
-                                capture_output=True, text=True, timeout=10)
+        # Fixed local CLI command.
+        result = subprocess.run(  # nosec B603, B607
+            ["ollama", "list"],
+            capture_output=True, text=True, timeout=10,
+        )
         simple_model = model.split(":")[0]
         return simple_model in result.stdout
     except Exception:
@@ -46,7 +59,13 @@ def download_ollama(progress_callback=None):
             progress_callback(percent, f"Downloading Ollama... {percent}%")
 
     print("> Downloading Ollama...")
-    urllib.request.urlretrieve(ai_mode.OLLAMA_DOWNLOAD_URL, installer_path, _report)
+    _validate_download_url(ai_mode.OLLAMA_DOWNLOAD_URL)
+    # HTTPS URL is validated above.
+    urllib.request.urlretrieve(  # nosec B310
+        ai_mode.OLLAMA_DOWNLOAD_URL,
+        installer_path,
+        _report,
+    )
     return installer_path
 
 
@@ -57,9 +76,9 @@ def install_ollama(installer_path: Path, progress_callback=None):
         return False
     if progress_callback:
         progress_callback(0, "Installing Ollama (this will run silently)...")
-    
+
     try:
-        subprocess.run([str(installer_path), "/S"], check=True)
+        subprocess.run([str(installer_path), "/S"], check=True)  # nosec B603
         time.sleep(5)   # give installer time to finish and register service
         return True
     except Exception as e:
@@ -71,7 +90,7 @@ def run_setup_process(progress_callback=None) -> bool:
     """Run the entire local Ollama install and model pull process."""
     global _cancelled
     _cancelled = False
-    
+
     try:
         if is_ollama_installed():
             if progress_callback:
@@ -87,8 +106,10 @@ def run_setup_process(progress_callback=None) -> bool:
                 return False
             # Clean up installer file
             if inst.exists():
-                try: inst.unlink()
-                except Exception: pass
+                try:
+                    inst.unlink()
+                except Exception:
+                    pass
 
         # Now check/pull model
         import config
@@ -97,20 +118,20 @@ def run_setup_process(progress_callback=None) -> bool:
             if progress_callback:
                 progress_callback(100, f"Model {model} already pulled.")
             return True
-        
+
         if progress_callback:
             progress_callback(60, f"Pulling model {model} (this may take a few minutes)...")
-        
+
         # Pull model via subprocess
         if _cancelled:
             return False
-            
-        subprocess.run(["ollama", "pull", model], check=True)
-        
+
+        subprocess.run(["ollama", "pull", model], check=True)  # nosec B603, B607
+
         if progress_callback:
             progress_callback(100, f"Model {model} successfully pulled!")
         return True
-        
+
     except Exception as e:
         print(f"Error during setup: {e}")
         if progress_callback:

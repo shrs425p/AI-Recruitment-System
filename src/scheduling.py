@@ -1,11 +1,12 @@
-import json   # JSON serialisation for schedule files
-import re     # Regex — used to sanitise filenames (remove special chars)
-from pathlib import Path           # Cross-platform path handling
+import json  # JSON serialisation for schedule files
+import re  # Regex — used to sanitise filenames (remove special chars)
+import uuid  # Generate unique event IDs for .ics files
 from datetime import datetime, timedelta  # Date arithmetic for slot handling
-from icalendar import Calendar, Event    # Build .ics calendar invite files
-import uuid   # Generate unique event IDs for .ics files
-import sys
-from app_paths import data_path
+from pathlib import Path  # Cross-platform path handling
+
+from icalendar import Calendar, Event  # Build .ics calendar invite files
+
+from app.app_paths import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -51,7 +52,7 @@ def load_top_candidates(ranking_folder: Path, top_n: int) -> list:
     latest_file = ranking_files[0]  # most recent ranking run
     print(f"> Loading ranking from: {latest_file.name}")
 
-    with open(latest_file, "r", encoding="utf-8") as f:
+    with open(latest_file, encoding="utf-8") as f:
         data = json.load(f)
 
     all_candidates = data.get("ranked_candidates", [])
@@ -191,7 +192,7 @@ def collect_candidate_selections_terminal(scheduled: list) -> list:
         slots  = entry["offered_slots"]
 
         print(f"\n  Candidate : {name} ({source})  [Score: {entry['score']}/100]")
-        print(f"  Offered slots:")
+        print("  Offered slots:")
         for idx, slot in enumerate(slots, start=1):
             dt = datetime.strptime(slot, "%Y-%m-%d %H:%M")
             print(f"    {idx}. {dt.strftime('%A, %B %d %Y at %I:%M %p')}")
@@ -281,7 +282,7 @@ def generate_ics(entry: dict, output_path: Path, hr_name: str, job_title: str, s
 # STEP 6: SAVE SCHEDULE SUMMARY
 # ─────────────────────────────────────────────
 
-def save_schedule_summary(scheduled: list, output_path: Path, job_title: str):
+def save_schedule_summary(scheduled: list, output_path: Path, job_title: str, metadata: dict | None = None):
     """Save schedule as JSON and human-readable TXT."""
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -296,6 +297,7 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str):
             "confirmed":    sum(1 for s in scheduled if s["status"] == "CONFIRMED"),
             "pending":      sum(1 for s in scheduled if s["status"] == "PENDING"),
             "skipped":      sum(1 for s in scheduled if s["status"] == "SKIPPED"),
+            "metadata":     metadata or {},
             "schedule":     scheduled
         }, f, indent=4, ensure_ascii=False)
 
@@ -309,7 +311,11 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str):
         f.write(f"Generated  : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Total      : {len(scheduled)}\n")
         f.write(f"Confirmed  : {sum(1 for s in scheduled if s['status'] == 'CONFIRMED')}\n")
+        f.write(f"Pending    : {sum(1 for s in scheduled if s['status'] == 'PENDING')}\n")
         f.write(f"Skipped    : {sum(1 for s in scheduled if s['status'] == 'SKIPPED')}\n")
+        if metadata:
+            f.write(f"Slot Count : {metadata.get('slot_count', 'N/A')}\n")
+            f.write(f"Top N      : {metadata.get('top_n', 'N/A')}\n")
         f.write("=" * 60 + "\n\n")
 
         for entry in scheduled:
@@ -324,9 +330,9 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str):
                 safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', entry['candidate_name'])
                 f.write(f"  .ics    : interview_{entry['rank']}_{safe_name}_{timestamp}.ics\n")
             else:
-                f.write(f"  Slot    : Not selected\n")
+                f.write("  Slot    : Not selected\n")
 
-            f.write(f"\n  Offered slots:\n")
+            f.write("\n  Offered slots:\n")
             for slot in entry["offered_slots"]:
                 dt = datetime.strptime(slot, "%Y-%m-%d %H:%M")
                 f.write(f"    - {dt.strftime('%A, %B %d %Y at %I:%M %p')}\n")
@@ -392,15 +398,15 @@ def run_scheduling():
     skipped   = [s for s in scheduled if s["status"] == "SKIPPED"]
 
     print(f"\n{'=' * 50}")
-    print(f"  SCHEDULING COMPLETE")
+    print("  SCHEDULING COMPLETE")
     print(f"{'=' * 50}")
     print(f"  Confirmed interviews : {len(confirmed)}")
     print(f"  Skipped              : {len(skipped)}")
     print(f"  Calendar invites     : {ics_count} .ics files generated")
     print(f"  Output folder        : {OUTPUT_FOLDER}")
     print(f"{'=' * 50}")
-    print(f"\n> TIP: .ics files can be opened with Google Calendar,")
-    print(f"       Outlook, or Apple Calendar directly.")
+    print("\n> TIP: .ics files can be opened with Google Calendar,")
+    print("       Outlook, or Apple Calendar directly.")
 
 
 if __name__ == "__main__":

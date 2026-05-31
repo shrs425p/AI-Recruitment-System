@@ -1,94 +1,43 @@
-# AI Recruitment System — Documentation
+# Documentation Index
 
-**Version 1.0**  |  Flask · SQLite · Ollama · pywebview  |  Windows Desktop
+This folder contains the operating and engineering documentation for AI Recruitment System. The root README is intentionally short; detailed guidance lives here by topic.
 
-This is the official documentation for the **Recruit Pipeline Manager**, a self-hosted, AI-powered recruitment automation platform designed for HR teams. All processing is local by default — no candidate data leaves the machine unless a cloud AI provider is explicitly configured.
+## Start Here
 
----
-
-## Table of Contents
-
-| Document | Description |
+| Need | Read |
 |---|---|
-| [Getting Started](getting-started.md) | Installation, prerequisites, and first launch |
-| [Architecture](architecture.md) | System design, folder layout, and data flow |
-| [Pipeline Guide](pipeline.md) | All six pipeline steps — manual and automatic modes |
-| [Configuration Reference](configuration.md) | Every setting in `config/config.py` explained |
-| [AI Providers](ai-providers.md) | Ollama, Claude, Gemini, Groq, and OpenAI setup |
-| [Interview System](interview-system.md) | Candidate tokens, voice mode, and proctoring |
-| [Google Calendar](google-calendar.md) | OAuth2 setup and automated calendar event creation |
-| [API Reference](api-reference.md) | Complete Flask REST API endpoint catalogue |
-| [Build and Deploy](build-and-deploy.md) | PyInstaller executable and Inno Setup installer |
-| [Theming and UI](theming.md) | Dark and light mode, colour palettes, customisation |
-| [Troubleshooting](troubleshooting.md) | Common errors, diagnostics, and resolutions |
-| [Changelog](changelog.md) | Version history and release notes |
+| Install and launch the app | [Getting Started](getting-started.md) |
+| Understand the full hiring workflow | [Pipeline Guide](pipeline.md) |
+| Configure login, AI, email, and ports | [Configuration](configuration.md) |
+| Build a production installer | [Build and Deploy](build-and-deploy.md) |
+| Fix a runtime or packaging error | [Troubleshooting](troubleshooting.md) |
 
----
+## Documentation Map
 
-## Navigation by Role
+| Document | Scope |
+|---|---|
+| [Architecture](architecture.md) | Runtime layout, modules, data paths, threading model |
+| [Pipeline Guide](pipeline.md) | Upload, OCR, NLP, ranking, scheduling, interviews, reports, auto-pipeline |
+| [Configuration](configuration.md) | Runtime config file, settings keys, environment variables |
+| [AI Providers](ai-providers.md) | Ollama privacy mode and cloud provider setup |
+| [Interview System](interview-system.md) | Tokens, candidate portal, voice mode, proctoring, transcripts |
+| [Google Calendar](google-calendar.md) | OAuth credentials, authentication, event creation |
+| [API Reference](api-reference.md) | Page routes and JSON endpoints |
+| [Build and Deploy](build-and-deploy.md) | PyInstaller, Inno Setup, smoke testing, release output |
+| [Theming](theming.md) | Theme tokens, palettes, pywebview window styling |
+| [Troubleshooting](troubleshooting.md) | Common startup, OCR, AI, database, and installer issues |
+| [Changelog](changelog.md) | Release history and planned work |
 
-### First-time User
-1. [Prerequisites](getting-started.md#prerequisites)
-2. [Installation](getting-started.md#installation)
-3. [Running the Application](getting-started.md#running-the-application)
-4. [Upload Resumes](pipeline.md#step-1-upload)
+## Runtime Model
 
-### HR Administrator
-1. [Configuration Reference](configuration.md)
-2. [AI Provider Setup](ai-providers.md)
-3. [Google Calendar Integration](google-calendar.md)
-4. [Network Setup for Candidate Interviews](getting-started.md#network-setup)
+In development, the app reads project resources from the repository and writes runtime data under the repo. In packaged builds, resources are read from the installed application bundle, while mutable data is written to:
 
-### Developer or Contributor
-1. [Architecture Overview](architecture.md)
-2. [API Reference](api-reference.md)
-3. [Build and Deploy](build-and-deploy.md)
-4. [Folder Structure](architecture.md#folder-structure)
-
----
-
-## Quick Start
-
-```bat
-:: 1. Install Python dependencies
-pip install -r requirements.txt
-
-:: 2. Download the offline Vosk speech model (36 MB)
-python scripts/setup_vosk.py
-
-:: 3. Launch the application
-Start.vbs
+```text
+%LOCALAPPDATA%\AI Recruitment System\
 ```
 
-The application opens at `http://127.0.0.1:5001` in a native desktop window powered by pywebview.
+That split is deliberate. It keeps installers clean, prevents developer credentials from shipping, and allows each Windows user to have separate settings and data.
 
----
+## Privacy Model
 
-## Pipeline Overview
-
-```
-Resume Upload  ->  PDF to TXT  ->  NLP Extract  ->  AI Rank  ->  Schedule  ->  Interview  ->  Report
-   Step 1           Step 2           Step 3         Step 4       Step 5        Step 6
-```
-
-Each step produces structured output consumed by the next step. All data is written to the `data/` directory.
-
----
-
-## Privacy and Data Handling
-
-The system is designed for air-gapped or privacy-sensitive environments:
-
-| Component | Default | Location |
-|---|---|---|
-| AI inference | Ollama (local) | `localhost:11434` |
-| OCR engine | Tesseract (bundled) | `models/Tesseract-OCR/` |
-| Speech recognition | Vosk (offline) | `models/vosk-model-small-en-in-0.4/` |
-| Database | SQLite | `data/ars.db` |
-| Resume files | Local filesystem | `data/resumes/` |
-
-No data is transmitted externally unless a cloud AI provider is explicitly enabled in `config/config.py`.
-
----
-
-*Documentation maintained by the ARS development team. Last updated: May 2026.*
+By default, AI inference is local through Ollama. Candidate resumes, interview transcripts, reports, and the SQLite database stay on the machine unless cloud providers, Google Calendar, or SMTP email are explicitly configured.

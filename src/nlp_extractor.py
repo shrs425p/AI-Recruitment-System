@@ -1,10 +1,10 @@
-import json     # Serialize / deserialize JSON (saving NLP output)
-import re       # Regular expressions (used when building prompts)
-import time     # Sleep between polling cycles in the watcher loop
+import json  # Serialize / deserialize JSON (saving NLP output)
+import time  # Sleep between polling cycles in the watcher loop
 from pathlib import Path  # Cross-platform file/folder path handling
-import sys
-from utils import clean_json_response, call_ollama  # Shared AI calling utilities
-from app_paths import data_path
+
+from utils import call_ollama, clean_json_response  # Shared AI calling utilities
+
+from app.app_paths import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -181,20 +181,20 @@ def save_output(data: dict, output_file: Path, stem: str):
             f.write(f"\nSUMMARY:\n{data.get('summary', 'N/A')}\n")
 
             skills = data.get("skills") or {}
-            f.write(f"\nSKILLS:\n")
+            f.write("\nSKILLS:\n")
             for category, items in skills.items():
                 if items:
                     # str(i) safely converts non-string skill items (e.g. ints) to text
                     f.write(f"  {category.upper()}: {', '.join(str(i) for i in items)}\n")
 
             education = data.get("education") or []
-            f.write(f"\nEDUCATION:\n")
+            f.write("\nEDUCATION:\n")
             for edu in education:
                 f.write(f"  - {edu.get('degree', '')} in {edu.get('field_of_study', '')} "
                         f"from {edu.get('institution', '')} ({edu.get('year_of_completion', '')})\n")
 
             experience = data.get("work_experience") or []
-            f.write(f"\nWORK EXPERIENCE:\n")
+            f.write("\nWORK EXPERIENCE:\n")
             for exp in experience:
                 f.write(f"  - {exp.get('job_title', '')} at {exp.get('company', '')} "
                         f"[{exp.get('start_date', '')} - {exp.get('end_date', '')}]\n")
@@ -203,26 +203,26 @@ def save_output(data: dict, output_file: Path, stem: str):
 
             projects = data.get("projects") or []
             if projects:
-                f.write(f"\nPROJECTS:\n")
+                f.write("\nPROJECTS:\n")
                 for proj in projects:
                     desc = proj.get('description', '') or ''
                     f.write(f"  - {proj.get('title', '')}: {desc[:100]}...\n")
 
             certifications = data.get("certifications") or []
             if certifications:
-                f.write(f"\nCERTIFICATIONS:\n")
+                f.write("\nCERTIFICATIONS:\n")
                 for cert in certifications:
                     f.write(f"  - {cert.get('name', '')} by {cert.get('issuer', '')} ({cert.get('year', '')})\n")
 
             awards = data.get("awards_and_achievements") or []
             if awards:
-                f.write(f"\nAWARDS & ACHIEVEMENTS:\n")
+                f.write("\nAWARDS & ACHIEVEMENTS:\n")
                 for award in awards:
                     f.write(f"  - {award}\n")
 
             publications = data.get("publications_or_research") or []
             if publications:
-                f.write(f"\nPUBLICATIONS / RESEARCH:\n")
+                f.write("\nPUBLICATIONS / RESEARCH:\n")
                 for pub in publications:
                     f.write(f"  - {pub}\n")
 
@@ -270,7 +270,7 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
 
     try:
         # Read the plain-text resume content
-        with open(txt_file, "r", encoding="utf-8") as f:
+        with open(txt_file, encoding="utf-8") as f:
             resume_text = f.read()
 
         # Guard against empty files (e.g. OCR produced nothing)
@@ -291,7 +291,7 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
             # Fall back to using the filename as the candidate identifier
             extracted_data["personal_info"] = personal_info
             extracted_data["personal_info"]["name"] = f"{UNKNOWN_NAME}_{txt_file.stem}"
-            print(f"\n  [INFO] Name not found — using filename as identifier.", end=" ", flush=True)
+            print("\n  [INFO] Name not found — using filename as identifier.", end=" ", flush=True)
 
         # Build the output path prefix (suffix is added by save_output)
         output_file = output_path / f"{txt_file.stem}_nlp"
@@ -328,7 +328,7 @@ def run_watcher():
     import config
     print(f"> Model           : {getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')}")
     print(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
-    print(f"> Press Ctrl+C to stop\n")
+    print("> Press Ctrl+C to stop\n")
 
     processed_count = 0
 
@@ -349,7 +349,7 @@ def run_watcher():
             time.sleep(WATCH_INTERVAL_SECONDS)
 
         except KeyboardInterrupt:
-            print(f"\n\n> Watcher stopped safely.")
+            print("\n\n> Watcher stopped safely.")
             print(f"> Total files processed this session: {processed_count}")
             exit(0)
 
@@ -367,4 +367,4 @@ async def process_file_async(txt_file: Path, output_path: Path) -> bool:
     """Asynchronous wrapper for process_file to run without blocking the event loop."""
     import asyncio
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, process_file, txt_file, output_path)
+    return await loop.run_in_executor(None, process_file, txt_file, output_path)

@@ -1,10 +1,7 @@
-import json
-import os
-import re
-from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-from app_paths import data_path, install_path, resource_path
+from pathlib import Path
+
+from app.app_paths import data_path, install_path, resource_path
 
 # Google API libraries
 try:
@@ -391,7 +388,6 @@ def check_calendar_auth() -> dict:
             try:
                 calendar = service.calendars().get(calendarId=CALENDAR_ID).execute()
             except HttpError as http_err:
-                err_body = http_err.error_details if hasattr(http_err, 'error_details') else str(http_err)
                 err_str  = str(http_err)
                 if 'accessNotConfigured' in err_str or 'Calendar API has not been used' in err_str or 'disabled' in err_str:
                     # Extract project ID from error message if present
@@ -506,7 +502,7 @@ def create_event_from_dict(entry: dict, job_title: str) -> dict:
     import config
     hr_name = getattr(config, 'HR_DISPLAY_NAME', 'HR Admin')
     hr_email = getattr(config, 'HR_EMAIL', '')
-    
+
     return create_interview_event(
         candidate_name=entry.get('candidate_name', 'Unknown'),
         source_file=entry.get('source_file', ''),
@@ -516,4 +512,4 @@ def create_event_from_dict(entry: dict, job_title: str) -> dict:
         job_title=job_title,
         hr_name=hr_name,
         hr_email=hr_email
-    )
+    )

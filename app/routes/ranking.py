@@ -1,10 +1,21 @@
 import time
-from flask import request, jsonify, render_template
-from app.core import OUTPUT_FOLDER, pipeline_tasks, _save_tasks
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from flask import jsonify, render_template, request
+
+from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.database import create_run, finish_run, upsert_candidate
 from app.utils import login_required
-from ranking_engine import load_candidates, score_candidate, save_leaderboard_txt, save_scores_json, call_ai, build_jd_prompt
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from ranking_engine import (
+    build_jd_prompt,
+    call_ai,
+    load_candidates,
+    save_leaderboard_txt,
+    save_scores_json,
+    score_candidate,
+)
+from shortlist_report import save_shortlist_report
+
 
 def register_ranking_routes(app):
     @app.route("/ranking")
@@ -55,6 +66,7 @@ def register_ranking_routes(app):
         ranked = sorted(scored, key=lambda x: x.get("total_score", 0), reverse=True)
         save_leaderboard_txt(ranked, jd_data, output_path)
         save_scores_json(ranked, jd_data, output_path)
+        shortlist = save_shortlist_report(ranked, jd_data, output_path)
 
         run_id = create_run("ranking", {"job_title": jd_data.get("job_title"), "count": len(ranked)})
         for r in ranked:
@@ -65,7 +77,19 @@ def register_ranking_routes(app):
             )
         finish_run(run_id, "COMPLETED")
 
-        pipeline_tasks["ranking"] = {"status": "done", "result": {"count": len(ranked), "job_title": jd_data.get("job_title")}}
+        pipeline_tasks["ranking"] = {
+            "status": "done",
+            "result": {
+                "count": len(ranked),
+                "job_title": jd_data.get("job_title"),
+                "shortlist_report": shortlist.get("files", {}),
+            },
+        }
         _save_tasks()
 
-        return jsonify({"success": True, "job_title": jd_data.get("job_title"), "ranked": ranked})
+        return jsonify({
+            "success": True,
+            "job_title": jd_data.get("job_title"),
+            "ranked": ranked,
+            "shortlist_report": shortlist,
+        })

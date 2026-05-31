@@ -223,12 +223,12 @@
         <div class="error-msg">{{ error }}</div>
         {% endif %}
 
-        <form method="POST" action="/login">
+        <form method="POST" action="/login" autocomplete="off">
             <label for="username">Username</label>
-            <input type="text" id="username" name="username" placeholder="hr" autofocus autocomplete="off">
+            <input type="text" id="username" name="username" placeholder="Username" autofocus autocomplete="off" autocapitalize="none" spellcheck="false">
 
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" placeholder="••••••••">
+            <input type="password" id="password" name="password" placeholder="Password" autocomplete="new-password">
 
             <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
         </form>

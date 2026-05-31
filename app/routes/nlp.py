@@ -1,11 +1,13 @@
-import time
 import json
 import threading
-from flask import request, jsonify, render_template
-from app.core import OUTPUT_FOLDER, pipeline_tasks, _save_tasks
-from app.utils import login_required
-from app.database import create_run, finish_run, upsert_candidate
+import time
+
+from flask import jsonify, render_template
+
 import privacy_setup
+from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
+from app.database import create_run, finish_run, upsert_candidate
+from app.utils import login_required
 
 # Global status for privacy Setup
 privacy_setup_status = {
@@ -40,8 +42,9 @@ def register_nlp_routes(app):
         pipeline_tasks["nlp"] = {"status": "running", "started": time.time()}
         _save_tasks()
 
-        from nlp_extractor import process_file_async
         import asyncio
+
+        from nlp_extractor import process_file_async
 
         async def run_batch():
             sem = asyncio.Semaphore(4)

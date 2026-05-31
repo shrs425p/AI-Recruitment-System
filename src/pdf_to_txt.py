@@ -1,12 +1,14 @@
-import pytesseract                     # Python wrapper for the Tesseract OCR engine
-from PIL import Image                  # Pillow — open PNG/JPG image files
-from pathlib import Path               # Modern cross-platform path handling
-import fitz                            # PyMuPDF — extract text + render pages to images
-import io                              # BytesIO for in-memory image conversion
-import sys                             # Used for sys.exit() in the watcher
-import re                              # Regex — used to clean whitespace in extracted text
-import time                            # Used for sleep() in the polling loop
-from app_paths import data_path, install_path
+import io  # BytesIO for in-memory image conversion
+import re  # Regex — used to clean whitespace in extracted text
+import sys  # Used for sys.exit() in the watcher
+import time  # Used for sleep() in the polling loop
+from pathlib import Path  # Modern cross-platform path handling
+
+import fitz  # PyMuPDF — extract text + render pages to images
+import pytesseract  # Python wrapper for the Tesseract OCR engine
+from PIL import Image  # Pillow — open PNG/JPG image files
+
+from app.app_paths import data_path, install_path
 
 # ─────────────────────────────────────────────
 # TESSERACT OCR ENGINE PATH
@@ -176,8 +178,8 @@ def run_watcher():
     print(f"> Watching folder : {input_path}")
     print(f"> Output folder   : {output_path}")
     print(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
-    print(f"> Supported types : PDF, PNG, JPG, JPEG")
-    print(f"> Press Ctrl+C to stop\n")
+    print("> Supported types : PDF, PNG, JPG, JPEG")
+    print("> Press Ctrl+C to stop\n")
 
     processed_count = 0  # Counter for reporting at end of session
 
@@ -206,7 +208,7 @@ def run_watcher():
 
         except KeyboardInterrupt:
             # Ctrl+C pressed — exit cleanly with a summary
-            print(f"\n\n> Watcher stopped safely.")
+            print("\n\n> Watcher stopped safely.")
             print(f"> Total files processed this session: {processed_count}")
             sys.exit(0)
 

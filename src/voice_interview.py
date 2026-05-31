@@ -1,14 +1,12 @@
-import pyttsx3              # Offline TTS engine (no internet needed for speech)
+import queue  # Thread-safe queue for TTS text dispatch
+import re  # Regex — strip markdown from TTS text
+import threading  # TTS runs in a background thread to avoid blocking
+import time  # sleep() calls and timing
+
+import pyttsx3  # Offline TTS engine (no internet needed for speech)
 import speech_recognition as sr  # Wrapper for multiple speech-to-text backends
-import threading            # TTS runs in a background thread to avoid blocking
-import time                 # sleep() calls and timing
-import queue                # Thread-safe queue for TTS text dispatch
-import json                 # Reserved for future serialisation needs
-import re                   # Regex — strip markdown from TTS text
-import os
-import sys
-from pathlib import Path
-from app_paths import install_path
+
+from app.app_paths import install_path
 
 # ─────────────────────────────────────────────
 # OPEN-SOURCE SPEECH RECOGNITION: VOSK (Apache 2.0)
@@ -23,7 +21,8 @@ from app_paths import install_path
 #   2. Extract the zip so the folder sits next to this file.
 # ─────────────────────────────────────────────
 try:
-    from vosk import Model as VoskModel, KaldiRecognizer as VoskRecognizer
+    from vosk import KaldiRecognizer as VoskRecognizer
+    from vosk import Model as VoskModel
     _VOSK_AVAILABLE = True
 except ImportError:
     _VOSK_AVAILABLE = False

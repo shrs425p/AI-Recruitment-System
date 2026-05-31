@@ -1,4 +1,8 @@
-import sys, json, urllib.request, urllib.error
+import json
+import sys
+import urllib.error
+import urllib.request
+
 sys.path.insert(0, 'config')
 import config
 

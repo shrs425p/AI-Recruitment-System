@@ -1,10 +1,20 @@
-import time
 import json
 import re
-from flask import request, jsonify, render_template, Response
-from app.core import OUTPUT_FOLDER, pipeline_tasks, _save_tasks
+import time
+
+from flask import Response, jsonify, render_template
+
+from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.utils import login_required
-from report_generator import load_interview_transcripts, calculate_combined_score, generate_ai_report, save_report_txt, save_report_json, save_final_summary
+from report_generator import (
+    calculate_combined_score,
+    generate_ai_report,
+    load_interview_transcripts,
+    save_final_summary,
+    save_report_json,
+    save_report_txt,
+)
+
 
 def register_reports_routes(app):
     @app.route("/reports")
@@ -26,7 +36,7 @@ def register_reports_routes(app):
                     })
             except Exception:
                 pass
-        
+
         summary_files = sorted((OUTPUT_FOLDER / "reports").glob("final_summary*.json"), reverse=True)
         summary       = None
         if summary_files:
@@ -85,12 +95,14 @@ def register_reports_routes(app):
     @app.route("/api/report-pdf/<filename>")
     @login_required
     def api_report_pdf(filename):
-        from io import BytesIO
         import unicodedata
+        from io import BytesIO
+
         from fpdf import FPDF
 
         def _safe(s):
-            if s is None: return ""
+            if s is None:
+                return ""
             s = str(s)
             s = unicodedata.normalize("NFKD", s)
             return s.encode("latin-1", errors="replace").decode("latin-1")
@@ -117,7 +129,7 @@ def register_reports_routes(app):
         pdf.cell(0, 6, _safe(f"Job Title    : {report.get('job_title','N/A')}"), new_x="LMARGIN", new_y="NEXT")
         pdf.cell(0, 6, _safe(f"Domain       : {report.get('domain','N/A')}"), new_x="LMARGIN", new_y="NEXT")
         pdf.ln(4)
-        
+
         buf = BytesIO()
         pdf.output(dest="S")
         buf.write(pdf.output())
@@ -151,12 +163,12 @@ def register_reports_routes(app):
             pdf.add_page()
             pdf.set_font("Helvetica", "B", 16)
             pdf.cell(0, 10, "Post-Interview Evaluation Report", new_x="LMARGIN", new_y="NEXT", align="C")
-            
+
             candidate = re.sub(r'[^a-zA-Z0-9_]', '_', report.get("candidate_name", "report"))
             pdf_name = f"report_{candidate}.pdf"
             pdf_path = OUTPUT_FOLDER / "reports" / pdf_name
             pdf.output(str(pdf_path))
-            
+
             # Auto-open with system PDF viewer
             _os.startfile(str(pdf_path))
         except Exception as e:

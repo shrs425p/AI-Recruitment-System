@@ -10,13 +10,18 @@ Key exports:
   call_ollama(...)           — call the local Ollama model with auto-retry
 """
 
-import ollama   # Ollama Python client — talks to the local Ollama server
-import json     # Standard JSON parsing
-import re       # Regular expressions used to strip markdown from LLM output
-import time     # Used for sleep() during retry back-off
-import sys
 import asyncio
+import ipaddress
+import json  # Standard JSON parsing
+import re  # Regular expressions used to strip markdown from LLM output
+import sys
+import time  # Used for sleep() during retry back-off
+from functools import wraps
 from pathlib import Path
+
+from flask import jsonify, redirect, request, session, url_for
+
+from ai_mode import get_app_mode
 
 try:
     import anthropic
@@ -26,6 +31,16 @@ except ImportError:
 
 # All project configurations are imported dynamically inside functions
 # to prevent startup-time config caching, enabling instant hot-reloads.
+
+_ollama_client = None
+
+def _ollama():
+    """Import the Ollama client lazily so startup does not fail in packaged builds."""
+    global _ollama_client
+    if _ollama_client is None:
+        import ollama
+        _ollama_client = ollama
+    return _ollama_client
 
 # ─────────────────────────────────────────────
 # SHARED: App root path (works in both dev and frozen .exe)
@@ -74,12 +89,6 @@ def clean_json_response(text: str) -> dict:
 # Convenience alias — some modules import it as `clean_json`
 clean_json = clean_json_response
 
-# ─────────────────────────────────────────────
-# SHARED: Async AI Calling & Routing
-# ─────────────────────────────────────────────
-
-from ai_mode import get_app_mode
-
 async def call_ollama_async(system_msg: str, user_msg: str,
                             temperature: float = 0.0,
                             num_predict: int = 2048) -> str:
@@ -92,7 +101,7 @@ async def call_ollama_async(system_msg: str, user_msg: str,
     def _sync_call():
         for attempt in range(1, attempts + 1):
             try:
-                response = ollama.chat(
+                response = _ollama().chat(
                     model=model,
                     messages=[
                         {"role": "system", "content": system_msg},
@@ -140,7 +149,7 @@ async def call_ai_async(system_msg: str, user_msg: str,
     Otherwise, route through the load-balanced Multi-Provider Router.
     """
     mode = get_app_mode()
-    
+
     if mode == "privacy":
         try:
             return await asyncio.wait_for(
@@ -171,7 +180,7 @@ async def call_ai_async(system_msg: str, user_msg: str,
                 except Exception as ce:
                     print(f"  [ERROR] Cloud fallback failed: {ce}")
             return ""
-            
+
     else:
         # Cloud mode — use load-balanced provider router
         from provider_router import router
@@ -198,7 +207,7 @@ def call_ollama(system_msg: str, user_msg: str,
             model    = getattr(_cfg, "OLLAMA_MODEL", "llama3.2:3b")
             for attempt in range(1, attempts + 1):
                 try:
-                    response = ollama.chat(
+                    response = _ollama().chat(
                         model=model,
                         messages=[
                             {"role": "system", "content": system_msg},
@@ -220,18 +229,59 @@ def call_ollama(system_msg: str, user_msg: str,
     except Exception as e:
         print(f"  [ERROR] call_ollama unexpected error: {e}")
         return ""
+PUBLIC_PATH_PREFIXES = (
+    "/candidate-interview/",
+    "/api/candidate/",
+    "/api/health",
+    "/static/",
+)
 
 
-from functools import wraps
-from flask import session, redirect, url_for
+def is_local_request() -> bool:
+    """Return True only for loopback requests from the desktop app."""
+    remote_addr = request.remote_addr or ""
+    try:
+        return ipaddress.ip_address(remote_addr).is_loopback
+    except ValueError:
+        return remote_addr in {"localhost", "127.0.0.1", "::1"}
+
+
+def is_public_candidate_path(path: str) -> bool:
+    return path in {"/login", "/logout"} or path.startswith(PUBLIC_PATH_PREFIXES)
+
+
+def _auth_failure_response():
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "HR authentication required"}), 401
+    return redirect(url_for("login"))
+
+
+def hr_access_allowed() -> bool:
+    import config
+    if session.get("logged_in"):
+        return True
+    if not getattr(config, "LOGIN_ENABLED", False) and is_local_request():
+        return True
+    return False
+
+
+def protect_hr_routes(app):
+    """Block HR screens/APIs from candidate-facing network access."""
+    @app.before_request
+    def _protect_hr_routes():
+        if is_public_candidate_path(request.path):
+            return None
+        if hr_access_allowed():
+            return None
+        return _auth_failure_response()
+
 
 def login_required(f):
     """Decorator to protect routes requiring authentication."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        import config
-        if getattr(config, "LOGIN_ENABLED", False) and not session.get("logged_in"):
-            return redirect(url_for("login"))
+        if not hr_access_allowed():
+            return _auth_failure_response()
         return f(*args, **kwargs)
     return decorated_function
 

@@ -1,20 +1,25 @@
-from flask import request, jsonify, render_template, redirect, url_for
-from app.core import _save_tasks
-from app.utils import login_required
+import json
+from urllib.parse import urlparse
+
+from flask import jsonify, redirect, render_template, request, url_for
+from werkzeug.security import generate_password_hash
+
 import config as cfg
+from app.utils import login_required
+
 
 def register_settings_routes(app):
     @app.route("/settings", methods=["GET", "POST"])
     @login_required
     def settings():
-        import config as cfg
         if request.method == "POST":
             # ── Security / Login ──
             cfg.LOGIN_ENABLED = request.form.get("login_enabled") == "on"
             cfg.HR_USERNAME    = request.form.get("hr_username", cfg.HR_USERNAME).strip()
             new_pw = request.form.get("hr_password", "").strip()
             if new_pw:
-                cfg.HR_PASSWORD = new_pw
+                cfg.HR_PASSWORD = ""
+                cfg.HR_PASSWORD_HASH = generate_password_hash(new_pw)
             # ── Theme & Palette ──
             cfg.THEME = request.form.get("theme", "light")
             cfg.COLOR_PALETTE = request.form.get("color_palette", "lavender")
@@ -22,12 +27,12 @@ def register_settings_routes(app):
             cfg.HR_DISPLAY_NAME = request.form.get("display_name", "").strip()
             cfg.HR_EMAIL        = request.form.get("email", "").strip()
             cfg.HR_COMPANY      = request.form.get("company", "").strip()
-            
+
             # ── Ollama / AI Mode ──
             if "ollama_model" in request.form:
                 cfg.OLLAMA_MODEL   = request.form.get("ollama_model", cfg.OLLAMA_MODEL).strip()
                 cfg.OLLAMA_BASE_URL = request.form.get("ollama_base_url", cfg.OLLAMA_BASE_URL).strip()
-                
+
             if "app_mode" in request.form:
                 cfg.APP_MODE = request.form.get("app_mode", "privacy").strip()
                 cfg.ANTHROPIC_KEY = request.form.get("anthropic_key", "").strip()
@@ -38,7 +43,7 @@ def register_settings_routes(app):
                 cfg.OPENROUTER_KEY = request.form.get("openrouter_key", "").strip()
                 cfg.GITHUB_KEY    = request.form.get("github_key", "").strip()
                 cfg.OLLAMA_CLOUD_KEY = request.form.get("ollama_cloud_key", "").strip()
-                
+
                 cfg.PRIVACY_MODEL   = request.form.get("privacy_model", "llama3.2:3b").strip()
                 cfg.ANTHROPIC_MODEL = request.form.get("anthropic_model", "claude-3-5-haiku-latest").strip()
                 cfg.GEMINI_MODEL    = request.form.get("gemini_model", "gemini-1.5-flash").strip()
@@ -48,7 +53,7 @@ def register_settings_routes(app):
                 cfg.OPENROUTER_MODEL = request.form.get("openrouter_model", "meta-llama/llama-3.1-8b-instruct:free").strip()
                 cfg.GITHUB_MODEL    = request.form.get("github_model", "gpt-4o-mini").strip()
                 cfg.OLLAMA_CLOUD_MODEL = request.form.get("ollama_cloud_model", "llama3.2:3b").strip()
-                
+
                 cfg.ANTHROPIC_ENABLED = request.form.get("anthropic_enabled") == "on"
                 cfg.GEMINI_ENABLED    = request.form.get("gemini_enabled") == "on"
                 cfg.GROQ_ENABLED      = request.form.get("groq_enabled") == "on"
@@ -57,7 +62,7 @@ def register_settings_routes(app):
                 cfg.OPENROUTER_ENABLED = request.form.get("openrouter_enabled") == "on"
                 cfg.GITHUB_ENABLED    = request.form.get("github_enabled") == "on"
                 cfg.OLLAMA_CLOUD_ENABLED = request.form.get("ollama_cloud_enabled") == "on"
-                
+
                 cfg.OLLAMA_MODEL = cfg.PRIVACY_MODEL
 
             # ── Email / SMTP ──
@@ -69,7 +74,7 @@ def register_settings_routes(app):
                     cfg.SMTP_PORT = int(request.form.get("smtp_port", cfg.SMTP_PORT))
                 except Exception:
                     pass
-            
+
             import main
             main._save_config(cfg)
             return redirect(url_for("settings"))
@@ -114,7 +119,6 @@ def register_settings_routes(app):
 
     @app.route("/api/toggle-theme", methods=["POST"])
     def api_toggle_theme():
-        import config as cfg
         cfg.THEME = "dark" if cfg.THEME == "light" else "light"
         import main
         main._save_config(cfg)
@@ -124,7 +128,6 @@ def register_settings_routes(app):
     def api_change_palette():
         data = request.json
         palette = data.get("palette", "lavender")
-        import config as cfg
         cfg.COLOR_PALETTE = palette
         import main
         main._save_config(cfg)
@@ -132,7 +135,6 @@ def register_settings_routes(app):
 
     @app.route("/api/toggle-ai-mode", methods=["POST"])
     def api_toggle_ai_mode():
-        import config as cfg
         cfg.APP_MODE = "cloud" if getattr(cfg, "APP_MODE", "privacy") == "privacy" else "privacy"
         import main
         main._save_config(cfg)
@@ -141,7 +143,8 @@ def register_settings_routes(app):
     @app.route("/api/provider-models", methods=["POST"])
     def api_provider_models():
         """Fetch available model IDs from a cloud provider's API."""
-        import urllib.request, urllib.error
+        import urllib.error
+        import urllib.request
         data     = request.json or {}
         provider = data.get("provider", "")
         key      = data.get("key", "").strip()
@@ -176,13 +179,20 @@ def register_settings_routes(app):
             return jsonify({"success": False, "error": f"Unknown provider: {provider}"}), 400
 
         url, auth_scheme = ENDPOINTS[provider]
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in {"https", "http"}:
+            return jsonify({"success": False, "error": "Unsupported provider endpoint scheme."}), 400
+        if parsed_url.scheme == "http" and parsed_url.hostname not in {"localhost", "127.0.0.1"}:
+            return jsonify({"success": False, "error": "Plain HTTP is only allowed for local Ollama."}), 400
+
         headers = {"Content-Type": "application/json"}
         if auth_scheme == "Bearer" and key:
             headers["Authorization"] = f"Bearer {key}"
 
         try:
             req = urllib.request.Request(url, headers=headers, method="GET")
-            with urllib.request.urlopen(req, timeout=15) as r:
+            # ENDPOINTS is a fixed allowlist and _validate_endpoint checks the scheme.
+            with urllib.request.urlopen(req, timeout=15) as r:  # nosec B310
                 raw = json.loads(r.read())
 
             # Ollama tags format
@@ -199,8 +209,10 @@ def register_settings_routes(app):
 
         except urllib.error.HTTPError as e:
             body = ""
-            try: body = e.read().decode()[:200]
-            except Exception: pass
+            try:
+                body = e.read().decode()[:200]
+            except Exception:
+                pass
             return jsonify({"success": False, "error": f"HTTP {e.code}: {body}"}), 400
         except Exception as ex:
             return jsonify({"success": False, "error": str(ex)}), 500

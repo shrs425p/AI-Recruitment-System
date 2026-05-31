@@ -107,6 +107,10 @@
                         style="color:var(--gray-400); font-weight:400;">(for Google Calendar invites)</span></label>
                 <input type="email" class="form-input" id="hrEmail" placeholder="e.g. hr@company.com">
             </div>
+            <div class="form-group">
+                <label class="form-label">Candidates to Schedule</label>
+                <input type="number" class="form-input" id="topN" min="1" max="50" value="10">
+            </div>
         </div>
 
         <div class="card" style="margin-top:16px;">
@@ -430,6 +434,8 @@
     async function runScheduling() {
         const jobTitle = document.getElementById('jobTitle').value.trim();
         const hrName = document.getElementById('hrName').value.trim();
+        const hrEmail = document.getElementById('hrEmail').value.trim();
+        const topN = parseInt(document.getElementById('topN').value || '10', 10);
         const slots = getSlots();
 
         if (!jobTitle) { showToast('Enter a job title', 'error'); return; }
@@ -442,7 +448,7 @@
         const res = await fetch('/api/schedule', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ job_title: jobTitle, hr_name: hrName, slots })
+            body: JSON.stringify({ job_title: jobTitle, hr_name: hrName, hr_email: hrEmail, top_n: topN, slots })
         });
         const data = await res.json();
 
@@ -451,7 +457,8 @@
 
         if (data.error) { showToast(data.error, 'error'); return; }
 
-        showToast(`Scheduled ${data.scheduled.length} candidates!`, 'success');
+        const rejected = (data.rejected_slots || []).length;
+        showToast(`Scheduled ${data.scheduled.length} candidates${rejected ? `; ignored ${rejected} invalid slot(s)` : ''}.`, 'success');
 
         // Render results live — no page reload
         _renderSchedule(data.scheduled);

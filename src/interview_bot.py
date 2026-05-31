@@ -1,11 +1,13 @@
-import json    # JSON I/O for schedule files and transcripts
-import re      # Regex — used to sanitise filenames
-import time    # time.time() for measuring answer duration (proctoring)
-from pathlib import Path       # Cross-platform path handling
+import json  # JSON I/O for schedule files and transcripts
+import re  # Regex — used to sanitise filenames
+import time  # time.time() for measuring answer duration (proctoring)
 from datetime import datetime  # Timestamp for output filenames
-import sys
-from utils import clean_json_response as clean_json, call_ollama  # AI utilities
-from app_paths import data_path
+from pathlib import Path  # Cross-platform path handling
+
+from utils import call_ollama
+from utils import clean_json_response as clean_json  # AI utilities
+
+from app.app_paths import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -51,7 +53,7 @@ def load_scheduled_candidates(scheduling_folder: Path):
     latest = schedule_files[0]
     print(f"> Loading schedule from: {latest.name}")
 
-    with open(latest, "r", encoding="utf-8") as f:
+    with open(latest, encoding="utf-8") as f:
         data = json.load(f)
 
     confirmed = [c for c in data.get("schedule", []) if c["status"] == "CONFIRMED"]
@@ -76,7 +78,7 @@ def load_candidate_nlp(source_file: str, nlp_folder: Path) -> dict:
     nlp_file = nlp_folder / f"{source_file}.json"
     if not nlp_file.exists():
         return {}  # No NLP data — questions will be generic
-    with open(nlp_file, "r", encoding="utf-8") as f:
+    with open(nlp_file, encoding="utf-8") as f:
         return json.load(f)
 
 # ─────────────────────────────────────────────
@@ -239,10 +241,10 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
     print(f"  Domain       : {domain}")
     print(f"  Questions    : {total_q} total")
     print(f"  Time Limit   : {ANSWER_TIME_LIMIT}s per question")
-    print(f"\n  Instructions:")
-    print(f"  - Read each question carefully.")
-    print(f"  - Type your answer and press Enter.")
-    print(f"  - Type 'SKIP' to skip a question.")
+    print("\n  Instructions:")
+    print("  - Read each question carefully.")
+    print("  - Type your answer and press Enter.")
+    print("  - Type 'SKIP' to skip a question.")
     print(f"{'='*55}")
     input("\n  Press Enter to begin...\n")
 
@@ -266,7 +268,7 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
             print(f"  [PROCTOR] {', '.join(proctor['flags'])}")
 
         # Evaluate
-        print(f"  Evaluating...", end=" ", flush=True)
+        print("  Evaluating...", end=" ", flush=True)
         evaluation = evaluate_answer(q_text, answer, job_title, domain)
         print(f"Score: {evaluation['total']}/10  — {evaluation.get('feedback', '')}")
 
@@ -297,7 +299,7 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
     beh_max        = len(beh_responses)  * 10
 
     print(f"\n{'='*55}")
-    print(f"  INTERVIEW COMPLETE")
+    print("  INTERVIEW COMPLETE")
     print(f"  Total Score       : {total_score}/{max_score} ({percentage}%)")
     print(f"  Technical Score   : {tech_score}/{tech_max}")
     print(f"  Behavioral Score  : {beh_score}/{beh_max}")
@@ -419,7 +421,7 @@ def run_interview_bot():
         candidate_data = load_candidate_nlp(candidate.get("source_file", ""), nlp_path)
 
         # Generate questions
-        print(f"> Generating questions...", end=" ", flush=True)
+        print("> Generating questions...", end=" ", flush=True)
         questions = generate_questions(candidate_data, job_title)
 
         tech_q = len(questions.get("technical",  []))
@@ -435,18 +437,18 @@ def run_interview_bot():
         result = conduct_interview(candidate, questions, job_title, candidate_data)
 
         # Save transcript
-        print(f"> Saving transcript...")
+        print("> Saving transcript...")
         save_interview_result(result, output_path)
 
         # Continue prompt
         if i < len(candidates):
-            cont = input(f"\n> Next candidate? (Enter=Yes / 'STOP'=Stop): ").strip()
+            cont = input("\n> Next candidate? (Enter=Yes / 'STOP'=Stop): ").strip()
             if cont.upper() == "STOP":
                 print("> Session stopped.")
                 break
 
     print(f"\n{'='*55}")
-    print(f"  ALL INTERVIEWS COMPLETE")
+    print("  ALL INTERVIEWS COMPLETE")
     print(f"  Transcripts saved to: {OUTPUT_FOLDER}")
     print(f"{'='*55}")
 
@@ -454,7 +456,7 @@ def run_interview_bot():
 def generate_interview_question(candidate_name: str, job_title: str, topic: str, q_num: int, q_type: str, transcript: str = "") -> str:
     """Generate a single personalized interview question based on candidate, job title, topic, and transcript history."""
     system_msg = "You are a professional HR interviewer. Return ONLY the question text itself. Do not include any intro, outro, greeting, or conversational filler."
-    
+
     prompt = (
         f"Candidate: {candidate_name}\n"
         f"Job Title: {job_title}\n"
@@ -479,15 +481,15 @@ def generate_interview_question(candidate_name: str, job_title: str, topic: str,
             return cleaned.strip()
     except Exception as e:
         print(f"  [ERROR] Single question generation failed: {e}")
-        
+
     # Fallback questions
     if q_num == 1:
         return f"Welcome, {candidate_name}. To start off, please introduce yourself and tell us what interests you most about the {job_title} position."
     elif q_type == "TECHNICAL":
         return f"Can you explain a complex technical challenge you faced when working with {topic}, and how you solved it?"
     else:
-        return f"Can you tell me about a time when you had to work on a team to solve a difficult problem? What was your role and the outcome?"
+        return "Can you tell me about a time when you had to work on a team to solve a difficult problem? What was your role and the outcome?"
 
 
 if __name__ == "__main__":
-    run_interview_bot()
+    run_interview_bot()

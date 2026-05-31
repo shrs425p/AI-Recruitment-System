@@ -10,6 +10,9 @@ venv/*
 
 # Build artifacts
 build/*
+!build/
+!build/build.spec
+!build/installer.iss
 dist/*
 installer_output/*
 !installer_output/.gitkeep
@@ -26,6 +29,7 @@ token.json
 
 # Secrets and local config copies
 credentials.json
+config.py
 config/config.py
 
 # Logs and temp files

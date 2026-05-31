@@ -70,6 +70,17 @@
         </div>
     </div>
 
+    <div class="card" id="shortlistCard" style="margin-bottom:20px;">
+        <div class="card-title">Pre-Interview Shortlist Report</div>
+        <div class="card-desc" id="shortlistSummary">
+            {% if ranking %}
+            A shortlist report was generated with the latest ranking output. Use it to review interview priority before scheduling.
+            {% else %}
+            Ranking will generate a pre-interview shortlist report before scheduling.
+            {% endif %}
+        </div>
+    </div>
+
     <div class="table-wrap">
         <table>
             <thead>
@@ -222,6 +233,11 @@
 
         // Render comparison chart
         renderRankChart(data.ranked);
+        if (data.shortlist_report && data.shortlist_report.score_summary) {
+            const s = data.shortlist_report.score_summary;
+            document.getElementById('shortlistSummary').textContent =
+                `Shortlist ready: ${s.priority_interview} priority, ${s.interview} interview, ${s.manual_review} manual review, ${s.not_recommended} not recommended.`;
+        }
 
         showToast(`Ranking complete! Job: ${data.job_title}`, 'success');
     }

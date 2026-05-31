@@ -1,36 +1,43 @@
-## Description
+## Summary
 
-<!-- Summarise what this PR changes and why. -->
+<!-- Explain what changed and why. Keep it short, but give reviewers enough context. -->
 
-## Type of Change
+## Change Type
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to change)
-- [ ] Documentation update
-- [ ] Refactor / code quality
-- [ ] CI / tooling
+- [ ] Bug fix
+- [ ] Feature
+- [ ] Documentation
+- [ ] Refactor
+- [ ] Build or deployment
+- [ ] Test coverage
 
-## Related Issues
+## Risk
 
-<!-- Closes #<issue-number> -->
+- [ ] Low: isolated change, easy rollback
+- [ ] Medium: touches shared behavior or build output
+- [ ] High: changes data, auth, installer, or candidate interview flow
 
 ## Testing
 
-<!-- Describe the tests you ran to verify your changes. -->
+<!-- List commands and manual checks actually completed. -->
 
-- [ ] Ran the existing test suite (`pytest`)
-- [ ] Added new tests covering the change
-- [ ] Manually tested in the desktop app
+- [ ] `venv\Scripts\python.exe -m ruff check .`
+- [ ] `venv\Scripts\python.exe -m pytest`
+- [ ] `venv\Scripts\python.exe -m compileall -q main.py app src tests`
+- [ ] Packaged app smoke-tested, if build/runtime behavior changed
 
-## Checklist
+## Documentation
 
-- [ ] My code follows the project style (Ruff passes with no errors)
-- [ ] I have updated relevant documentation (`docs/`)
-- [ ] I have updated `CHANGELOG.md` under `[Unreleased]`
-- [ ] I have not committed secrets, API keys, or personal data
-- [ ] Pre-commit hooks pass locally (`pre-commit run --all-files`)
+- [ ] README updated, if user-facing behavior changed
+- [ ] Relevant `docs/` page updated
+- [ ] `docs/changelog.md` updated
 
-## Screenshots (if applicable)
+## Security and Data
+
+- [ ] No secrets, API keys, tokens, resumes, interview data, or local config committed
+- [ ] Installer does not bundle developer runtime config
+- [ ] Any cloud-provider behavior is documented and opt-in
+
+## Screenshots
 
 <!-- Add before/after screenshots for UI changes. -->

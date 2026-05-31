@@ -1,10 +1,12 @@
-import json    # JSON serialisation for report files
-import re      # Regex — sanitise filenames
-from pathlib import Path       # Cross-platform path handling
+import json  # JSON serialisation for report files
+import re  # Regex — sanitise filenames
 from datetime import datetime  # Timestamps for file names
-import sys
-from utils import clean_json_response as clean_json, call_ollama  # AI utilities
-from app_paths import data_path
+from pathlib import Path  # Cross-platform path handling
+
+from utils import call_ollama
+from utils import clean_json_response as clean_json  # AI utilities
+
+from app.app_paths import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -53,7 +55,7 @@ def load_interview_transcripts(interviews_folder: Path) -> list:
 
     for jf in json_files:
         try:
-            with open(jf, "r", encoding="utf-8") as f:
+            with open(jf, encoding="utf-8") as f:
                 data = json.load(f)
             data["_source_file"] = jf.name  # track which file this came from
             transcripts.append(data)
@@ -180,7 +182,7 @@ def save_report_txt(transcript: dict, ai_report: dict, combined_score: float, ou
         f.write("          POST-INTERVIEW EVALUATION REPORT\n")
         f.write("=" * 65 + "\n")
         f.write(f"Generated       : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Fairness Audit  : Scoring based on skills/experience only. Name, gender, age NOT used.\n")
+        f.write("Fairness Audit  : Scoring based on skills/experience only. Name, gender, age NOT used.\n")
         f.write(f"Candidate       : {transcript.get('candidate_name', 'N/A')} ({transcript.get('source_file', '')})\n")
         f.write(f"Job Title       : {transcript.get('job_title', 'N/A')}\n")
         f.write(f"Domain          : {transcript.get('domain', 'N/A')}\n")
@@ -389,7 +391,7 @@ def run_report_generator():
         combined_score = calculate_combined_score(transcript)
 
         # Generate AI report
-        print(f"  Analyzing with AI...", end=" ", flush=True)
+        print("  Analyzing with AI...", end=" ", flush=True)
         ai_report = generate_ai_report(transcript)
 
         if not ai_report:
@@ -425,7 +427,7 @@ def run_report_generator():
         save_final_summary(all_reports, output_path)
 
     print(f"\n{'='*55}")
-    print(f"  REPORT GENERATION COMPLETE")
+    print("  REPORT GENERATION COMPLETE")
     print(f"{'='*55}")
     print(f"  Success  : {success_count}")
     print(f"  Failed   : {failed_count}")

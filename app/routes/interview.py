@@ -1,21 +1,70 @@
-import time
+import hmac
 import json
-import uuid
 import re
-from flask import request, jsonify, render_template, session
+import secrets
+import time
+import uuid
+
+from flask import jsonify, render_template, request
+
 from app.core import OUTPUT_FOLDER
-from app.database import get_interview_token, create_interview_token, get_all_tokens
+from app.database import create_interview_token, get_all_tokens, get_interview_token
 from app.utils import login_required
-from interview_bot import generate_interview_question
-from webcam_proctor import get_proctor_status, stop_proctoring, start_proctoring as start_proctoring_session
-import voice_interview
+from interview_bot import evaluate_answer, generate_interview_question, proctor_check
+from webcam_proctor import start_proctoring as start_proctoring_session
+from webcam_proctor import stop_proctoring
 
 # Global state for candidate interview sessions
 interview_session = {}
 candidate_tokens = {}
+active_token_sessions = {}
+INTERVIEW_PLAN = [
+    ("TECHNICAL", "Introduction"),
+    ("TECHNICAL", "Problem Solving"),
+    ("TECHNICAL", "System Design"),
+    ("BEHAVIORAL", "Teamwork"),
+    ("BEHAVIORAL", "Conflict Resolution"),
+]
 
 def _save_sessions():
     pass # In-memory session tracking
+
+
+def _client_fingerprint():
+    return {
+        "remote_addr": request.remote_addr or "",
+        "user_agent": request.headers.get("User-Agent", ""),
+    }
+
+
+def _session_key_from_request(data):
+    return request.headers.get("X-Interview-Session-Key") or data.get("session_key", "")
+
+
+def _get_candidate_session(data):
+    session_id = data.get("session_id")
+    if session_id not in interview_session:
+        return None, (jsonify({"error": "Session expired or invalid"}), 404)
+
+    session_data = interview_session[session_id]
+    provided_key = _session_key_from_request(data)
+    expected_key = session_data.get("session_key", "")
+    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
+        return None, (jsonify({"error": "Invalid interview session key"}), 403)
+
+    fingerprint = _client_fingerprint()
+    if session_data.get("remote_addr") != fingerprint["remote_addr"]:
+        return None, (jsonify({"error": "Interview session is bound to another client"}), 403)
+    if session_data.get("user_agent") != fingerprint["user_agent"]:
+        return None, (jsonify({"error": "Interview session browser changed"}), 403)
+
+    return session_data, None
+
+
+def _question_payload(question_text: str, q_num: int):
+    q_type, topic = INTERVIEW_PLAN[q_num - 1]
+    return {"question": question_text, "type": q_type, "topic": topic, "question_num": q_num}
+
 
 def register_interview_routes(app):
     @app.route("/interview")
@@ -34,54 +83,67 @@ def register_interview_routes(app):
         token_data = get_interview_token(token)
         if not token_data or token_data.get("used") == 1:
             return render_template("login.html", error="Invalid or expired interview token.")
-        
-        return render_template("candidate_interview.html", 
-                               token=token, 
+
+        return render_template("candidate_interview.html",
+                               token=token,
                                candidate_name=token_data["candidate_name"],
-                               job_title=token_data["job_title"])
+                               source_file=token_data["source_file"],
+                               job_title=token_data["job_title"],
+                               rank=token_data.get("rank", 0),
+                               score=token_data.get("score", 0))
 
     @app.route("/api/candidate/interview/start", methods=["POST"])
     def api_candidate_interview_start():
         data  = request.json
         token = data.get("token")
-        
+
         token_data = get_interview_token(token)
         if not token_data or token_data.get("used") == 1:
             return jsonify({"error": "Unauthorized"}), 401
+        if token in active_token_sessions and active_token_sessions[token] in interview_session:
+            return jsonify({"error": "Interview already in progress for this token."}), 409
 
         session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        session_key = secrets.token_urlsafe(32)
+        fingerprint = _client_fingerprint()
         interview_session[session_id] = {
             "token":          token,
+            "session_key":    session_key,
+            "remote_addr":    fingerprint["remote_addr"],
+            "user_agent":     fingerprint["user_agent"],
             "candidate_name": token_data["candidate_name"],
             "source_file":    token_data["source_file"],
             "job_title":      token_data["job_title"],
             "ranking_score":  token_data["score"],
             "responses":      [],
             "started_at":     time.time(),
-            "webcam_log":     []
+            "webcam_log":     [],
+            "browser_log":    [],
         }
-        
+        active_token_sessions[token] = session_id
+
         start_proctoring_session(session_id)
-        
+
         first_q = generate_interview_question(
             candidate_name=token_data["candidate_name"],
             job_title=token_data["job_title"],
-            topic="Introduction",
+            topic=INTERVIEW_PLAN[0][1],
             q_num=1,
-            q_type="TECHNICAL",
+            q_type=INTERVIEW_PLAN[0][0],
             transcript=""
         )
 
         return jsonify({
             "success":    True,
             "session_id": session_id,
-            "first_q":    first_q
+            "session_key": session_key,
+            "first_q":    first_q,
+            "questions":  [_question_payload(first_q, 1)],
         })
 
     @app.route("/api/candidate/interview/answer", methods=["POST"])
     def api_candidate_interview_answer():
         data           = request.json
-        session_id     = data.get("session_id")
         answer         = data.get("answer", "").strip()
         question       = data.get("question", "").strip()
         topic          = data.get("topic", "Coding").strip()
@@ -89,14 +151,22 @@ def register_interview_routes(app):
         q_num          = int(data.get("question_num", 1))
         time_taken     = int(data.get("time_taken", 30))
 
-        if session_id not in interview_session:
-            return jsonify({"error": "Session expired or invalid"}), 404
+        session_data, error = _get_candidate_session(data)
+        if error:
+            return error
+        expected_q_num = len(session_data["responses"]) + 1
+        if q_num != expected_q_num:
+            return jsonify({"error": f"Expected question {expected_q_num}, got {q_num}"}), 409
 
-        session_data = interview_session[session_id]
-        
-        # In a real app we'd score the response with LLM
-        score = 8.0 # Simulated
-        
+        evaluation = evaluate_answer(
+            question=question,
+            answer=answer,
+            job_title=session_data["job_title"],
+            domain=topic,
+        )
+        score = evaluation.get("total", 0)
+        answer_flags = proctor_check(q_num, answer, time_taken)
+
         session_data["responses"].append({
             "question_num": q_num,
             "type":         q_type,
@@ -104,16 +174,22 @@ def register_interview_routes(app):
             "question":     question,
             "answer":       answer,
             "score":        score,
+            "evaluation":   evaluation,
+            "answer_flags": answer_flags.get("flags", []),
             "time_taken":   time_taken
         })
 
-        if q_num >= 5:
-            return jsonify({"success": True, "done": True})
+        if q_num >= len(INTERVIEW_PLAN):
+            return jsonify({
+                "success": True,
+                "done": True,
+                "evaluation": evaluation,
+                "proctor": answer_flags,
+            })
 
         next_q_num  = q_num + 1
-        next_q_type = "BEHAVIORAL" if next_q_num > 3 else "TECHNICAL"
-        next_topic  = "Problem Solving" if next_q_num == 2 else "System Design" if next_q_num == 3 else "Teamwork" if next_q_num == 4 else "Conflict Resolution"
-        
+        next_q_type, next_topic = INTERVIEW_PLAN[next_q_num - 1]
+
         # Build transcripts
         t_str = ""
         for r in session_data["responses"]:
@@ -132,64 +208,101 @@ def register_interview_routes(app):
             "success":    True,
             "done":       False,
             "next_q":     next_q,
+            "next_question": _question_payload(next_q, next_q_num),
             "q_num":      next_q_num,
             "q_type":     next_q_type,
-            "topic":      next_topic
+            "topic":      next_topic,
+            "evaluation": evaluation,
+            "proctor": answer_flags,
         })
 
     @app.route("/api/candidate/interview/finish", methods=["POST"])
     def api_candidate_interview_finish():
         data       = request.json
+        session_data, error = _get_candidate_session(data)
+        if error:
+            return error
         session_id = data.get("session_id")
-        
-        if session_id not in interview_session:
-            return jsonify({"error": "Session invalid"}), 404
-
-        session_data = interview_session[session_id]
         token        = session_data["token"]
-        
+
         from app.database import mark_token_used
         mark_token_used(token)
 
         # Stop proctoring and fetch proctor summary
         summary = stop_proctoring(session_id)
         session_data["webcam_log"] = summary.get("events", [])
-        
-        flagged = len(summary.get("events", []))
+
+        answer_flagged = sum(len(r.get("answer_flags", [])) for r in session_data["responses"])
+        browser_flagged = len(session_data.get("browser_log", []))
+        flagged = len(summary.get("events", [])) + browser_flagged + answer_flagged
         session_data["proctoring_status"] = "PASSED" if flagged < 3 else "SUSPICIOUS"
+        session_data["flagged_count"] = flagged
 
         total_score = sum(r["score"] for r in session_data["responses"])
-        score_pct   = round((total_score / 50) * 100, 1) if session_data["responses"] else 0.0
+        max_score = len(session_data["responses"]) * 10
+        score_pct   = round((total_score / max_score) * 100, 1) if max_score else 0.0
 
+        session_data["total_score"] = total_score
+        session_data["max_score"] = max_score
         session_data["percentage"] = score_pct
         session_data["ended_at"] = time.time()
-        
+
         # Save transcript JSON to interviews output
         int_output = OUTPUT_FOLDER / "interviews"
         int_output.mkdir(exist_ok=True)
-        
+
         safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', session_data["candidate_name"])
         ts = int(time.time())
         t_path = int_output / f"interview_{safe_name}_{ts}.json"
-        
+
         with open(t_path, "w", encoding="utf-8") as f:
             json.dump(session_data, f, indent=4)
 
-        return jsonify({"success": True})
+        active_token_sessions.pop(token, None)
+        interview_session.pop(session_id, None)
+
+        technical = [r for r in session_data["responses"] if r.get("type") == "TECHNICAL"]
+        behavioral = [r for r in session_data["responses"] if r.get("type") == "BEHAVIORAL"]
+        technical_score = sum(r.get("score", 0) for r in technical)
+        behavioral_score = sum(r.get("score", 0) for r in behavioral)
+        technical_max = len(technical) * 10
+        behavioral_max = len(behavioral) * 10
+
+        return jsonify({
+            "success": True,
+            "result": {
+                "total_score": total_score,
+                "max_score": max_score,
+                "percentage": score_pct,
+                "technical_pct": round((technical_score / technical_max) * 100, 1) if technical_max else 0,
+                "behavioral_pct": round((behavioral_score / behavioral_max) * 100, 1) if behavioral_max else 0,
+                "flagged_count": flagged,
+                "proctoring_status": session_data["proctoring_status"],
+            },
+        })
 
     @app.route("/api/candidate/proctor/browser_flag", methods=["POST"])
     def api_candidate_proctor_browser_flag():
-        return jsonify({"success": True})
+        data = request.json or {}
+        session_data, error = _get_candidate_session(data)
+        if error:
+            return error
+        event = {
+            "type": data.get("type", "BROWSER_FLAG"),
+            "detail": data.get("detail", ""),
+            "timestamp": time.time(),
+        }
+        session_data.setdefault("browser_log", []).append(event)
+        return jsonify({"success": True, "event": event})
 
     @app.route("/api/candidate/proctor/analyze-frame", methods=["POST"])
     def api_candidate_proctor_analyze_frame():
-        import base64
-        data = request.json
-        frame_b64 = data.get("frame", "")
-        session_id = data.get("session_id", "")
-        
+        data = request.json or {}
+        _, error = _get_candidate_session(data)
+        if error:
+            return error
         # Process face detection frame
-        return jsonify({"success": True, "faces": 1, "flagged": False})
+        return jsonify({"success": True, "face_count": 1, "flag_count": 0, "flags": []})
 
     @app.route("/api/generate-interview-links", methods=["POST"])
     def api_generate_interview_links():
@@ -203,9 +316,9 @@ def register_interview_routes(app):
         except Exception:
             return jsonify({"error": "Corrupted schedule summary"}), 500
 
-        from app.database import delete_all_tokens, create_interview_token
+        from app.database import delete_all_tokens
         delete_all_tokens()
-        
+
         created = []
         for entry in sdata.get("schedule", []):
             if entry.get("status") == "CONFIRMED":
@@ -225,7 +338,7 @@ def register_interview_routes(app):
     def api_interview_links():
         tokens = get_all_tokens()
         return jsonify([dict(t) for t in tokens])
-        
+
     @app.route("/api/interviews/list", methods=["GET"])
     def api_interviews_list():
         int_files = (OUTPUT_FOLDER / "interviews").glob("*.json")
@@ -235,5 +348,6 @@ def register_interview_routes(app):
                 with open(f, encoding="utf-8") as file:
                     data = json.load(file)
                     list_ints.append(data)
-            except Exception: pass
+            except Exception:
+                pass
         return jsonify(list_ints)

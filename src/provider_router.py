@@ -1,17 +1,26 @@
-# provider_router.py — Load Balanced Multi-Provider Router with Jittered Backoff
+# provider_router.py - Load Balanced Multi-Provider Router with Jittered Backoff
 
 import asyncio
-import time
-import random
-import logging
-import urllib.request
-import urllib.error
 import json
-from pathlib import Path
+import time
+import urllib.error
+import urllib.request
+from urllib.parse import urlparse
+
 import ai_mode
+
+
+def _validate_endpoint(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"https", "http"}:
+        raise RuntimeError("Unsupported provider endpoint scheme.")
+    if parsed.scheme == "http" and parsed.hostname not in {"localhost", "127.0.0.1"}:
+        raise RuntimeError("Plain HTTP provider endpoints are only allowed for local Ollama.")
+
 
 def sync_http_post(url, headers, payload):
     """Perform a synchronous HTTP POST request."""
+    _validate_endpoint(url)
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -19,7 +28,8 @@ def sync_http_post(url, headers, payload):
         method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=60) as response:
+        # Endpoint scheme is validated above.
+        with urllib.request.urlopen(req, timeout=60) as response:  # nosec B310
             return response.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         body = ""
@@ -30,7 +40,7 @@ def sync_http_post(url, headers, payload):
         raise RuntimeError(
             f"HTTP {e.code} {e.reason} calling {url} "
             f"[model={payload.get('model', payload.get('contents','?'))}] "
-            f"— response: {body}"
+            f"- response: {body}"
         ) from e
 
 
@@ -39,7 +49,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
     name = provider["name"]
     key = provider["key"]
     model = provider["model"]
-    
+
     if name == "anthropic":
         url = "https://api.anthropic.com/v1/messages"
         headers = {
@@ -55,7 +65,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
         }
         res = sync_http_post(url, headers, payload)
         return json.loads(res)["content"][0]["text"]
-        
+
     elif name == "gemini":
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
         headers = {"Content-Type": "application/json"}
@@ -68,7 +78,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
         }
         res = sync_http_post(url, headers, payload)
         return json.loads(res)["candidates"][0]["content"]["parts"][0]["text"]
-        
+
     else:
         # OpenAI compatible (groq, openai, nvidia, github, openrouter, ollama_cloud)
         base_url = provider.get("base_url")
@@ -76,7 +86,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
             base_url = "https://api.openai.com/v1"
         elif name == "groq":
             base_url = "https://api.groq.com/openai/v1"  # openai not openapi
-            
+
         url = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
             "Authorization": f"Bearer {key}",
@@ -84,7 +94,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
         }
         if name == "ollama_cloud":
             headers = {"Content-Type": "application/json"} # no auth key required
-            
+
         payload = {
             "model": model,
             "messages": [
@@ -116,7 +126,7 @@ class ProviderRouter:
         if not key or not key.strip():
             return False
         # Reject exact placeholder strings that ship in the default config.
-        # Use exact-match, NOT startswith — real NVIDIA keys start with 'nvapi-'
+        # Use exact-match, NOT startswith; real NVIDIA keys start with 'nvapi-'
         # and real Groq keys start with 'gsk_', so prefix matching would wrongly
         # reject them.
         PLACEHOLDER_EXACT = {
@@ -134,10 +144,10 @@ class ProviderRouter:
         now = time.time()
         name = provider["name"]
         rpm = provider["rpm"]
-        
+
         if name not in self.call_log:
             self.call_log[name] = []
-            
+
         # Keep only calls from last 60 seconds
         self.call_log[name] = [t for t in self.call_log[name] if now - t < 60]
         return len(self.call_log[name]) >= rpm
@@ -160,7 +170,7 @@ class ProviderRouter:
                 if not self._is_rate_limited(provider):
                     self._log_call(provider)
                     return provider
-            
+
             # If all are rate limited, pick the first active one as fallback
             self._log_call(active[0])
             return active[0]
@@ -168,10 +178,10 @@ class ProviderRouter:
     async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048) -> str:
         """Query LLM asynchronously using round-robin provider balancing."""
         provider = await self.get_provider()
-        
+
         def _sync_wrapper():
             return call_provider_sync(provider, system_msg, user_msg, max_tokens)
-            
+
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, _sync_wrapper)
 

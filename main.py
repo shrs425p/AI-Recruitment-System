@@ -1,38 +1,152 @@
-import os
-import sys
-import time
 import logging
+import os
+import socket
+import sys
 import threading
+import time
+import traceback
 from pathlib import Path
+
 import webview
 
 # Add directories to search paths so imports load seamlessly
 ROOT_DIR = Path(__file__).parent.resolve()
-sys.path.insert(0, str(ROOT_DIR / "config"))
+APP_NAME = "AI Recruitment System"
+CRASH_LOG = None
+DESKTOP_PORT = None
+CANDIDATE_PORT = None
+
+DEFAULT_CONFIG = '''"""
+config.py - Runtime configuration for AI Recruitment System.
+Generated automatically on first run.
+"""
+
+# Login / Security
+LOGIN_ENABLED = False
+HR_USERNAME = ''
+HR_PASSWORD = ''
+HR_PASSWORD_HASH = ''
+FLASK_SECRET_KEY = ''
+
+# HR Profile
+HR_DISPLAY_NAME = 'HR Admin'
+HR_EMAIL = ''
+HR_COMPANY = ''
+
+# UI Theme
+THEME = 'light'
+COLOR_PALETTE = 'lavender'
+
+# Ollama
+OLLAMA_MODEL = 'llama3.2:3b'
+OLLAMA_BASE_URL = 'http://localhost:11434'
+
+# Legacy cloud aliases (kept for compatibility)
+CLOUD_ENABLED = False
+CLOUD_MODEL = 'claude-3-5-haiku-latest'
+
+# SMTP / Email
+SMTP_HOST = 'smtp.gmail.com'
+SMTP_PORT = 587
+SMTP_EMAIL = ''
+SMTP_PASSWORD = ''
+
+# Retry / Backoff
+AI_RETRY_ATTEMPTS = 3
+AI_RETRY_BACKOFF = 2
+
+# AI Mode  ('privacy' = local Ollama, 'cloud' = external API)
+APP_MODE = 'privacy'
+
+# API Keys
+ANTHROPIC_KEY = ''
+GEMINI_KEY = ''
+GROQ_KEY = ''
+OPENAI_KEY = ''
+NVIDIA_KEY = ''
+OPENROUTER_KEY = ''
+GITHUB_KEY = ''
+OLLAMA_CLOUD_KEY = ''
+
+# Models
+PRIVACY_MODEL = 'llama3.2:3b'
+ANTHROPIC_MODEL = 'claude-3-5-haiku-latest'
+GEMINI_MODEL = 'gemini-1.5-flash'
+GROQ_MODEL = 'llama3-8b-8192'
+OPENAI_MODEL = 'gpt-4o-mini'
+NVIDIA_MODEL = 'meta/llama-3.3-70b-instruct'
+OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
+GITHUB_MODEL = 'gpt-4o-mini'
+OLLAMA_CLOUD_MODEL = 'llama3.2:3b'
+
+# Enabled Providers
+ANTHROPIC_ENABLED = False
+GEMINI_ENABLED = False
+GROQ_ENABLED = False
+OPENAI_ENABLED = False
+NVIDIA_ENABLED = False
+OPENROUTER_ENABLED = False
+GITHUB_ENABLED = False
+OLLAMA_CLOUD_ENABLED = False
+'''
+
+if getattr(sys, "frozen", False):
+    app_data_root = Path(os.environ.get("LOCALAPPDATA", str(ROOT_DIR))) / APP_NAME
+    app_data_root.mkdir(parents=True, exist_ok=True)
+    CRASH_LOG = app_data_root / "crash.log"
+    runtime_config = app_data_root / "config.py"
+    if not runtime_config.exists():
+        runtime_config.write_text(DEFAULT_CONFIG, encoding="utf-8")
+    sys.path.insert(0, str(app_data_root))
+else:
+    sys.path.insert(0, str(ROOT_DIR / "config"))
 sys.path.insert(0, str(ROOT_DIR / "src"))
 sys.path.insert(0, str(ROOT_DIR / "app"))
 sys.path.insert(0, str(ROOT_DIR))
 
+
+def _write_crash_log(exc_type, exc_value, exc_tb):
+    if CRASH_LOG is None:
+        return
+    try:
+        CRASH_LOG.write_text(
+            "".join(traceback.format_exception(exc_type, exc_value, exc_tb)),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _handle_unhandled_exception(exc_type, exc_value, exc_tb):
+    _write_crash_log(exc_type, exc_value, exc_tb)
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+
+sys.excepthook = _handle_unhandled_exception
+
 # Create the flask app
 from app import create_app
-from app.core import APP_DATA_DIR, log_queue
+from app.app_paths import APP_DATA_DIR
+from app.core import log_queue
 
 app = create_app()
 
 # Bind dynamic route decorators
 from app.routes.auth import register_auth_routes
 from app.routes.dashboard import register_dashboard_routes
-from app.routes.upload import register_upload_routes
+from app.routes.health import register_health_routes
+from app.routes.interview import register_interview_routes
+from app.routes.logs import register_logs_routes
 from app.routes.nlp import register_nlp_routes
 from app.routes.ranking import register_ranking_routes
-from app.routes.scheduling import register_scheduling_routes
-from app.routes.interview import register_interview_routes
 from app.routes.reports import register_reports_routes
+from app.routes.scheduling import register_scheduling_routes
 from app.routes.settings import register_settings_routes
-from app.routes.logs import register_logs_routes
+from app.routes.upload import register_upload_routes
 
 register_auth_routes(app)
 register_dashboard_routes(app)
+register_health_routes(app)
 register_upload_routes(app)
 register_nlp_routes(app)
 register_ranking_routes(app)
@@ -69,7 +183,7 @@ logger.addHandler(sh)
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 def _save_config(cfg):
-    """Persist all config module attributes back to config/config.py so
+    """Persist all config module attributes back to the runtime config so
     settings survive restarts. Rewrites the file from a known-good template
     rather than doing fragile regex substitution on arbitrary Python source."""
     import importlib
@@ -84,10 +198,10 @@ def _save_config(cfg):
         return str(v)
 
     # Ordered list of all config keys we want to persist.
-    # Layout mirrors config/config.py sections for readability.
+    # Layout mirrors the generated config sections for readability.
     KEYS = [
         # Login
-        ("LOGIN_ENABLED", bool), ("HR_USERNAME", str), ("HR_PASSWORD", str),
+        ("LOGIN_ENABLED", bool), ("HR_USERNAME", str), ("HR_PASSWORD", str), ("HR_PASSWORD_HASH", str),
         ("FLASK_SECRET_KEY", str),
         # Profile
         ("HR_DISPLAY_NAME", str), ("HR_EMAIL", str), ("HR_COMPANY", str),
@@ -134,7 +248,7 @@ def _save_config(cfg):
         "ANTHROPIC_ENABLED": "\n# Enabled Providers\n",
     }
 
-    lines = ['"""\nconfig.py — Central Configuration for AI Recruitment System\n'
+    lines = ['"""\nconfig.py - Central Configuration for AI Recruitment System\n'
              'All settings are written here automatically when saved via the Settings UI.\n"""\n']
 
     for key, typ in KEYS:
@@ -156,28 +270,29 @@ def _save_config(cfg):
 
     content = "".join(lines)
 
-    # Write to both locations so the live import and the on-disk file stay in sync
-    config_file = ROOT_DIR / "config" / "config.py"
-    data_config  = APP_DATA_DIR / "config.py"
-
-    config_file.write_text(content, encoding="utf-8")
+    data_config = APP_DATA_DIR / "config.py"
     data_config.parent.mkdir(parents=True, exist_ok=True)
     data_config.write_text(content, encoding="utf-8")
+
+    if not getattr(sys, "frozen", False):
+        config_file = ROOT_DIR / "config" / "config.py"
+        config_file.write_text(content, encoding="utf-8")
 
     # Reload the config module so the running process picks up the new values
     importlib.reload(cfg)
 
 def _ensure_ssl_cert():
-    ssl_dir = APP_DATA_DIR / "output/ssl"
+    ssl_dir = APP_DATA_DIR / "data/output/ssl"
     ssl_dir.mkdir(parents=True, exist_ok=True)
     cert = ssl_dir / "cert.pem"
     key  = ssl_dir / "key.pem"
     if not cert.exists() or not key.exists():
         import datetime
+
         from cryptography import x509
-        from cryptography.x509.oid import NameOID
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.x509.oid import NameOID
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
@@ -206,15 +321,43 @@ def _ensure_ssl_cert():
         ))
     return str(cert), str(key)
 
+
+def _env_port(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        port = int(raw)
+    except ValueError:
+        return default
+    return port if 1 <= port <= 65535 else default
+
+
+def _pick_port(host: str, preferred_port: int) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, preferred_port))
+        except OSError:
+            sock.bind((host, 0))
+        return int(sock.getsockname()[1])
+
+
 def run_flask_https():
     cert_path, key_path = _ensure_ssl_cert()
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False,
+    candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "127.0.0.1")
+    app.run(host=candidate_host, port=CANDIDATE_PORT, debug=False, use_reloader=False,
             ssl_context=(cert_path, key_path))
 
 def run_flask_http_local():
-    app.run(host="127.0.0.1", port=5001, debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=DESKTOP_PORT, debug=False, use_reloader=False)
 
-if __name__ == "__main__":
+def main():
+    global CANDIDATE_PORT, DESKTOP_PORT
+    candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "127.0.0.1")
+    CANDIDATE_PORT = _pick_port(candidate_host, _env_port("ARS_CANDIDATE_PORT", 5000))
+    DESKTOP_PORT = _pick_port("127.0.0.1", _env_port("ARS_DESKTOP_PORT", 5001))
+
     t_https = threading.Thread(target=run_flask_https, daemon=True)
     t_https.start()
 
@@ -233,14 +376,22 @@ if __name__ == "__main__":
 
     api = Api()
     webview.create_window(
-        title     = "Recruit Pipeline Manager",
-        url       = "http://127.0.0.1:5001",
+        title     = "AI Recruitment System",
+        url       = f"http://127.0.0.1:{DESKTOP_PORT}",
         width     = 1280,
         height    = 800,
         min_size  = (1024, 700),
         resizable = True,
         frameless = True,
-        easy_drag = False,
+        easy_drag = True,
         js_api=api
     )
     webview.start()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        _write_crash_log(*sys.exc_info())
+        raise

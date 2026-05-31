@@ -1,13 +1,14 @@
 """
-config.py — Central Configuration for AI Recruitment System
+config.py - Central Configuration for AI Recruitment System
 All settings are written here automatically when saved via the Settings UI.
 """
 
 # Login / Security
-LOGIN_ENABLED = True
-HR_USERNAME = 'admin'
-HR_PASSWORD = 'shrs'
-FLASK_SECRET_KEY = 'ars_secure_key_2026'
+LOGIN_ENABLED = False
+HR_USERNAME = ''
+HR_PASSWORD = ''
+HR_PASSWORD_HASH = ''
+FLASK_SECRET_KEY = ''
 
 # HR Profile
 HR_DISPLAY_NAME = 'HR Admin'
@@ -15,7 +16,7 @@ HR_EMAIL = ''
 HR_COMPANY = ''
 
 # UI Theme
-THEME = 'light'
+THEME = 'dark'
 COLOR_PALETTE = 'lavender'
 
 # Ollama
@@ -23,14 +24,14 @@ OLLAMA_MODEL = 'llama3.2:3b'
 OLLAMA_BASE_URL = 'http://localhost:11434'
 
 # Legacy cloud aliases (kept for compatibility)
-CLOUD_ENABLED = True
+CLOUD_ENABLED = False
 CLOUD_MODEL = 'claude-3-5-haiku-latest'
 
 # SMTP / Email
 SMTP_HOST = 'smtp.gmail.com'
 SMTP_PORT = 587
-SMTP_EMAIL = 'pawarshreyas425@gmail.com'
-SMTP_PASSWORD = 'rvxi pjhu gylk zrsa'
+SMTP_EMAIL = ''
+SMTP_PASSWORD = ''
 
 # Retry / Backoff
 AI_RETRY_ATTEMPTS = 3
@@ -40,8 +41,8 @@ AI_RETRY_BACKOFF = 2
 APP_MODE = 'cloud'
 
 # API Keys
-ANTHROPIC_KEY = 'fucku'
-GEMINI_KEY = 'fucku'
+ANTHROPIC_KEY = ''
+GEMINI_KEY = ''
 GROQ_KEY = ''
 OPENAI_KEY = ''
 NVIDIA_KEY = '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'
@@ -61,8 +62,8 @@ GITHUB_MODEL = 'gpt-4o-mini'
 OLLAMA_CLOUD_MODEL = 'llama3.2:3b'
 
 # Enabled Providers
-ANTHROPIC_ENABLED = True
-GEMINI_ENABLED = True
+ANTHROPIC_ENABLED = False
+GEMINI_ENABLED = False
 GROQ_ENABLED = False
 OPENAI_ENABLED = False
 NVIDIA_ENABLED = True

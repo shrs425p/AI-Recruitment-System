@@ -1,6 +1,8 @@
-from flask import render_template, Response
+from flask import Response, render_template
+
 from app.core import log_queue
 from app.utils import login_required
+
 
 def register_logs_routes(app):
     @app.route("/logs")

@@ -964,6 +964,7 @@
         const SCORE = Number("{{ score|float }}");
 
         let sessionId = null;
+        let sessionKey = null;
         let allQuestions = [];
         let currentQIndex = 0;
         let currentScore = 0;
@@ -993,6 +994,15 @@
             t.className = 'toast show ' + (type || 'info');
             setTimeout(() => t.classList.remove('show'), 3000);
         }
+        function interviewHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'X-Interview-Session-Key': sessionKey || ''
+            };
+        }
+        function withSession(payload) {
+            return Object.assign({ session_id: sessionId, session_key: sessionKey }, payload || {});
+        }
 
         // ───────── START INTERVIEW ─────────
         async function startInterview() {
@@ -1014,6 +1024,7 @@
             }
 
             sessionId = data.session_id;
+            sessionKey = data.session_key;
             allQuestions = data.questions;
             currentQIndex = 0;
             currentScore = 0;
@@ -1081,14 +1092,22 @@
             const timeTaken = Math.floor((Date.now() - questionStart) / 1000);
             clearInterval(timerInterval);
             const q = allQuestions[currentQIndex];
-            await fetch('/api/candidate/interview/answer', {
+            const res = await fetch('/api/candidate/interview/answer', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: sessionId, question: q.question, answer: 'SKIP',
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession({
+                    question: q.question, answer: 'SKIP',
                     question_num: currentQIndex + 1, type: q.type, topic: q.topic || '', time_taken: timeTaken
-                })
+                }))
             });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                showToast(data.error || 'Could not skip question', 'error');
+                return;
+            }
+            if (!data.done && data.next_question) {
+                allQuestions[currentQIndex + 1] = data.next_question;
+            }
             nextQuestion();
         }
 
@@ -1101,18 +1120,24 @@
 
             const res = await fetch('/api/candidate/interview/answer', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: sessionId,
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession({
                     question: q.question,
                     answer: answer,
                     question_num: currentQIndex + 1,
                     type: q.type,
                     topic: q.topic || '',
                     time_taken: timeTaken
-                })
+                }))
             });
             const data = await res.json();
+            if (!res.ok || data.error) {
+                document.getElementById('evalThinking').style.display = 'none';
+                showToast(data.error || 'Interview request failed', 'error');
+                document.getElementById('submitBtn').style.display = 'inline-flex';
+                document.getElementById('answerInput').disabled = false;
+                return;
+            }
 
             document.getElementById('evalThinking').style.display = 'none';
             currentScore += data.evaluation.total || 0;
@@ -1123,6 +1148,9 @@
 
             if (data.proctor && data.proctor.flagged) {
                 showToast('⚠ ' + data.proctor.flags.join(', '), 'error');
+            }
+            if (!data.done && data.next_question) {
+                allQuestions[currentQIndex + 1] = data.next_question;
             }
         }
 
@@ -1145,12 +1173,17 @@
 
             const res = await fetch('/api/candidate/interview/finish', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: sessionId })
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession())
             });
             hideOverlay();
 
             const data = await res.json();
+            if (!res.ok || data.error) {
+                showToast(data.error || 'Could not finish interview', 'error');
+                document.getElementById('questionSection').classList.add('active');
+                return;
+            }
             const r = data.result;
 
             document.getElementById('finalScore').textContent = r.total_score + '/' + r.max_score;
@@ -1213,8 +1246,8 @@
 
                 const res = await fetch('/api/candidate/proctor/analyze-frame', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId, frame: frameData })
+                    headers: interviewHeaders(),
+                    body: JSON.stringify(withSession({ frame: frameData }))
                 });
                 const data = await res.json();
 
@@ -1417,8 +1450,8 @@
 
             await fetch('/api/candidate/proctor/browser_flag', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: sessionId, type: flagType })
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession({ type: flagType }))
             });
         }
     </script>

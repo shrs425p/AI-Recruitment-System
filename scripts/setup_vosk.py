@@ -8,8 +8,8 @@ Models downloaded from https://alphacephei.com/vosk/models (Apache 2.0 licence).
 """
 
 import sys
-import zipfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
 # Always download into models/ at project root, regardless of where this script lives

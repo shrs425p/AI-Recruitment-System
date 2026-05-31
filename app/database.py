@@ -1,7 +1,7 @@
-import sqlite3
 import json
-from datetime import datetime
-from app_paths import data_path
+import sqlite3
+
+from .app_paths import data_path
 
 # Database file lives in the writable app data directory.
 DB_PATH = data_path("ars.db")

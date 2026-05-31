@@ -1,10 +1,10 @@
-import cv2          # OpenCV — webcam capture, frame processing, Haar cascade
-import threading    # Background proctoring thread
-import time         # sleep() in the capture loop
-import base64       # Encode JPEG frame to base64 string for HTTP transport
-import numpy as np  # NumPy arrays used by OpenCV face detection results
-from pathlib import Path      # (reserved for future file-based snapshot saving)
+import base64  # Encode JPEG frame to base64 string for HTTP transport
+import threading  # Background proctoring thread
+import time  # sleep() in the capture loop
 from datetime import datetime  # Timestamps for flag events
+
+import cv2  # OpenCV — webcam capture, frame processing, Haar cascade
+import numpy as np  # NumPy arrays used by OpenCV face detection results
 
 # Try to import MediaPipe for high-accuracy face detection
 try:
@@ -170,12 +170,12 @@ class WebcamProctor:
                     with self._lock:
                         self.face_count = 0
                         self.total_frames_checked += 1
-                        
+
                     now_time = time.time()
                     if now_time - self.last_check_time >= CHECK_INTERVAL:
                         self._check_proctor(0)
                         self.last_check_time = now_time
-                        
+
                     time.sleep(0.033)
                     continue
 

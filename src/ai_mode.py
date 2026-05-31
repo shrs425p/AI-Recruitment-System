@@ -6,15 +6,12 @@ OLLAMA_INSTALL_DIR   = "C:/ollama"            # where to install Ollama silently
 OLLAMA_DOWNLOAD_URL  = "https://ollama.com/download/OllamaSetup.exe"   # Windows
 
 def get_app_mode():
-    import config
     return getattr(config, 'APP_MODE', 'privacy')
 
 def get_privacy_model():
-    import config
     return getattr(config, 'PRIVACY_MODEL', 'llama3.2:3b')
 
 def get_providers():
-    import config
     return [
         {
             "name":    "anthropic",

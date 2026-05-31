@@ -852,58 +852,60 @@
     async function runAutoPipeline() {
         const btn = document.getElementById('autoPipelineBtn');
         if (!btn) return;
-        
+
         btn.disabled = true;
         const originalContent = btn.innerHTML;
         btn.innerHTML = '<span class="spinner" style="width:12px; height:12px; border-width:1.5px; margin-right:4px;"></span> Running...';
-        
-        // Show global AI loading overlay with custom messages
-        showOverlay('Initiating Safe Auto-Pilot...');
-        
-        // Poll status dynamically by reading task messages from backend
-        let pollInterval = setInterval(async () => {
-            try {
+        showOverlay('Starting auto-pipeline...');
+
+        const summarizeResult = (result) => {
+            const txtCount = ((result.txt || {}).success || []).length;
+            const nlpCount = ((result.nlp || {}).success || []).length;
+            const rankCount = ((result.ranking || {}).count || 0);
+            const schedCount = ((result.scheduling || {}).count || 0);
+            const reportCount = ((result.reports || {}).count || 0);
+            if (txtCount || nlpCount || rankCount || schedCount || reportCount) {
+                return `Processed ${txtCount} text file(s), parsed ${nlpCount} profile(s), ranked ${rankCount}, scheduled ${schedCount}, generated ${reportCount} report(s).`;
+            }
+            return 'No new work was needed. Existing pipeline outputs were preserved.';
+        };
+
+        const waitForCompletion = async () => {
+            while (true) {
                 const res = await fetch('/api/task-status');
                 const tasks = await res.json();
-                if (tasks && tasks.auto_pipeline && tasks.auto_pipeline.message) {
-                    showOverlay(tasks.auto_pipeline.message);
+                const task = tasks.auto_pipeline || {};
+                if (task.message) showOverlay(task.message);
+
+                if (task.status === 'done') {
+                    return task.result || {};
                 }
-            } catch(e) {}
-        }, 1000);
+                if (task.status === 'error') {
+                    throw new Error(task.error || task.message || 'Auto-pipeline failed.');
+                }
+                await new Promise(resolve => setTimeout(resolve, 1200));
+            }
+        };
 
         try {
             const res = await fetch('/api/run-auto-pipeline', { method: 'POST' });
             const data = await res.json();
-            clearInterval(pollInterval);
-            hideOverlay();
-            
-            if (data.success) {
-                const r = data.result;
-                let msg = 'Safe Auto-Pilot Completed! ';
-                let succCount = (r.txt.success || []).length;
-                let nlpCount = (r.nlp.success || []).length;
-                let rankCount = r.ranking.count || 0;
-                let schedCount = r.scheduling.count || 0;
-                
-                if (succCount > 0 || nlpCount > 0 || rankCount > 0 || schedCount > 0) {
-                    msg += `Processed ${succCount} new text(s), parsed ${nlpCount} NLP profiles, ranked ${rankCount} and scheduled ${schedCount} safely.`;
-                } else {
-                    msg += 'No new files found. Existing candidates preserved.';
-                }
-                
-                showToast(msg, 'success');
-                setTimeout(() => location.reload(), 2000);
-            } else {
+            if (!data.success) {
                 showToast('Pipeline Error: ' + (data.error || 'Failed to process.'), 'error');
+                return;
             }
+
+            const result = await waitForCompletion();
+            hideOverlay();
+            showToast('Auto-pipeline completed. ' + summarizeResult(result), 'success');
+            setTimeout(() => location.reload(), 1800);
         } catch(e) {
-            clearInterval(pollInterval);
             hideOverlay();
             showToast('Error running pipeline: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
         }
-        
-        btn.disabled = false;
-        btn.innerHTML = originalContent;
     }
 
     async function confirmReset() {

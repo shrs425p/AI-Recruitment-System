@@ -1,8 +1,9 @@
 @echo off
-REM ═══════════════════════════════════════════════════════════
+REM ===========================================================
 REM  BUILD SCRIPT — AI Recruitment System
-REM  Creates: installer_output\ARS_Setup_1.0.exe
-REM ═══════════════════════════════════════════════════════════
+REM  Creates: %ARS_INSTALLER_OUTPUT%\ARS_Setup_1.0.exe when set,
+REM           otherwise installer_output\ARS_Setup_1.0.exe
+REM ===========================================================
 REM
 REM  Prerequisites (one-time):
 REM    1. pip install pyinstaller
@@ -11,15 +12,18 @@ REM       (default path: "C:\Program Files (x86)\Inno Setup 6")
 REM
 REM  Usage:
 REM    Double-click this file, or run:  scripts\build_installer.bat
-REM ═══════════════════════════════════════════════════════════
+REM ===========================================================
 
 REM Move to project root (one directory up from scripts\)
 cd /d "%~dp0.."
 
+set "DISPLAY_OUTPUT=%ARS_INSTALLER_OUTPUT%"
+if "%DISPLAY_OUTPUT%"=="" set "DISPLAY_OUTPUT=installer_output"
+
 echo.
-echo ╔═══════════════════════════════════════════════╗
-echo ║   AI Recruitment System — Build Installer     ║
-echo ╚═══════════════════════════════════════════════╝
+echo +-----------------------------------------------+
+echo ^|   AI Recruitment System - Build Installer     ^|
+echo +-----------------------------------------------+
 echo.
 
 REM ── Step 1: Activate venv ──
@@ -43,7 +47,7 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-echo       ✓ PyInstaller complete — dist\ARS\ created
+echo       PyInstaller complete - dist\ARS\ created
 echo.
 
 REM ── Step 3: Inno Setup ──
@@ -74,7 +78,16 @@ if exist "%~dp0..\Inno Setup 6\ISCC.exe" (
     set "ISCC=ISCC"
 )
 
+set "INNO_ATTEMPT=1"
+:RUN_INNO
 "%ISCC%" build\installer.iss
+if errorlevel 1 if "%INNO_ATTEMPT%"=="1" (
+    echo.
+    echo WARNING: Inno Setup failed on the first attempt. Retrying once...
+    set "INNO_ATTEMPT=2"
+    timeout /t 3 /nobreak >nul
+    goto RUN_INNO
+)
 if errorlevel 1 (
     echo.
     echo ERROR: Inno Setup compilation failed.
@@ -83,11 +96,11 @@ if errorlevel 1 (
 )
 
 echo.
-echo ═══════════════════════════════════════════════════
-echo  ✓ BUILD COMPLETE!
+echo ===================================================
+echo  BUILD COMPLETE!
 echo.
-echo  Installer: installer_output\ARS_Setup_1.0.exe
+echo  Installer: %DISPLAY_OUTPUT%\ARS_Setup_1.0.exe
 echo  Portable:  dist\ARS\ARS.exe
-echo ═══════════════════════════════════════════════════
+echo ===================================================
 echo.
 pause

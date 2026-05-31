@@ -1,12 +1,8 @@
-import os
-import sys
 import json
 import queue
-import time
-from pathlib import Path
 
 # Paths Setup
-from app_paths import APP_RESOURCE_DIR, APP_INSTALL_DIR, APP_DATA_DIR, data_path
+from .app_paths import data_path
 
 RESUMES_FOLDER = data_path("resumes")
 OUTPUT_FOLDER = data_path("output")
