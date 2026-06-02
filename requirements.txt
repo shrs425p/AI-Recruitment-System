@@ -20,7 +20,7 @@ opencv-python>=4.9
 
 # Voice / Speech
 pyttsx3>=2.90
-SpeechRecognition>=3.10
+SpeechRecognition>=3.16.1
 
 # Google Calendar integration
 google-api-python-client>=2.100
