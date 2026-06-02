@@ -16,7 +16,7 @@ icalendar>=5.0
 
 # Face detection
 mediapipe>=0.10
-opencv-python>=4.9
+opencv-python>=4.13.0.92
 
 # Voice / Speech
 pyttsx3>=2.90
