@@ -36,4 +36,4 @@ fpdf2>=2.7
 # After pip install, run:   python scripts/setup_vosk.py
 #   This downloads vosk-model-small-en-in-0.4 (36 MB, Indian English, Apache 2.0)
 #   For higher accuracy:    python scripts/setup_vosk.py --large  (1 GB model)
-vosk>=0.3
+vosk>=0.3.45
