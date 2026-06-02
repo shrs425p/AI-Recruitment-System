@@ -16,4 +16,4 @@ pytest-cov>=5.0
 pytest-timeout>=2.3
 
 # Pre-commit hooks
-pre-commit>=3.7.0
+pre-commit>=4.6.0
