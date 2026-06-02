@@ -1,7 +1,7 @@
 # Core PDF / OCR
 pytesseract>=0.3.10
 Pillow>=10.0
-PyMuPDF>=1.23
+PyMuPDF>=1.27.2.3
 numpy>=1.26
 
 # AI / LLM
