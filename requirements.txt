@@ -12,7 +12,7 @@ pywebview>=5.0
 Flask>=3.0
 
 # Calendar
-icalendar>=5.0
+icalendar>=7.2.0
 
 # Face detection
 mediapipe>=0.10
