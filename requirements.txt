@@ -15,7 +15,7 @@ Flask>=3.0
 icalendar>=5.0
 
 # Face detection
-mediapipe>=0.10
+mediapipe>=1.0.0
 opencv-python>=4.9
 
 # Voice / Speech
