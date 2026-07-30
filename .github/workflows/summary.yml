@@ -41,7 +41,7 @@ jobs:
 
       - name: Run AI inference on issue
         id: inference
-        uses: actions/ai-inference@v2
+        uses: actions/ai-inference@v3
         with:
           system-prompt: |
             You are a helpful assistant that summarizes GitHub issues for the AI Recruitment System project.
@@ -102,7 +102,7 @@ jobs:
 
       - name: Run AI inference on PR
         id: inference
-        uses: actions/ai-inference@v2
+        uses: actions/ai-inference@v3
         with:
           system-prompt: |
             You are a helpful assistant that summarizes GitHub pull requests for the AI Recruitment System project.
