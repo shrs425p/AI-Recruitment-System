@@ -45,7 +45,7 @@ jobs:
             --exit-zero
 
       - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.37.3
         with:
           sarif_file: bandit-results.sarif
           category: bandit
