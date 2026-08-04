@@ -7,6 +7,44 @@ from werkzeug.security import generate_password_hash
 import config as cfg
 from app.utils import login_required
 
+# Module-level global definition of about_html so any route (including settings or about_page) can access it
+about_html = (
+    "<h2>AI Recruitment System</h2>"
+    "<p>This desktop application streamlines the hiring workflow by integrating "
+    "automated resume processing, NLP extraction, candidate ranking, scheduling, "
+    "interview question generation, and reporting—all in one user-friendly interface.</p>"
+    "<p>Key features:</p>"
+    "<ol>"
+    "<li>Drag-and-drop resume upload with PDF/PNG/JPG support</li>"
+    "<li>Automated text extraction and NLP analysis</li>"
+    "<li>AI-powered candidate ranking and schedule coordination</li>"
+    "<li>Built-in interview bot with <strong>Text</strong> and <strong>Voice</strong> modes</li>"
+    "<li>Webcam proctoring with real-time face detection</li>"
+    "<li>Google Calendar sync — auto-read free slots and create interview events</li>"
+    "<li>Live logging console for monitoring backend activity</li>"
+    "<li>Exportable reports and calendar invites</li>"
+    "</ol>"
+    "<h3>Workflow</h3>"
+    "<ol>"
+    "<li>Upload resumes from multiple formats.</li>"
+    "<li>Process files to plain text and extract NLP data.</li>"
+    "<li>Provide a job description to rank candidates automatically.</li>"
+    "<li>Schedule interviews — import free slots from Google Calendar.</li>"
+    "<li>Conduct interviews via Text or Voice mode with webcam proctoring.</li>"
+    "<li>Generate comprehensive reports with AI insights and recommendations.</li>"
+    "</ol>"
+    "<h3>Fairness &amp; Bias Prevention</h3>"
+    "<p>This system is designed to ensure a <strong>standardised and unbiased</strong> hiring process:</p>"
+    "<ul>"
+    "<li>Candidate ranking is scored <em>exclusively</em> on skills, experience, and education — matched against the job description using AI.</li>"
+    "<li>Candidate names, gender, age, and demographic identifiers are <strong>never used</strong> as scoring criteria in any pipeline stage.</li>"
+    "<li>Every generated report includes a fairness audit line confirming that demographic data was excluded from scoring.</li>"
+    "<li>Interview questions are generated from the job description and candidate domain — not from personal details.</li>"
+    "</ul>"
+    "<p>Designed for HR teams and recruiters looking to accelerate the talent "
+    "acquisition process with AI assistance.</p>"
+)
+
 
 def register_settings_routes(app):
     @app.route("/settings", methods=["GET", "POST"])
@@ -82,42 +120,6 @@ def register_settings_routes(app):
             main._save_config(cfg)
             return redirect(url_for("settings"))
 
-        about_html = (
-            "<h2>AI Recruitment System</h2>"
-            "<p>This desktop application streamlines the hiring workflow by integrating "
-            "automated resume processing, NLP extraction, candidate ranking, scheduling, "
-            "interview question generation, and reporting—all in one user-friendly interface.</p>"
-            "<p>Key features:</p>"
-            "<ol>"
-            "<li>Drag-and-drop resume upload with PDF/PNG/JPG support</li>"
-            "<li>Automated text extraction and NLP analysis</li>"
-            "<li>AI-powered candidate ranking and schedule coordination</li>"
-            "<li>Built-in interview bot with <strong>Text</strong> and <strong>Voice</strong> modes</li>"
-            "<li>Webcam proctoring with real-time face detection</li>"
-            "<li>Google Calendar sync — auto-read free slots and create interview events</li>"
-            "<li>Live logging console for monitoring backend activity</li>"
-            "<li>Exportable reports and calendar invites</li>"
-            "</ol>"
-            "<h3>Workflow</h3>"
-            "<ol>"
-            "<li>Upload resumes from multiple formats.</li>"
-            "<li>Process files to plain text and extract NLP data.</li>"
-            "<li>Provide a job description to rank candidates automatically.</li>"
-            "<li>Schedule interviews — import free slots from Google Calendar.</li>"
-            "<li>Conduct interviews via Text or Voice mode with webcam proctoring.</li>"
-            "<li>Generate comprehensive reports with AI insights and recommendations.</li>"
-            "</ol>"
-            "<h3>Fairness &amp; Bias Prevention</h3>"
-            "<p>This system is designed to ensure a <strong>standardised and unbiased</strong> hiring process:</p>"
-            "<ul>"
-            "<li>Candidate ranking is scored <em>exclusively</em> on skills, experience, and education — matched against the job description using AI.</li>"
-            "<li>Candidate names, gender, age, and demographic identifiers are <strong>never used</strong> as scoring criteria in any pipeline stage.</li>"
-            "<li>Every generated report includes a fairness audit line confirming that demographic data was excluded from scoring.</li>"
-            "<li>Interview questions are generated from the job description and candidate domain — not from personal details.</li>"
-            "</ul>"
-            "<p>Designed for HR teams and recruiters looking to accelerate the talent "
-            "acquisition process with AI assistance.</p>"
-        )
         return render_template("settings.html", cfg=cfg, about_html=about_html)
 
     @app.route("/api/toggle-theme", methods=["POST"])
