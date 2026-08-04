@@ -32,7 +32,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff mypy pytest pytest-cov pytest-timeout bandit
+          pip install ruff mypy pytest pytest-cov pytest-timeout pre-commit
 
       - name: Code Formatting Check (Ruff)
         run: ruff check .
@@ -40,8 +40,8 @@ jobs:
       - name: Static Type Check (Mypy)
         run: python -m mypy app src tests main.py config.py
 
-      - name: Security Scan (Bandit)
-        run: bandit -r app/ src/
+      - name: Pre-commit Checks
+        run: pre-commit run --all-files
 
       - name: Pre-Flight Environment Verification
         run: python scripts/verify_environment.py

@@ -190,7 +190,10 @@
 <body>
     <!-- Frameless window controls (matches base.html) -->
     <div class="custom-title-bar">
-        <span class="title">AI Recruitment System</span>
+        <div class="title-bar-brand" style="display: flex; align-items: center; gap: 8px;">
+            <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Icon" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
+            <span class="title">AI Recruitment System</span>
+        </div>
         <div class="window-controls">
             <!-- Minimize Button -->
             <button class="window-btn" onclick="window.pywebview.api.minimize()" title="Minimize">
@@ -209,7 +212,7 @@
 
     <div class="login-box">
         <div class="login-logo">
-            <div class="logo-mark">AI</div>
+            <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Logo" class="logo-img" style="width: 36px; height: 36px; border-radius: 10px; object-fit: contain;">
             <div class="logo-text">
                 <span class="logo-title">AI Recruitment</span>
                 <span class="logo-sub">System</span>

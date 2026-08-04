@@ -1,107 +1,220 @@
 # AI Recruitment System
 
-AI Recruitment System is a Windows desktop application for managing a complete recruitment pipeline: resume intake, OCR/text extraction, AI profile parsing, candidate ranking, scheduling, interviews, proctoring, and post-interview reports.
+An enterprise-grade, offline-first desktop application for automating end-to-end recruitment pipelines—including resume intake, OCR text extraction, structured NLP candidate profiling, objective ranking, interview scheduling, interactive candidate evaluations, AI-assisted proctoring, and comprehensive analytics reporting.
 
-The app is built with Flask and pywebview, stores data locally in SQLite, and supports privacy-first AI through Ollama. Cloud AI providers can be enabled explicitly from Settings when needed.
+Designed for privacy-conscious organizations, the application defaults to local zero-egress processing via Ollama while providing optional integration with enterprise cloud AI providers.
 
-## Highlights
+---
 
-| Area | Capability |
-|---|---|
-| Resume intake | Upload PDF, PNG, JPG, and JPEG resumes |
-| Extraction | PyMuPDF for digital PDFs, Tesseract OCR for scans and images |
-| AI parsing | Structured candidate profiles from resume text |
-| Ranking | Job-description-based scoring and leaderboard generation |
-| Scheduling | Slot assignment, ICS generation, Google Calendar integration |
-| Interviews | Token-based candidate portal with text or voice answers |
-| Security | Candidate API rate limiting, global error middleware, session TTL |
-| Proctoring | Browser integrity checks and webcam face detection |
-| Reports | AI-assisted hiring reports and final summaries |
-| Production | Pre-flight environment diagnostics, SQLite WAL + busy timeout |
-| Packaging | PyInstaller folder build and Inno Setup installer |
+## Executive Summary
 
-## One-Click Pipeline
+The AI Recruitment System transforms unstructured candidate applications into objective, structured hiring insights through an automated 6-stage pipeline.
 
-The dashboard includes an Auto-Pipeline action that runs the operational stages in sequence:
+```mermaid
+flowchart TD
+    subgraph Ingestion["Phase 1: Ingestion & OCR Extraction"]
+        A["Resume Intake<br/>(PDF, PNG, JPG)"] --> B["PyMuPDF & Tesseract OCR<br/>(Text Extraction & Normalization)"]
+    end
 
-```text
-Resume files -> Text extraction -> NLP profiles -> Ranking -> Scheduling -> Reports
+    subgraph Intelligence["Phase 2: AI Analytics & Ranking"]
+        B --> C["Structured Candidate Profiling<br/>(Local Ollama & Cloud LLMs)"]
+        C --> D["Job Description Scoring<br/>(Weighted Match & Leaderboard)"]
+    end
+
+    subgraph Evaluation["Phase 3: Candidate Portal & Reporting"]
+        D --> E["Candidate Evaluation Portal<br/>(Interactive Text / Voice Mode)"]
+        E --> F["AI Proctoring & Monitoring<br/>(Webcam Face Detection & Tab Guard)"]
+        F --> G["Hiring Analytics & Summary Reports<br/>(Executive PDF/JSON Export)"]
+    end
 ```
 
-The interview itself remains candidate-driven because it requires live answers and proctoring. Once completed interview transcripts exist, reports are generated automatically by the pipeline.
+---
 
-## Quick Start
+## Key Capabilities
 
-```bat
-python -m venv venv
-call venv\Scripts\activate.bat
-pip install -r requirements.txt
-python scripts\setup_vosk.py
-python main.py
+| Subsystem | Technical Implementation | Features |
+| :--- | :--- | :--- |
+| **Document Intake & OCR** | PyMuPDF, Tesseract OCR, OpenCV | Native PDF parsing, scanned image text extraction, auto-pre-flight validation |
+| **NLP Profiling** | Local LLM (Ollama), OpenAI, Anthropic, Gemini, Groq, NVIDIA | Extraction of technical skills, experience, education, and match scores |
+| **Objective Ranking** | Vector similarity & weighted scoring | Custom Job Description templates, automated candidate leaderboard generation |
+| **Automated Scheduling** | Google Calendar API, iCalendar (.ics) | Slot management, automated invite delivery, candidate portal token assignment |
+| **Candidate Portal** | Web-based secure interface | Token authentication, rate-limiting, interactive voice (Vosk/pyttsx3) or text mode |
+| **AI Proctoring** | MediaPipe, OpenCV Haar Cascade | Real-time face detection, tab-switch detection, violation logging, report flags |
+| **Persistence & Security** | SQLite (WAL mode), PBKDF2 hashing | Zero external network requirement in Privacy Mode, robust rate-limiting, session TTL |
+| **Desktop Packaging** | PyInstaller, Inno Setup | Native Windows executable with embedded Python runtime and installer script |
+
+---
+
+## Application Architecture
+
+The system operates as a hybrid desktop software combining a Flask application backend with a pywebview desktop frame.
+
+```mermaid
+graph TD
+    Client["Desktop Client<br/>pywebview GUI Frame"] --> FlaskCore["Backend Controller<br/>Flask Application Core"]
+
+    subgraph SecurityLayer["Security Subsystem"]
+        AuthGuard["Auth & Session Guard<br/>(Token TTL & Role Access)"]
+        RateLimiter["Rate Limiting Middleware<br/>(Request Flood Defense)"]
+    end
+
+    subgraph AIRoutingLayer["AI Provider Router"]
+        PrivacyEngine["Local Privacy Engine<br/>(Zero-Egress Ollama)"]
+        CloudEngine["Cloud Provider APIs<br/>(OpenAI, Claude, Gemini, Groq)"]
+    end
+
+    subgraph ServiceLayer["Core Workflows & Controllers"]
+        ParsingService["Extraction & Parsing Engine"]
+        RankingService["Ranking & Scoring Engine"]
+        SchedulingService["Scheduling & Calendar Invites"]
+        ProctorService["Webcam & Browser Proctoring"]
+    end
+
+    FlaskCore --> SecurityLayer
+    FlaskCore --> AIRoutingLayer
+    FlaskCore --> ServiceLayer
+
+    SecurityLayer --> Storage[("SQLite Database<br/>WAL Mode Storage")]
+    AIRoutingLayer --> Storage
+    ServiceLayer --> Storage
 ```
 
-For normal desktop use, double-click `Start.vbs` or run `scripts\run.bat`.
+---
 
-## Installed App Behavior
+## Quick Start Guide
 
-Production builds do not ship a developer `config.py`. On first launch, the app creates a clean runtime config under the current user's local app-data folder:
+### System Prerequisites
+- Operating System: Windows 10 / Windows 11 (64-bit)
+- Python Version: Python 3.10, 3.11, or 3.12
+- Optional Local AI: [Ollama](https://ollama.ai/) installed with models (e.g., `llama3.2` or `mistral`)
 
-```text
-%LOCALAPPDATA%\AI Recruitment System\
+### Installation Steps
+
+1. Clone the repository:
+   ```cmd
+   git clone https://github.com/shrs425p/AI-Recruitment-System.git
+   cd AI-Recruitment-System
+   ```
+
+2. Create and activate a virtual environment:
+   ```cmd
+   python -m venv venv
+   call venv\Scripts\activate.bat
+   ```
+
+3. Install production dependencies:
+   ```cmd
+   pip install -r requirements.txt
+   ```
+
+4. Initialize speech recognition models (optional for offline voice mode):
+   ```cmd
+   python scripts\setup_vosk.py
+   ```
+
+5. Launch the application:
+   ```cmd
+   python main.py
+   ```
+
+---
+
+## AI Provider Configuration
+
+The application supports dual execution modes configured via the Settings menu or runtime environment:
+
+### Privacy Mode (Default)
+- **Engine**: Local Ollama instance
+- **Network**: 100% offline zero-egress data processing
+- **Default Models**: `llama3.2`, `mistral`, `gemma2`
+
+### Cloud Mode
+- **Engine**: Enterprise API integrations
+- **Supported Providers**: OpenAI (GPT-4o), Anthropic (Claude 3.5), Google Gemini, Groq, NVIDIA API Catalog, OpenRouter
+- **Configuration**: Managed securely in local runtime configuration (`%LOCALAPPDATA%\AI Recruitment System\config.py`)
+
+---
+
+## One-Click Automated Pipeline
+
+The system features an automated pipeline execution engine that processes all uploaded candidate resumes sequentially:
+
+1. **Extraction**: Converts PDF and image resumes to clean plain-text files.
+2. **Structuring**: Executes LLM prompts to produce standardized JSON candidate profiles.
+3. **Ranking**: Computes weighted match scores against target Job Descriptions.
+4. **Scheduling**: Generates interview time slots and dispatchable candidate portal tokens.
+5. **Reporting**: Compiles aggregate candidate pool metrics and shortlist recommendations.
+
+---
+
+## Development & Verification Suite
+
+The repository includes a comprehensive testing and quality assurance suite.
+
+### Running Automated Unit Tests
+```cmd
+venv\Scripts\python.exe -m pytest tests/ --timeout=60
 ```
 
-This prevents test credentials, local paths, and development data from being bundled into the installer.
+### Static Type Analysis (Mypy)
+```cmd
+venv\Scripts\python.exe -m mypy app src tests main.py config.py
+```
 
-## Documentation
+### Code Style & Formatting (Ruff)
+```cmd
+venv\Scripts\python.exe -m ruff check .
+```
 
-The full documentation is split by topic:
+### Environment Diagnostic Pre-Flight
+```cmd
+venv\Scripts\python.exe scripts\verify_environment.py
+```
 
-| Document | Purpose |
-|---|---|
-| [Documentation Index](docs/index.md) | Start here for role-based navigation |
-| [Getting Started](docs/getting-started.md) | Install, launch, and first-run setup |
-| [Pipeline Guide](docs/pipeline.md) | Manual and automatic pipeline behavior |
-| [Configuration](docs/configuration.md) | Runtime settings and environment overrides |
-| [Architecture](docs/architecture.md) | Modules, data flow, threading, and paths |
-| [AI Providers](docs/ai-providers.md) | Ollama and cloud provider setup |
-| [Interview System](docs/interview-system.md) | Candidate tokens, voice mode, and proctoring |
-| [Google Calendar](docs/google-calendar.md) | OAuth setup and calendar event creation |
-| [API Reference](docs/api-reference.md) | Flask endpoints and response shapes |
-| [Build and Deploy](docs/build-and-deploy.md) | PyInstaller and Inno Setup release process |
-| [Theming](docs/theming.md) | UI palette and theme customization |
-| [Troubleshooting](docs/troubleshooting.md) | Common failures and fixes |
-| [Changelog](docs/changelog.md) | Release notes |
+---
 
-## Build Installer
+## Desktop Packaging & Deployment
 
-`scripts\build_installer.bat` builds both outputs:
+To compile a standalone Windows `.exe` installer:
 
-1. `dist\ARS\ARS.exe` through PyInstaller.
-2. `ARS_Setup_*.exe` through Inno Setup.
-
-To write the installer to Downloads:
-
-```bat
-set ARS_INSTALLER_OUTPUT=%USERPROFILE%\Downloads
+```cmd
 scripts\build_installer.bat
 ```
 
-## Development Checks
+The installer compilation process generates:
+- **Executable Bundle**: `dist\ARS\ARS.exe` via PyInstaller.
+- **Windows Setup Installer**: `installer_output\AI_Recruitment_System_Setup_v1.0.0.exe` via Inno Setup.
 
-```bat
-venv\Scripts\python.exe scripts\verify_environment.py
-venv\Scripts\python.exe -m ruff check .
-venv\Scripts\python.exe -m pytest
-venv\Scripts\python.exe -m compileall -q main.py app src tests
-```
+---
 
-Optional release checks:
+## Security & Data Privacy Specifications
 
-```bat
-venv\Scripts\python.exe -m pip_audit -r requirements.txt
-venv\Scripts\python.exe -m bandit -q -r app src main.py -x venv,build,dist -ll
-```
+- **Zero Third-Party Telemetry**: Local database storage using SQLite WAL mode.
+- **Candidate Token Isolation**: Cryptographically secure candidate portal tokens with configurable Session TTLs.
+- **API Flood Protection**: Rate-limiting middleware enforcing strict request thresholds on external routes.
+- **Proctoring Audit Trail**: Non-invasive browser tab monitoring and optional local webcam face presence verification logged locally per session.
+
+---
+
+## Documentation Directory
+
+| Resource | Scope |
+| :--- | :--- |
+| [Documentation Index](docs/index.md) | Navigation overview by role |
+| [Getting Started](docs/getting-started.md) | Installation, first run, and setup guide |
+| [Pipeline Guide](docs/pipeline.md) | Stage-by-stage automated execution details |
+| [Configuration](docs/configuration.md) | Settings, variables, and runtime paths |
+| [Architecture](docs/architecture.md) | Internal modules, database schemas, and threading |
+| [AI Providers](docs/ai-providers.md) | Ollama setup and cloud API integration |
+| [Interview System](docs/interview-system.md) | Candidate portal, voice mode, and proctoring |
+| [Google Calendar Integration](docs/google-calendar.md) | OAuth setup and invitation scheduling |
+| [API Reference](docs/api-reference.md) | Flask endpoints and JSON schema specifications |
+| [Build & Deploy](docs/build-and-deploy.md) | PyInstaller and Inno Setup release guide |
+| [Theming System](docs/theming.md) | Customizing color palettes and dark mode |
+| [Troubleshooting](docs/troubleshooting.md) | Diagnostics and common error resolutions |
+
+---
 
 ## License
 
-This project is released under the MIT License. See [LICENSE](LICENSE).
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
