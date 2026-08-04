@@ -116,7 +116,7 @@ def test_email_template_customization(monkeypatch):
         job_title="Engineer",
         interview_slot="2026-08-10 10:00",
         hr_name="HR Manager",
-        company="Acme Corp",
+        company="Shrs",
     )
     assert success is True
 
