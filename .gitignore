@@ -30,7 +30,6 @@ token.json
 data/
 output/
 resumes/
-models/*
 !models/.gitkeep
 *.db
 *.sqlite
