@@ -277,9 +277,7 @@ def _save_config(cfg):
     data_config.write_text(content, encoding="utf-8")
 
     if not getattr(sys, "frozen", False):
-        root_config = ROOT_DIR / "config.py"
-        root_config.write_text(content, encoding="utf-8")
-
+        # Write only to config/config.py — never to the root folder (security)
         config_dir_file = ROOT_DIR / "config" / "config.py"
         config_dir_file.parent.mkdir(parents=True, exist_ok=True)
         config_dir_file.write_text(content, encoding="utf-8")
