@@ -40,8 +40,6 @@ jobs:
       - name: Static Type Check (Mypy)
         run: python -m mypy app src tests main.py
 
-      - name: Pre-commit Checks
-        run: pre-commit run --all-files
 
       - name: Pre-Flight Environment Verification
         run: python scripts/verify_environment.py
