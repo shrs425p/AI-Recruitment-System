@@ -268,7 +268,10 @@ def is_public_candidate_path(path: str) -> bool:
 def _auth_failure_response():
     if request.path.startswith("/api/"):
         return jsonify({"error": "HR authentication required"}), 401
-    return redirect(url_for("login"))
+    try:
+        return redirect(url_for("login"))
+    except Exception:
+        return redirect("/login")
 
 
 def hr_access_allowed() -> bool:

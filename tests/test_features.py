@@ -36,6 +36,10 @@ def test_job_template_api_endpoints(tmp_path, monkeypatch):
     ranking_routes.register_ranking_routes(app)
     client = app.test_client()
 
+    # Inject authenticated session so HR routes are accessible
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+
     # POST create template
     resp = client.post(
         "/api/job-templates",
@@ -66,6 +70,10 @@ def test_view_resume_security(tmp_path, monkeypatch):
     app = create_app()
     upload_routes.register_upload_routes(app)
     client = app.test_client()
+
+    # Inject authenticated session so HR routes are accessible
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
 
     # Valid request
     valid_resp = client.get("/api/view-resume/sample.pdf")
