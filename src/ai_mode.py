@@ -1,8 +1,10 @@
-# ai_mode.py — App Mode Configuration dynamically loaded from config.py
+import os
+from pathlib import Path
 
 import config
 
-OLLAMA_INSTALL_DIR   = "C:/ollama"            # where to install Ollama silently
+_system_drive = os.environ.get("SystemDrive", "C:")
+OLLAMA_INSTALL_DIR   = str(Path(_system_drive) / "ollama")            # where to install Ollama silently
 OLLAMA_DOWNLOAD_URL  = "https://ollama.com/download/OllamaSetup.exe"   # Windows
 
 def get_app_mode():

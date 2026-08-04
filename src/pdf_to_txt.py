@@ -17,9 +17,9 @@ logger = logging.getLogger("ars.pdf_to_txt")
 # TESSERACT OCR ENGINE PATH
 # ─────────────────────────────────────────────
 
-# Point pytesseract at the bundled Tesseract binary so the system PATH is not
-# required — makes the app portable without extra install steps for the user.
-pytesseract.pytesseract.tesseract_cmd = str(install_path("models/Tesseract-OCR") / "tesseract.exe")
+_bundled_tesseract = install_path("models/Tesseract-OCR") / "tesseract.exe"
+if _bundled_tesseract.exists():
+    pytesseract.pytesseract.tesseract_cmd = str(_bundled_tesseract)
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
