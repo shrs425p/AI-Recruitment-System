@@ -13,7 +13,8 @@ if getattr(sys, "frozen", False):
 else:
     APP_RESOURCE_DIR = Path(__file__).parent.parent
     APP_INSTALL_DIR = Path(__file__).parent.parent
-    APP_DATA_DIR = Path(__file__).parent.parent
+    local_app_data = Path(os.environ.get("LOCALAPPDATA", str(APP_INSTALL_DIR)))
+    APP_DATA_DIR = local_app_data / APP_NAME
 
 
 APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
