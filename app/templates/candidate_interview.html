@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="{{ config.COLOR_PALETTE | default('lavender') }}">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview — AI Recruitment System</title>
+    <!-- Muted & Clean Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        :root {
+            --black:      var(--md-sys-color-on-surface);
+            --white:      var(--md-sys-color-surface);
+            --off-white:  var(--md-sys-color-surface-container-low);
+            --gray-50:    var(--md-sys-color-surface-container-low);
+            --gray-100:   var(--md-sys-color-outline-variant);
+            --gray-200:   var(--md-sys-color-outline-variant);
+            --gray-400:   var(--md-sys-color-on-surface-variant);
+            --gray-600:   var(--md-sys-color-on-surface-variant);
+            --gray-800:   var(--md-sys-color-on-surface);
+            --blue:       var(--md-sys-color-primary);
+            --blue-soft:  var(--md-sys-color-primary-container);
+            --green:      var(--green);
+            --green-soft: var(--green-soft);
+            --red:        var(--red);
+            --red-soft:   var(--red-soft);
+            --yellow:     var(--amber);
+            --radius:     var(--radius-sm);
+            --radius-lg:  var(--radius-md);
+            --shadow:     var(--elevation-1);
+            --shadow-md:  var(--elevation-1);
+            --font-sans:  var(--font-sans);
+            --font-mono:  var(--font-mono);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--off-white);
+            color: var(--black);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── Branded top bar (matches admin sidebar-logo) ── */
+        .cand-header {
+            background: var(--white);
+            border-bottom: 1px solid var(--gray-100);
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+        }
+
+        .cand-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-mark {
+            width: 32px;
+            height: 32px;
+            background: var(--black);
+            color: var(--white);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .logo-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--black);
+        }
+
+        .logo-sub {
+            font-size: 11px;
+            color: var(--gray-400);
+            font-weight: 400;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        .card {
+            background: var(--white);
+            border: 1px solid var(--gray-100);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+        }
+
+        .error-card {
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .error-card .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .error-card .msg {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--gray-600);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--gray-800);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--gray-50);
+            color: var(--gray-800);
+            border: 1px solid var(--gray-100);
+        }
+
+        .candidate-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .candidate-info .name {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .candidate-info .meta {
+            font-size: 0.85rem;
+            color: var(--gray-400);
+        }
+
+        .score-badge {
+            font-family: var(--font-mono);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Rules */
+        .rules-section {
+            display: none;
+        }
+
+        .rules-section.active {
+            display: block;
+        }
+
+        .gallery-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .gallery-card {
+            flex: 1;
+            min-width: 140px;
+            max-width: 220px;
+            text-align: center;
+            background: var(--md-sys-color-surface);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .gallery-card img {
+            width: 100%;
+            height: auto;
+            max-height: 110px;
+            object-fit: contain;
+            border-radius: var(--radius-xs);
+        }
+
+        .dos-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--green);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .donts-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--red);
+            margin-top: 16px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Question */
+        .question-section {
+            display: none;
+        }
+
+        .question-section.active {
+            display: block;
+        }
+
+        .q-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .q-num {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: var(--gray-50);
+            border: 1px solid var(--gray-100);
+        }
+
+        .q-type {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .q-type-tech {
+            background: var(--blue-soft);
+            color: var(--blue);
+        }
+
+        .q-type-beh {
+            background: var(--green-soft);
+            color: var(--green);
+        }
+
+        .q-text {
+            font-size: 1.05rem;
+            font-weight: 500;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .timer {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--gray-400);
+            margin-bottom: 16px;
+        }
+
+        .timer.warning {
+            color: var(--yellow);
+        }
+
+        .timer.danger {
+            color: var(--red);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--gray-100);
+            border-radius: var(--radius);
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 100px;
+            transition: border 0.15s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--blue);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        /* Evaluation */
+        .eval-result {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+            border: 1px solid var(--gray-100);
+        }
+
+        .eval-score {
+            font-family: var(--font-mono);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--blue);
+        }
+
+        .eval-feedback {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            margin-top: 4px;
+        }
+
+        /* Thinking */
+        .thinking {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 0;
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--gray-200);
+            border-top-color: var(--blue);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Complete */
+        .complete-section {
+            display: none;
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .complete-section.active {
+            display: block;
+        }
+
+        .complete-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .final-score {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 16px 0;
+        }
+
+        .final-details {
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            margin-bottom: 24px;
+        }
+
+        /* Counter bar */
+        .counter-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .counter-bar .progress-text {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--gray-400);
+        }
+
+        /* Loading overlay */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .overlay.active {
+            display: flex;
+        }
+
+        .overlay .spinner {
+            width: 32px;
+            height: 32px;
+        }
+
+        .overlay .msg {
+            font-size: 0.95rem;
+            color: var(--gray-600);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.error {
+            background: var(--red-soft);
+            color: var(--red);
+            border: 1px solid var(--red);
+        }
+
+        .toast.info {
+            background: var(--blue-soft);
+            color: var(--blue);
+            border: 1px solid var(--blue);
+        }
+
+        /* Interview layout: question + webcam sidebar */
+        .interview-layout {
+            display: grid;
+            grid-template-columns: 1fr 220px;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .interview-main {
+            min-width: 0;
+        }
+
+        .interview-sidebar {
+            position: sticky;
+            top: 20px;
+        }
+
+        .webcam-card {
+            background: var(--white);
+            border: 1px solid var(--gray-100);
+            border-radius: var(--radius-lg);
+            padding: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .webcam-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .proctor-indicator {
+            font-size: 14px;
+            color: var(--gray-200);
+            transition: color 0.3s;
+        }
+
+        .proctor-ok { color: #22c55e; }
+        .proctor-warn { color: #f59e0b; }
+        .proctor-danger { color: #ef4444; }
+
+        .webcam-feed-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: var(--gray-50);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .webcam-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .webcam-off-msg {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--gray-400);
+            text-align: center;
+            padding: 10px;
+        }
+
+        .face-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-bottom: 8px;
+        }
+
+        .proctor-flags {
+            padding-top: 8px;
+            border-top: 1px solid var(--gray-100);
+        }
+
+        /* Voice mode */
+        .mode-toggle {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--gray-100);
+            border-radius: 8px;
+            background: var(--white);
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+            color: var(--gray-600);
+        }
+
+        .mode-btn.active {
+            background: var(--blue);
+            color: var(--white);
+            border-color: var(--blue);
+        }
+
+        .voice-box {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+            border: 1px solid var(--gray-100);
+        }
+
+        .voice-box.active {
+            display: flex;
+        }
+
+        .voice-wave {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 40px;
+        }
+
+        .voice-wave .bar {
+            width: 5px;
+            height: 10px;
+            background: var(--gray-200);
+            border-radius: 3px;
+            transition: height 0.15s;
+        }
+
+        .voice-wave.listening .bar {
+            background: var(--green);
+            animation: waveAnim 0.8s ease-in-out infinite;
+        }
+
+        .voice-wave.listening .bar:nth-child(2) { animation-delay: 0.1s; }
+        .voice-wave.listening .bar:nth-child(3) { animation-delay: 0.2s; }
+        .voice-wave.listening .bar:nth-child(4) { animation-delay: 0.3s; }
+        .voice-wave.listening .bar:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes waveAnim {
+            0%, 100% { height: 10px; }
+            50% { height: 36px; }
+        }
+
+        .voice-wave.speaking .bar {
+            background: var(--blue);
+            animation: waveAnim 0.6s ease-in-out infinite;
+        }
+
+        .voice-wave.speaking .bar:nth-child(2) { animation-delay: 0.08s; }
+        .voice-wave.speaking .bar:nth-child(3) { animation-delay: 0.16s; }
+        .voice-wave.speaking .bar:nth-child(4) { animation-delay: 0.24s; }
+        .voice-wave.speaking .bar:nth-child(5) { animation-delay: 0.32s; }
+
+        .voice-status-text {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        .voice-transcript {
+            font-size: 0.85rem;
+            color: var(--gray-800);
+            font-style: italic;
+            min-height: 20px;
+            text-align: center;
+            max-height: 100px;
+            overflow-y: auto;
+            width: 100%;
+            word-wrap: break-word;
+        }
+
+        .btn-voice {
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .btn-voice-listen {
+            background: var(--green);
+            color: var(--white);
+            border: none;
+        }
+
+        .btn-voice-listen:hover {
+            opacity: 0.9;
+        }
+
+        .btn-voice-stop {
+            background: var(--red);
+            color: var(--white);
+            border: none;
+        }
+
+        @media (max-width: 700px) {
+            .interview-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .interview-sidebar {
+                position: static;
+                order: -1;
+            }
+
+            .webcam-feed-wrap {
+                max-height: 160px;
+            }
+
+            .container {
+                padding: 12px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .q-text {
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Branded header bar (matches admin theme) -->
+    <div class="cand-header">
+        <div class="cand-logo">
+            <div class="logo-mark">AI</div>
+            <div class="logo-text">
+                <span class="logo-title">AI Recruitment</span>
+                <span class="logo-sub">Candidate Interview</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+
+        {% if error %}
+        <!-- ERROR STATE -->
+        <div class="card error-card">
+            <div class="icon">🚫</div>
+            <div class="msg">{{ error }}</div>
+        </div>
+        {% else %}
+
+        <!-- LOADING OVERLAY -->
+        <div class="overlay" id="overlay">
+            <div class="spinner"></div>
+            <div class="msg" id="overlayMsg">Loading...</div>
+        </div>
+
+        <!-- TOAST -->
+        <div class="toast" id="toast"></div>
+
+        <!-- ═══════════════════════════════════
+             SECTION 1: RULES
+        ═══════════════════════════════════ -->
+        <div class="rules-section active" id="rulesSection">
+            <div class="card">
+                <div class="candidate-info">
+                    <div>
+                        <div class="name">{{ candidate_name }}</div>
+                        <div class="meta">{{ job_title }}</div>
+                    </div>
+                </div>
+
+                <h3 style="text-align:center; margin-bottom:4px; font-size:1.1rem;">Dos and Don'ts</h3>
+                <p style="text-align:center; font-size:0.85rem; color:var(--gray-400); margin-bottom:20px;">
+                    Please review these guidelines before your interview begins.
+                </p>
+
+                <div class="dos-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Dos — Required Practices
+                </div>
+                <div class="gallery-row">
+                    <div class="gallery-card">
+                        <img src="/static/img/Look At Screen.png" alt="Look At Screen" onerror="this.style.display='none'">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">Look at screen</div>
+                    </div>
+                    <div class="gallery-card">
+                        <img src="/static/img/Don,t Look Away.png" alt="Don't Look Away" onerror="this.style.display='none'">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">Remain focused</div>
+                    </div>
+                </div>
+
+                <div class="donts-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Don'ts — Strictly Prohibited
+                </div>
+                <div class="gallery-row" style="margin-bottom: 0;">
+                    <div class="gallery-card">
+                        <img src="/static/img/No Copy Paste.png" alt="No Copy Paste" onerror="this.style.display='none'">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No copy-paste</div>
+                    </div>
+                    <div class="gallery-card">
+                        <img src="/static/img/No Screenshot.png" alt="No Screenshot" onerror="this.style.display='none'">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No screenshots</div>
+                    </div>
+                    <div class="gallery-card">
+                        <img src="/static/img/No Tab Switching.png" alt="No Tab Switching" onerror="this.style.display='none'">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No tab switching</div>
+                    </div>
+                </div>
+
+                <div style="text-align:center; margin-top:24px;">
+                    <button class="btn btn-primary" style="font-size:1rem; padding:14px 36px;"
+                        onclick="startInterview()">
+                        I Understand — Start Interview
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             SECTION 2: QUESTIONS
+        ═══════════════════════════════════ -->
+        <div class="question-section" id="questionSection">
+            <div class="counter-bar">
+                <div>
+                    <span id="candidateLabel" style="font-weight:600;"></span>
+                    <span id="jobLabel" style="font-size:0.85rem; color:var(--gray-400); margin-left:8px;"></span>
+                </div>
+                <div style="text-align:right;">
+                    <div class="progress-text" id="progressText"></div>
+                    <div class="score-badge" id="runningScore">0 pts</div>
+                </div>
+            </div>
+
+            <div class="interview-layout">
+                <!-- Left: Question card -->
+                <div class="interview-main">
+                    <div class="card" id="questionCard">
+                        <div class="q-header">
+                            <span class="q-num" id="qNum"></span>
+                            <span class="q-type" id="qType"></span>
+                            <span id="qTopic" style="font-size:0.8rem; color:var(--gray-400);"></span>
+                        </div>
+                        <div class="q-text" id="qText"></div>
+                        <div class="timer" id="timer">00:00</div>
+
+                        <!-- Mode toggle -->
+                        <div class="mode-toggle">
+                            <button class="mode-btn active" id="modeTxtBtn" onclick="setMode('text')">✍️ Text Mode</button>
+                            <button class="mode-btn" id="modeVoiceBtn" onclick="setMode('voice')">🎤 Voice Mode</button>
+                        </div>
+
+                        <!-- Text input -->
+                        <div id="textInputArea">
+                            <textarea id="answerInput" placeholder="Type your answer here..." rows="4"></textarea>
+                        </div>
+
+                        <!-- Voice input -->
+                        <div class="voice-box" id="voiceInputArea">
+                            <div class="voice-wave" id="voiceWave">
+                                <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                            </div>
+                            <div class="voice-status-text" id="voiceStatusText">Tap the button to speak</div>
+                            <div class="voice-transcript" id="voiceTranscript"></div>
+                            <button class="btn btn-voice btn-voice-listen" id="voiceListenBtn" onclick="toggleVoiceListening()">
+                                🎤 Start Speaking
+                            </button>
+                        </div>
+
+                        <div class="btn-row">
+                            <button class="btn btn-primary" id="submitBtn" onclick="submitAnswer()">Submit Answer</button>
+                            <button class="btn btn-secondary" onclick="skipQuestion()">Skip</button>
+                        </div>
+
+                        <!-- AI thinking -->
+                        <div class="thinking" id="evalThinking">
+                            <span class="spinner"></span>
+                            <span>AI is evaluating your answer…</span>
+                        </div>
+
+                        <!-- Evaluation result -->
+                        <div class="eval-result" id="evalResult">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div class="eval-score" id="evalScore"></div>
+                                <div>
+                                    <div style="font-size:0.75rem; font-weight:600; color:var(--gray-800);">Score</div>
+                                    <div class="eval-feedback" id="evalFeedback"></div>
+                                </div>
+                            </div>
+                            <div style="margin-top:12px;">
+                                <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Webcam proctoring sidebar -->
+                <div class="interview-sidebar" id="webcamSidebar">
+                    <div class="webcam-card">
+                        <div class="webcam-title">
+                            📷 Proctoring
+                            <span class="proctor-indicator" id="proctorIndicator">●</span>
+                        </div>
+
+                        <div class="webcam-feed-wrap">
+                            <video id="webcamVideo" class="webcam-feed" autoplay playsinline muted></video>
+                            <canvas id="webcamCanvas" style="display:none;"></canvas>
+                            <div id="webcamOffMsg" class="webcam-off-msg">Webcam will start with interview</div>
+                        </div>
+
+                        <div class="face-status" id="faceStatus">
+                            <span id="faceIcon">👤</span>
+                            <span id="faceText">Waiting...</span>
+                        </div>
+
+                        <div class="proctor-flags">
+                            <div style="font-size:11px; color:var(--gray-400); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;">Flags</div>
+                            <div id="flagList" style="font-size:12px; color:var(--gray-600);">None</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             SECTION 3: COMPLETE
+        ═══════════════════════════════════ -->
+        <div class="complete-section" id="completeSection">
+            <div class="card" style="padding:48px 24px;">
+                <div class="complete-icon">✅</div>
+                <div style="font-size:1.3rem; font-weight:700; margin-bottom:8px;">Interview Complete!</div>
+                <div class="final-score" id="finalScore"></div>
+                <div class="final-details" id="finalDetails"></div>
+                <p style="color:var(--gray-400); font-size:0.85rem;">
+                    Thank you for your time. You may close this page now.
+                </p>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+
+    {% if not error %}
+    <script>
+        // ───────── STATE ─────────
+        const TOKEN = "{{ token }}";
+        const CANDIDATE = "{{ candidate_name }}";
+        const SOURCE_FILE = "{{ source_file }}";
+        const JOB_TITLE = "{{ job_title }}";
+        const RANK = Number("{{ rank|int }}");
+        const SCORE = Number("{{ score|float }}");
+
+        let sessionId = null;
+        let sessionKey = null;
+        let allQuestions = [];
+        let currentQIndex = 0;
+        let currentScore = 0;
+        let timerInterval = null;
+        let questionStart = null;
+        let webcamInterval = null;
+        let proctorPollInt = null;
+        let flagCount = 0;
+        let interviewMode = 'text';     // 'text' or 'voice'
+        let recognition = null;          // SpeechRecognition instance
+        let isListening = false;
+        let voiceTranscriptText = '';
+        let speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+        let ttsSupported = !!window.speechSynthesis;
+
+        // ───────── HELPERS ─────────
+        function showOverlay(msg) {
+            document.getElementById('overlayMsg').textContent = msg;
+            document.getElementById('overlay').classList.add('active');
+        }
+        function hideOverlay() {
+            document.getElementById('overlay').classList.remove('active');
+        }
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show ' + (type || 'info');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+        function interviewHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'X-Interview-Session-Key': sessionKey || ''
+            };
+        }
+        function withSession(payload) {
+            return Object.assign({ session_id: sessionId, session_key: sessionKey }, payload || {});
+        }
+
+        // ───────── START INTERVIEW ─────────
+        async function startInterview() {
+            document.getElementById('rulesSection').classList.remove('active');
+            showOverlay('Generating interview questions with AI…');
+
+            const res = await fetch('/api/candidate/interview/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: TOKEN })
+            });
+            hideOverlay();
+
+            const data = await res.json();
+            if (data.error) {
+                showToast(data.error, 'error');
+                document.getElementById('rulesSection').classList.add('active');
+                return;
+            }
+
+            sessionId = data.session_id;
+            sessionKey = data.session_key;
+            allQuestions = data.questions;
+            currentQIndex = 0;
+            currentScore = 0;
+
+            document.getElementById('candidateLabel').textContent = CANDIDATE;
+            document.getElementById('jobLabel').textContent = JOB_TITLE;
+            document.getElementById('questionSection').classList.add('active');
+
+            // Start webcam proctoring
+            startWebcam();
+
+            showQuestion(0);
+        }
+
+        // ───────── SHOW QUESTION ─────────
+        function showQuestion(index) {
+            if (index >= allQuestions.length) { finishInterview(); return; }
+
+            const q = allQuestions[index];
+            document.getElementById('qNum').textContent = 'Q' + (index + 1);
+            document.getElementById('qText').textContent = q.question;
+            document.getElementById('qTopic').textContent = q.topic || '';
+            document.getElementById('progressText').textContent = (index + 1) + ' / ' + allQuestions.length;
+            document.getElementById('runningScore').textContent = currentScore + ' pts';
+            document.getElementById('evalResult').style.display = 'none';
+            document.getElementById('evalThinking').style.display = 'none';
+            document.getElementById('submitBtn').style.display = 'inline-flex';
+
+            const qType = document.getElementById('qType');
+            qType.textContent = q.type;
+            qType.className = q.type === 'TECHNICAL' ? 'q-type q-type-tech' : 'q-type q-type-beh';
+
+            document.getElementById('answerInput').value = '';
+            document.getElementById('answerInput').disabled = false;
+
+            // Reset voice state for new question
+            stopListening();
+            voiceTranscriptText = '';
+            document.getElementById('voiceTranscript').textContent = '';
+            document.getElementById('voiceStatusText').textContent = 'Tap the button to speak';
+
+            // Read question aloud in voice mode
+            if (interviewMode === 'voice') {
+                speakQuestion(q.question);
+            }
+
+            startTimer();
+        }
+
+        // ───────── SUBMIT ANSWER ─────────
+        async function submitAnswer() {
+            stopListening();
+            const answer = document.getElementById('answerInput').value.trim();
+            const timeTaken = Math.floor((Date.now() - questionStart) / 1000);
+            clearInterval(timerInterval);
+
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('answerInput').disabled = true;
+            document.getElementById('voiceListenBtn').disabled = true;
+
+            await _evaluate(answer || 'SKIP', timeTaken);
+        }
+
+        async function skipQuestion() {
+            const timeTaken = Math.floor((Date.now() - questionStart) / 1000);
+            clearInterval(timerInterval);
+            const q = allQuestions[currentQIndex];
+            const res = await fetch('/api/candidate/interview/answer', {
+                method: 'POST',
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession({
+                    question: q.question, answer: 'SKIP',
+                    question_num: currentQIndex + 1, type: q.type, topic: q.topic || '', time_taken: timeTaken
+                }))
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                showToast(data.error || 'Could not skip question', 'error');
+                return;
+            }
+            if (!data.done && data.next_question) {
+                allQuestions[currentQIndex + 1] = data.next_question;
+            }
+            nextQuestion();
+        }
+
+        // ───────── EVALUATE ─────────
+        async function _evaluate(answer, timeTaken) {
+            const q = allQuestions[currentQIndex];
+
+            document.getElementById('evalResult').style.display = 'none';
+            document.getElementById('evalThinking').style.display = 'flex';
+
+            const res = await fetch('/api/candidate/interview/answer', {
+                method: 'POST',
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession({
+                    question: q.question,
+                    answer: answer,
+                    question_num: currentQIndex + 1,
+                    type: q.type,
+                    topic: q.topic || '',
+                    time_taken: timeTaken
+                }))
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                document.getElementById('evalThinking').style.display = 'none';
+                showToast(data.error || 'Interview request failed', 'error');
+                document.getElementById('submitBtn').style.display = 'inline-flex';
+                document.getElementById('answerInput').disabled = false;
+                return;
+            }
+
+            document.getElementById('evalThinking').style.display = 'none';
+            currentScore += data.evaluation.total || 0;
+            document.getElementById('runningScore').textContent = currentScore + ' pts';
+            document.getElementById('evalScore').textContent = (data.evaluation.total || 0) + '/10';
+            document.getElementById('evalFeedback').textContent = data.evaluation.feedback || '';
+            document.getElementById('evalResult').style.display = 'block';
+
+            if (data.proctor && data.proctor.flagged) {
+                showToast('⚠ ' + data.proctor.flags.join(', '), 'error');
+            }
+            if (!data.done && data.next_question) {
+                allQuestions[currentQIndex + 1] = data.next_question;
+            }
+        }
+
+        // ───────── NEXT ─────────
+        function nextQuestion() {
+            currentQIndex++;
+            document.getElementById('voiceListenBtn').disabled = false;
+            if (currentQIndex >= allQuestions.length) { finishInterview(); return; }
+            showQuestion(currentQIndex);
+        }
+
+        // ───────── FINISH ─────────
+        async function finishInterview() {
+            clearInterval(timerInterval);
+            stopListening();
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            await stopWebcam();
+            document.getElementById('questionSection').classList.remove('active');
+            showOverlay('Calculating your results…');
+
+            const res = await fetch('/api/candidate/interview/finish', {
+                method: 'POST',
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession())
+            });
+            hideOverlay();
+
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                showToast(data.error || 'Could not finish interview', 'error');
+                document.getElementById('questionSection').classList.add('active');
+                return;
+            }
+            const r = data.result;
+
+            document.getElementById('finalScore').textContent = r.total_score + '/' + r.max_score;
+            document.getElementById('finalDetails').innerHTML =
+                r.percentage + '% overall | Technical: ' + r.technical_pct + '% | Behavioral: ' + r.behavioral_pct + '%';
+
+            document.getElementById('completeSection').classList.add('active');
+        }
+
+        // ───────── TIMER ─────────
+        function startTimer() {
+            clearInterval(timerInterval);
+            questionStart = Date.now();
+            const timerEl = document.getElementById('timer');
+            timerEl.className = 'timer';
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - questionStart) / 1000);
+                const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const s = String(elapsed % 60).padStart(2, '0');
+                timerEl.textContent = m + ':' + s;
+                if (elapsed > 90) timerEl.className = 'timer warning';
+                if (elapsed > 120) timerEl.className = 'timer danger';
+            }, 1000);
+        }
+
+        // ───────── WEBCAM PROCTORING (Browser Camera) ─────────
+        let cameraStream = null;
+
+        async function startWebcam() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 320, height: 240 },
+                    audio: false
+                });
+
+                const video = document.getElementById('webcamVideo');
+                video.srcObject = cameraStream;
+                video.style.display = 'block';
+                document.getElementById('webcamOffMsg').style.display = 'none';
+                document.getElementById('proctorIndicator').className = 'proctor-indicator proctor-ok';
+
+                // Send frames to server for face detection every 2 seconds
+                proctorPollInt = setInterval(captureAndAnalyze, 2000);
+            } catch (e) {
+                console.warn('Camera access denied or unavailable:', e);
+                document.getElementById('webcamOffMsg').textContent = 'Camera not available';
+            }
+        }
+
+        async function captureAndAnalyze() {
+            if (!sessionId || !cameraStream) return;
+            try {
+                const video = document.getElementById('webcamVideo');
+                const canvas = document.getElementById('webcamCanvas');
+                canvas.width = 320;
+                canvas.height = 240;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, 320, 240);
+                const frameData = canvas.toDataURL('image/jpeg', 0.6);
+
+                const res = await fetch('/api/candidate/proctor/analyze-frame', {
+                    method: 'POST',
+                    headers: interviewHeaders(),
+                    body: JSON.stringify(withSession({ frame: frameData }))
+                });
+                const data = await res.json();
+
+                const faceIcon = document.getElementById('faceIcon');
+                const faceText = document.getElementById('faceText');
+                const indicator = document.getElementById('proctorIndicator');
+
+                if (data.face_count === 0) {
+                    faceIcon.textContent = '👤';
+                    faceText.textContent = 'No face detected';
+                    indicator.className = 'proctor-indicator proctor-danger';
+                } else if (data.face_count > 1) {
+                    faceIcon.textContent = '👥';
+                    faceText.textContent = data.face_count + ' faces detected!';
+                    indicator.className = 'proctor-indicator proctor-warn';
+                } else {
+                    faceIcon.textContent = '✅';
+                    faceText.textContent = 'Candidate present';
+                    indicator.className = 'proctor-indicator proctor-ok';
+                }
+
+                flagCount = data.flag_count || 0;
+                const flagList = document.getElementById('flagList');
+                if (data.flags && data.flags.length > 0) {
+                    flagList.innerHTML = data.flags.slice(-3).map(function(f) {
+                        return '<div style="color:var(--red); margin-bottom:2px;">⚠ ' + f.type.replace(/_/g, ' ') + '</div>';
+                    }).join('');
+                } else {
+                    flagList.textContent = 'None';
+                }
+            } catch (e) { /* ignore analysis errors */ }
+        }
+
+        async function stopWebcam() {
+            clearInterval(proctorPollInt);
+
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(function(t) { t.stop(); });
+                cameraStream = null;
+            }
+
+            document.getElementById('webcamVideo').style.display = 'none';
+            document.getElementById('webcamOffMsg').style.display = 'block';
+            document.getElementById('webcamOffMsg').textContent = 'Interview ended';
+        }
+
+        // ───────── MODE TOGGLE ─────────
+        function setMode(mode) {
+            interviewMode = mode;
+            document.getElementById('modeTxtBtn').classList.toggle('active', mode === 'text');
+            document.getElementById('modeVoiceBtn').classList.toggle('active', mode === 'voice');
+
+            if (mode === 'text') {
+                document.getElementById('textInputArea').style.display = 'block';
+                document.getElementById('voiceInputArea').classList.remove('active');
+                stopListening();
+            } else {
+                document.getElementById('textInputArea').style.display = 'none';
+                document.getElementById('voiceInputArea').classList.add('active');
+                if (!speechSupported) {
+                    document.getElementById('voiceStatusText').textContent = 'Voice not supported in this browser';
+                    document.getElementById('voiceListenBtn').disabled = true;
+                }
+            }
+        }
+
+        // ───────── BROWSER TTS (read question aloud) ─────────
+        function speakQuestion(text) {
+            if (!ttsSupported || interviewMode !== 'voice') return;
+            window.speechSynthesis.cancel();
+            const qIdx = currentQIndex + 1;
+            const qType = allQuestions[currentQIndex].type || '';
+            const toSpeak = 'Question ' + qIdx + ' of ' + allQuestions.length + '. ' + qType + '. ' + text;
+            const utter = new SpeechSynthesisUtterance(toSpeak);
+            utter.rate = 0.95;
+            utter.onstart = function() {
+                document.getElementById('voiceWave').className = 'voice-wave speaking';
+                document.getElementById('voiceStatusText').textContent = 'Reading question aloud…';
+            };
+            utter.onend = function() {
+                document.getElementById('voiceWave').className = 'voice-wave';
+                document.getElementById('voiceStatusText').textContent = 'Tap the button to speak your answer';
+            };
+            window.speechSynthesis.speak(utter);
+        }
+
+        // ───────── BROWSER STT (listen to answer) ─────────
+        function initRecognition() {
+            if (!speechSupported) return;
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRec();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function(event) {
+                let finalText = '';
+                let interimText = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        finalText += event.results[i][0].transcript + ' ';
+                    } else {
+                        interimText += event.results[i][0].transcript;
+                    }
+                }
+                voiceTranscriptText = finalText.trim();
+                const display = voiceTranscriptText + (interimText ? ' ' + interimText : '');
+                document.getElementById('voiceTranscript').textContent = display || '';
+                // Also sync to hidden textarea so submitAnswer picks it up
+                document.getElementById('answerInput').value = voiceTranscriptText;
+            };
+
+            recognition.onerror = function(event) {
+                if (event.error === 'no-speech') {
+                    document.getElementById('voiceStatusText').textContent = 'No speech detected. Try again.';
+                } else if (event.error !== 'aborted') {
+                    document.getElementById('voiceStatusText').textContent = 'Error: ' + event.error;
+                }
+                stopListeningUI();
+            };
+
+            recognition.onend = function() {
+                if (isListening) {
+                    // Auto-restart if user hasn't explicitly stopped
+                    try { recognition.start(); } catch(e) { stopListeningUI(); }
+                }
+            };
+        }
+
+        function toggleVoiceListening() {
+            if (isListening) {
+                stopListening();
+            } else {
+                startListening();
+            }
+        }
+
+        function startListening() {
+            if (!speechSupported) {
+                showToast('Speech recognition not supported in this browser', 'error');
+                return;
+            }
+            if (!recognition) initRecognition();
+
+            voiceTranscriptText = '';
+            document.getElementById('voiceTranscript').textContent = '';
+            isListening = true;
+
+            try {
+                recognition.start();
+            } catch (e) {
+                // Already started
+            }
+
+            document.getElementById('voiceWave').className = 'voice-wave listening';
+            document.getElementById('voiceStatusText').textContent = 'Listening… speak now';
+            document.getElementById('voiceListenBtn').textContent = '⏹ Stop Recording';
+            document.getElementById('voiceListenBtn').className = 'btn btn-voice btn-voice-stop';
+        }
+
+        function stopListening() {
+            isListening = false;
+            if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+            }
+            stopListeningUI();
+        }
+
+        function stopListeningUI() {
+            isListening = false;
+            document.getElementById('voiceWave').className = 'voice-wave';
+            document.getElementById('voiceListenBtn').textContent = '🎤 Start Speaking';
+            document.getElementById('voiceListenBtn').className = 'btn btn-voice btn-voice-listen';
+            if (voiceTranscriptText) {
+                document.getElementById('voiceStatusText').textContent = '✓ Answer recorded';
+            } else {
+                document.getElementById('voiceStatusText').textContent = 'Tap the button to speak';
+            }
+        }
+
+        // ───────── ANTI-CHEAT ─────────
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && sessionId) logFlag("TAB_SWITCHED_OR_MINIMIZED");
+        });
+        document.addEventListener("copy", () => { if (sessionId) logFlag("COPY_DETECTED"); });
+        document.addEventListener("paste", () => { if (sessionId) logFlag("PASTE_DETECTED"); });
+        window.addEventListener("keyup", (e) => {
+            if (e.key === "PrintScreen" && sessionId) logFlag("SCREENSHOT_DETECTED");
+        });
+
+        async function logFlag(flagType) {
+            if (!sessionId) return;
+
+            // Update flag list visually
+            flagCount++;
+            const flagList = document.getElementById('flagList');
+            const flagHtml = '<div style="color:var(--red); margin-bottom:2px;">⚠ ' + flagType.replace(/_/g, ' ') + '</div>';
+            if (flagList.textContent === 'None') flagList.innerHTML = flagHtml;
+            else flagList.innerHTML += flagHtml;
+
+            await fetch('/api/candidate/proctor/browser_flag', {
+                method: 'POST',
+                headers: interviewHeaders(),
+                body: JSON.stringify(withSession({ type: flagType }))
+            });
+        }
+    </script>
+    {% endif %}
+</body>
+
+</html>

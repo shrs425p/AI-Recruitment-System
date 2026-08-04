@@ -1,0 +1,936 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* ── DASHBOARD ACTIONS & GREETING ── */
+    .dash-hero-container {
+        background: linear-gradient(135deg, var(--md-sys-color-primary-container) 0%, var(--md-sys-color-surface-container) 100%);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        margin-bottom: 28px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--elevation-1);
+    }
+
+    .dash-hero-container::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, var(--md-sys-color-primary) 0%, transparent 70%);
+        opacity: 0.05;
+        pointer-events: none;
+    }
+
+    .dash-hero-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 16px;
+        z-index: 2;
+        position: relative;
+    }
+
+    .dash-hero-title h1 {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.6px;
+        color: var(--md-sys-color-on-surface);
+        margin-bottom: 6px;
+    }
+
+    .dash-hero-title p {
+        font-size: 14px;
+        color: var(--md-sys-color-on-surface-variant);
+        max-width: 600px;
+        line-height: 1.5;
+    }
+
+    .hero-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+    }
+
+    .hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--md-sys-color-surface-container-low);
+        color: var(--md-sys-color-on-surface);
+        padding: 6px 14px;
+        border-radius: var(--radius-pill);
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid var(--md-sys-color-outline-variant);
+        box-shadow: var(--elevation-1);
+    }
+
+    .hero-clock-chip {
+        background: var(--md-sys-color-primary);
+        color: var(--md-sys-color-surface);
+        font-family: var(--font-mono);
+        border: none;
+    }
+
+    .hero-clock-chip .dot {
+        width: 6px;
+        height: 6px;
+        background: currentColor;
+        border-radius: 50%;
+        animation: pulse-clock 1.8s infinite;
+    }
+
+    @keyframes pulse-clock {
+        0% { opacity: 0.3; }
+        50% { opacity: 1; }
+        100% { opacity: 0.3; }
+    }
+
+    /* ── FUNNEL JOURNEY VISUAL FLOW ── */
+    .funnel-flow-container {
+        margin-bottom: 32px;
+    }
+
+    .funnel-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .funnel-title {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.2px;
+        color: var(--md-sys-color-on-surface);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .funnel-title svg {
+        color: var(--md-sys-color-primary);
+    }
+
+    .funnel-steps-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+        .funnel-steps-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .funnel-steps-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .funnel-step-card {
+        background: var(--md-sys-color-surface-container-low);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 140px;
+        position: relative;
+        transition: all 0.22s cubic-bezier(0.2, 0, 0, 1);
+        box-shadow: var(--elevation-1);
+    }
+
+    .funnel-step-card:hover {
+        background: var(--md-sys-color-surface-container);
+        border-color: var(--md-sys-color-primary);
+        transform: translateY(-2px);
+    }
+
+    .funnel-step-card.active-stage {
+        border-color: var(--md-sys-color-primary);
+        background: linear-gradient(to bottom, var(--md-sys-color-surface-container-low) 0%, var(--md-sys-color-primary-container) 120%);
+    }
+
+    .funnel-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .funnel-num {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        letter-spacing: 0.5px;
+    }
+
+    .funnel-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        background: var(--md-sys-color-surface-container-high);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--md-sys-color-on-surface-variant);
+        transition: all 0.2s ease;
+    }
+
+    .funnel-step-card:hover .funnel-badge {
+        background: var(--md-sys-color-primary-container);
+        color: var(--md-sys-color-on-primary-container);
+        border-color: var(--md-sys-color-primary);
+    }
+
+    .funnel-step-card.active-stage .funnel-badge {
+        background: var(--md-sys-color-primary);
+        color: var(--md-sys-color-surface);
+        border-color: var(--md-sys-color-primary);
+    }
+
+    .funnel-body {
+        margin-bottom: 12px;
+    }
+
+    .funnel-step-name {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--md-sys-color-on-surface);
+        margin-bottom: 4px;
+        letter-spacing: -0.1px;
+    }
+
+    .funnel-step-desc {
+        font-size: 11px;
+        color: var(--md-sys-color-on-surface-variant);
+        line-height: 1.35;
+    }
+
+    .funnel-status-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: auto;
+        padding-top: 8px;
+        border-top: 1px solid var(--md-sys-color-outline-variant);
+        font-size: 10px;
+        font-weight: 600;
+    }
+
+    .status-pill {
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        font-size: 9.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .status-pill-green {
+        background: var(--green-soft);
+        color: var(--green);
+    }
+
+    .status-pill-gray {
+        background: var(--md-sys-color-surface-container-high);
+        color: var(--md-sys-color-on-surface-variant);
+    }
+
+    /* ── DASHBOARD GRID LAYOUT ── */
+    .dashboard-layout-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 1000px) {
+        .dashboard-layout-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .dashboard-card {
+        background: var(--md-sys-color-surface-container-low);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-md);
+        padding: 24px;
+        box-shadow: var(--elevation-1);
+        margin-bottom: 24px;
+    }
+
+    .dashboard-card-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--md-sys-color-on-surface);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    /* ── LEADERBOARD PREVIEW WIDGET ── */
+    .leaderboard-preview-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .leaderboard-preview-table th {
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--md-sys-color-on-surface-variant);
+        letter-spacing: 0.5px;
+        border-bottom: 1.5px solid var(--md-sys-color-outline-variant);
+    }
+
+    .leaderboard-preview-table td {
+        padding: 12px;
+        font-size: 13px;
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        color: var(--md-sys-color-on-surface);
+    }
+
+    .leaderboard-preview-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .rank-number {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 12px;
+        color: var(--md-sys-color-primary);
+        background: var(--md-sys-color-primary-container);
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fit-badge {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: var(--radius-pill);
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .fit-strong {
+        background: var(--green-soft);
+        color: var(--green);
+    }
+
+    .fit-good {
+        background: var(--blue-soft);
+        color: var(--blue);
+    }
+
+    .fit-weak {
+        background: var(--amber-soft);
+        color: var(--amber);
+    }
+
+    /* ── EMPTY STATE SYSTEM ── */
+    .dashboard-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        text-align: center;
+    }
+
+    .empty-illustration {
+        color: var(--md-sys-color-on-surface-variant);
+        opacity: 0.5;
+        margin-bottom: 16px;
+    }
+
+    .empty-title {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--md-sys-color-on-surface);
+        margin-bottom: 6px;
+    }
+
+    .empty-body {
+        font-size: 12.5px;
+        color: var(--md-sys-color-on-surface-variant);
+        max-width: 380px;
+        line-height: 1.5;
+        margin-bottom: 16px;
+    }
+
+    /* ── DOCKPIT CONTROLS & RECENT ACTIVITY ── */
+    .dashboard-quick-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .action-row-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--md-sys-color-surface-container-low);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s ease;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    .action-row-btn:hover {
+        background: var(--md-sys-color-surface-container);
+        border-color: var(--md-sys-color-primary);
+        transform: translateX(2px);
+    }
+
+    .action-row-icon {
+        color: var(--md-sys-color-primary);
+        flex-shrink: 0;
+    }
+
+    .insight-bullet {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 12.5px;
+        color: var(--md-sys-color-on-surface-variant);
+        line-height: 1.45;
+        margin-bottom: 12px;
+    }
+
+    .insight-bullet:last-child {
+        margin-bottom: 0;
+    }
+
+    .insight-bullet svg {
+        color: var(--md-sys-color-primary);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+
+    /* ── AlertDialog Modal ── */
+    .glass-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(29, 27, 32, 0.4);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .glass-modal-card {
+        background: var(--md-sys-color-surface-container-low);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: var(--elevation-1);
+    }
+</style>
+
+<!-- ── WELCOME HERO GREETING ── -->
+<div class="dash-hero-container">
+    <div class="dash-hero-header">
+        <div class="dash-hero-title">
+            <h1 id="greetingMessage">Welcome, Recruiter</h1>
+            <p>Your automated AI-powered talent screening platform. Upload, extract, rank, and interview candidates in one high-fidelity system.</p>
+            
+            <div class="hero-meta-row">
+                <div class="hero-chip hero-clock-chip">
+                    <span class="dot"></span>
+                    <span id="dashboardClock">00:00:00 AM</span>
+                </div>
+                <div class="hero-chip">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span id="dashboardDate">Saturday, May 30, 2026</span>
+                </div>
+                <div class="hero-chip">
+                    <span style="display:inline-block; width:5px; height:5px; background:var(--green); border-radius:50%; margin-right:6px;"></span>
+                    Database: Connected
+                </div>
+            </div>
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+            <button id="autoPipelineBtn" onclick="runAutoPipeline()" class="btn btn-primary" style="font-size: 12.5px; border-radius: var(--radius-pill); padding: 8px 16px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                Safe Auto-Pilot
+            </button>
+            <button onclick="openOutputFolder()" class="btn btn-secondary" style="font-size: 12.5px; border-radius: var(--radius-pill); padding: 8px 16px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Open Folder
+            </button>
+            <button id="resetBtn" onclick="resetPipeline()" class="btn btn-danger" style="font-size: 12.5px; border-radius: var(--radius-pill); color: var(--red); border-color: var(--red-soft); padding: 8px 16px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Reset Database
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── STAGE VISUAL FUNNEL FLOW ── -->
+<div class="funnel-flow-container">
+    <div class="funnel-title-row">
+        <h2 class="funnel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            Recruitment Funnel Progress
+        </h2>
+    </div>
+    
+    <div class="funnel-steps-grid">
+        <!-- Stage 01: Upload -->
+        <a href="/upload" class="funnel-step-card {% if pdf_count > 0 %}active-stage{% endif %}">
+            <div class="funnel-header-row">
+                <span class="funnel-num">STAGE 01</span>
+                <div class="funnel-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+            </div>
+            <div class="funnel-body">
+                <div class="funnel-step-name">Upload CVs</div>
+                <div class="funnel-step-desc">Import resumes in PDF or image files.</div>
+            </div>
+            <div class="funnel-status-indicator">
+                <span>Total Files</span>
+                <span class="status-pill {% if pdf_count > 0 %}status-pill-green{% else %}status-pill-gray{% endif %}">
+                    <span data-stat="pdf_count">{{ pdf_count }}</span> Resumes
+                </span>
+            </div>
+        </a>
+
+        <!-- Stage 02: NLP Extraction -->
+        <a href="/nlp" class="funnel-step-card {% if nlp_count > 0 %}active-stage{% endif %}">
+            <div class="funnel-header-row">
+                <span class="funnel-num">STAGE 02</span>
+                <div class="funnel-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line></svg>
+                </div>
+            </div>
+            <div class="funnel-body">
+                <div class="funnel-step-name">NLP Extraction</div>
+                <div class="funnel-step-desc">AI extracts profiles and identifies skills.</div>
+            </div>
+            <div class="funnel-status-indicator">
+                <span>Profiles</span>
+                <span class="status-pill {% if nlp_count > 0 %}status-pill-green{% else %}status-pill-gray{% endif %}">
+                    <span data-stat="nlp_count">{{ nlp_count }}</span> Ready
+                </span>
+            </div>
+        </a>
+
+        <!-- Stage 03: Ranking -->
+        <a href="/ranking" class="funnel-step-card {% if has_ranking %}active-stage{% endif %}">
+            <div class="funnel-header-row">
+                <span class="funnel-num">STAGE 03</span>
+                <div class="funnel-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                </div>
+            </div>
+            <div class="funnel-body">
+                <div class="funnel-step-name">Job Ranking</div>
+                <div class="funnel-step-desc">Score and rank profiles against job description.</div>
+            </div>
+            <div class="funnel-status-indicator">
+                <span>Rank Status</span>
+                <span class="status-pill {% if has_ranking %}status-pill-green{% else %}status-pill-gray{% endif %}">
+                    {{ "Ranked" if has_ranking else "Pending" }}
+                </span>
+            </div>
+        </a>
+
+        <!-- Stage 04: Scheduling -->
+        <a href="/scheduling" class="funnel-step-card {% if has_schedule %}active-stage{% endif %}">
+            <div class="funnel-header-row">
+                <span class="funnel-num">STAGE 04</span>
+                <div class="funnel-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg>
+                </div>
+            </div>
+            <div class="funnel-body">
+                <div class="funnel-step-name">Scheduling</div>
+                <div class="funnel-step-desc">Send automated interview invites.</div>
+            </div>
+            <div class="funnel-status-indicator">
+                <span>Invites</span>
+                <span class="status-pill {% if has_schedule %}status-pill-green{% else %}status-pill-gray{% endif %}">
+                    {{ "Coordinated" if has_schedule else "Not Sent" }}
+                </span>
+            </div>
+        </a>
+
+        <!-- Stage 05: Interview Bot -->
+        <a href="/interview" class="funnel-step-card {% if interview_count > 0 %}active-stage{% endif %}">
+            <div class="funnel-header-row">
+                <span class="funnel-num">STAGE 05</span>
+                <div class="funnel-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+            </div>
+            <div class="funnel-body">
+                <div class="funnel-step-name">Evaluation</div>
+                <div class="funnel-step-desc">Run secure online proctored chat/voice interview.</div>
+            </div>
+            <div class="funnel-status-indicator">
+                <span>Evaluations</span>
+                <span class="status-pill {% if interview_count > 0 %}status-pill-green{% else %}status-pill-gray{% endif %}">
+                    <span data-stat="interview_count">{{ interview_count }}</span> Done
+                </span>
+            </div>
+        </a>
+
+        <!-- Stage 06: Reports -->
+        <a href="/reports" class="funnel-step-card {% if report_count > 0 %}active-stage{% endif %}">
+            <div class="funnel-header-row">
+                <span class="funnel-num">STAGE 06</span>
+                <div class="funnel-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                </div>
+            </div>
+            <div class="funnel-body">
+                <div class="funnel-step-name">Reports</div>
+                <div class="funnel-step-desc">Export comprehensive hiring analytics.</div>
+            </div>
+            <div class="funnel-status-indicator">
+                <span>PDF Reports</span>
+                <span class="status-pill {% if report_count > 0 %}status-pill-green{% else %}status-pill-gray{% endif %}">
+                    <span data-stat="report_count">{{ report_count }}</span> Ready
+                </span>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- ── DASHBOARD SUB LAYOUT ── -->
+<div class="dashboard-layout-grid">
+    <!-- Left Column: Active Leaderboard preview -->
+    <div>
+        <div class="dashboard-card">
+            <div class="dashboard-card-title">
+                <span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="display:inline-block; vertical-align:middle; margin-right:6px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                    Top Ranked Candidates
+                </span>
+                {% if ranking %}
+                <span style="font-size: 11px; font-weight: 500; color: var(--md-sys-color-primary); background: var(--md-sys-color-primary-container); padding: 3px 8px; border-radius: var(--radius-pill);">
+                    Active Job: {{ ranking.job_description.job_title }}
+                </span>
+                {% endif %}
+            </div>
+
+            {% if ranking and ranking.ranked_candidates %}
+            <div class="table-wrap">
+                <table class="leaderboard-preview-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Rank</th>
+                            <th>Candidate</th>
+                            <th>Domain</th>
+                            <th>Total Score</th>
+                            <th style="text-align: right;">Verdict</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in ranking.ranked_candidates[:5] %}
+                        <tr>
+                            <td><span class="rank-number">{{ loop.index }}</span></td>
+                            <td>
+                                <div style="font-weight: 600; font-size:13.5px;">{{ c.candidate_name or 'Unidentified' }}</div>
+                                <div style="font-size:11px; color: var(--md-sys-color-on-surface-variant); font-family: var(--font-mono); font-weight:500;">
+                                    {{ c._source_file }}
+                                </div>
+                            </td>
+                            <td>
+                                <span style="font-size: 11.5px; font-weight:600; color:var(--md-sys-color-on-surface-variant);">
+                                    {{ c.domain or 'General' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="score-bar" style="width: 80px; height: 6px; background: var(--md-sys-color-outline-variant); border-radius: 99px; overflow: hidden;">
+                                        <div class="score-fill" data-score="{{ c.total_score }}" style="height: 100%; background: var(--md-sys-color-primary); border-radius: 99px;"></div>
+                                    </div>
+                                    <span style="font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: var(--md-sys-color-on-surface);">{{ c.total_score }}</span>
+                                </div>
+                            </td>
+                            <td style="text-align: right;">
+                                {% if c.total_score >= 85 %}
+                                    <span class="fit-badge fit-strong">Strong Fit</span>
+                                {% elif c.total_score >= 65 %}
+                                    <span class="fit-badge fit-good">Good Fit</span>
+                                {% else %}
+                                    <span class="fit-badge fit-weak">Weak Match</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 16px; text-align: right;">
+                <a href="/ranking" class="btn btn-secondary" style="font-size: 11.5px; padding: 6px 14px; border-radius: var(--radius-pill);">View Full Leaderboard →</a>
+            </div>
+            {% else %}
+            <!-- Elegant placeholder with custom outline SVG -->
+            <div class="dashboard-empty-state">
+                <div class="empty-illustration">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <div class="empty-title">Leaderboard is empty</div>
+                <div class="empty-body">Score your candidates against a custom Job Description in the Leaderboard Ranking tab to build a visual performance overview.</div>
+                <a href="/ranking" class="btn btn-primary" style="font-size: 12px; padding: 8px 16px; border-radius: var(--radius-pill);">
+                    Go to Leaderboard
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: Quick Operations Cockpit & System Health -->
+    <div>
+        <!-- Quick Start Guide -->
+        <div class="dashboard-card">
+            <div class="dashboard-card-title">
+                <span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="display:inline-block; vertical-align:middle; margin-right:6px;"><polygon points="6 2 18 2 18 6 6 6 6 2"></polygon><rect x="3" y="6" width="18" height="16" rx="2"></rect></svg>
+                    Action Center
+                </span>
+            </div>
+            <div class="dashboard-quick-actions">
+                <a href="/upload" class="action-row-btn">
+                    <svg class="action-row-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Import Candidates
+                </a>
+                <a href="/ranking" class="action-row-btn">
+                    <svg class="action-row-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    Evaluate Match Score
+                </a>
+                <a href="/settings" class="action-row-btn">
+                    <svg class="action-row-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    System Settings
+                </a>
+            </div>
+        </div>
+
+        <!-- Hiring Operations Insights -->
+        <div class="dashboard-card">
+            <div class="dashboard-card-title">
+                <span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="display:inline-block; vertical-align:middle; margin-right:6px;"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                    Hiring Cockpit Tips
+                </span>
+            </div>
+            <div class="insight-bullet">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                <span><strong>Setup SMTP</strong> in settings to send automated, personalized invitation emails containing secure candidate assessment tokens.</span>
+            </div>
+            <div class="insight-bullet">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                <span><strong>Activate webcam proctoring</strong> under interview configs to guarantee real-time face validation during candidate sessions.</span>
+            </div>
+            <div class="insight-bullet">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                <span><strong>Export PDF reports</strong> at the final stage to download a professionally compiled hiring overview ready to share.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Reset database AlertDialog Modal ── -->
+<div id="resetModal" class="glass-modal-overlay">
+    <div class="glass-modal-card">
+        <div style="font-size: 16px; font-weight: 700; color: var(--red); margin-bottom: 8px; display:flex; align-items:center; gap:8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Reset Database Data
+        </div>
+        <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-bottom: 24px; line-height: 1.55;">
+            This will permanently remove **NLP extracted profiles, rankings, schedules, interview transcripts, and candidate reports**.
+            <br><br>
+            Your candidate resumes and converted text files will not be deleted.
+        </p>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button onclick="closeResetModal()" class="btn btn-secondary" style="font-size: 12.5px; border-radius: var(--radius-pill);">
+                Cancel
+            </button>
+            <button onclick="confirmReset()" class="btn btn-danger" style="font-size: 12.5px; border-radius: var(--radius-pill); color:var(--red); border-color:var(--red-soft);">
+                Yes, Reset All
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Live Clock & Date Poller ──
+    function updateClock() {
+        const now = new Date();
+        
+        // Time
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        let seconds = now.getSeconds();
+        let ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        minutes = minutes < 10 ? '0'+minutes : minutes;
+        seconds = seconds < 10 ? '0'+seconds : seconds;
+        hours = hours < 10 ? '0'+hours : hours;
+        const clockEl = document.getElementById('dashboardClock');
+        if (clockEl) {
+            clockEl.textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
+        }
+        
+        // Dynamic greeting message based on time of day
+        const greetingEl = document.getElementById('greetingMessage');
+        if (greetingEl) {
+            let greetText = "Welcome, Recruiter";
+            const curHour = now.getHours();
+            if (curHour < 12) {
+                greetText = "Good Morning, Recruiter";
+            } else if (curHour < 17) {
+                greetText = "Good Afternoon, Recruiter";
+            } else {
+                greetText = "Good Evening, Recruiter";
+            }
+            greetingEl.textContent = greetText;
+        }
+
+        // Date
+        const dateEl = document.getElementById('dashboardDate');
+        if (dateEl) {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateEl.textContent = now.toLocaleDateString(undefined, options);
+        }
+    }
+    
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function resetPipeline() {
+        document.getElementById('resetModal').style.display = 'flex';
+    }
+
+    function closeResetModal() {
+        document.getElementById('resetModal').style.display = 'none';
+    }
+
+    async function runAutoPipeline() {
+        const btn = document.getElementById('autoPipelineBtn');
+        if (!btn) return;
+
+        btn.disabled = true;
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner" style="width:12px; height:12px; border-width:1.5px; margin-right:4px;"></span> Running...';
+        showOverlay('Starting auto-pipeline...');
+
+        const summarizeResult = (result) => {
+            const txtCount = ((result.txt || {}).success || []).length;
+            const nlpCount = ((result.nlp || {}).success || []).length;
+            const rankCount = ((result.ranking || {}).count || 0);
+            const schedCount = ((result.scheduling || {}).count || 0);
+            const reportCount = ((result.reports || {}).count || 0);
+            if (txtCount || nlpCount || rankCount || schedCount || reportCount) {
+                return `Processed ${txtCount} text file(s), parsed ${nlpCount} profile(s), ranked ${rankCount}, scheduled ${schedCount}, generated ${reportCount} report(s).`;
+            }
+            return 'No new work was needed. Existing pipeline outputs were preserved.';
+        };
+
+        const waitForCompletion = async () => {
+            while (true) {
+                const res = await fetch('/api/task-status');
+                const tasks = await res.json();
+                const task = tasks.auto_pipeline || {};
+                if (task.message) showOverlay(task.message);
+
+                if (task.status === 'done') {
+                    return task.result || {};
+                }
+                if (task.status === 'error') {
+                    throw new Error(task.error || task.message || 'Auto-pipeline failed.');
+                }
+                await new Promise(resolve => setTimeout(resolve, 1200));
+            }
+        };
+
+        try {
+            const res = await fetch('/api/run-auto-pipeline', { method: 'POST' });
+            const data = await res.json();
+            if (!data.success) {
+                showToast('Pipeline Error: ' + (data.error || 'Failed to process.'), 'error');
+                return;
+            }
+
+            const result = await waitForCompletion();
+            hideOverlay();
+            showToast('Auto-pipeline completed. ' + summarizeResult(result), 'success');
+            setTimeout(() => location.reload(), 1800);
+        } catch(e) {
+            hideOverlay();
+            showToast('Error running pipeline: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+
+    async function confirmReset() {
+        closeResetModal();
+        const btn = document.getElementById('resetBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:12px; height:12px; border-width:1.5px; margin-right:4px;"></span> Resetting...';
+        try {
+            const res = await fetch('/api/reset-pipeline', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('Reset failed', 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Reset Database';
+    }
+
+    async function openOutputFolder() {
+        await fetch('/api/open-output-folder', { method: 'POST' });
+    }
+</script>
+{% endblock %}

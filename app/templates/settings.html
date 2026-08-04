@@ -1,0 +1,1303 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .theme-opt {
+        display: flex; align-items: center; gap: 8px; padding: 12px 20px;
+        border: 2px solid var(--gray-200); background: var(--white);
+        border-radius: 10px; cursor: pointer; transition: all 0.15s;
+        min-width: 120px; font-weight: 600; font-size: 0.9rem; color: inherit;
+    }
+    .theme-opt.active {
+        border-color: var(--black); background: var(--accent-soft);
+    }
+    .settings-tab-bar {
+        display: flex; gap: 6px; margin-bottom: 24px; border-bottom: 1px solid var(--gray-100);
+        padding-bottom: 0;
+    }
+    .settings-tab {
+        padding: 10px 18px; font-size: 0.88rem; font-weight: 600; color: var(--gray-400);
+        border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent;
+        transition: all 0.15s; font-family: var(--font-sans);
+    }
+    .settings-tab:hover { color: var(--black); }
+    .settings-tab.active { color: var(--black); border-bottom-color: var(--black); }
+    .settings-section { display: none; }
+    .settings-section.active { display: block; }
+
+    /* ── TERMINAL CONSOLE STYLE ── */
+    .terminal-container {
+        display: flex;
+        flex-direction: column;
+        background: #141218;
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        box-shadow: var(--elevation-1);
+        margin-top: 16px;
+    }
+    .terminal-header {
+        background: var(--md-sys-color-surface-container);
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        user-select: none;
+    }
+    .terminal-dots {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .terminal-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+    }
+    .terminal-dot-red { background: #ff5f56; }
+    .terminal-dot-yellow { background: #ffbd2e; }
+    .terminal-dot-green { background: #27c93f; }
+    .terminal-title {
+        font-family: var(--font-sans);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--md-sys-color-on-surface-variant);
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .terminal-status-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--green);
+        border-radius: 50%;
+        animation: status-pulse 1.6s infinite;
+    }
+    @keyframes status-pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 1; }
+        100% { opacity: 0.3; }
+    }
+    .terminal-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .terminal-btn {
+        background: var(--md-sys-color-surface-container-high);
+        color: var(--md-sys-color-on-surface-variant);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        padding: 5px 12px;
+        border-radius: var(--radius-pill);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+    .terminal-btn:hover {
+        background: var(--md-sys-color-primary-container);
+        color: var(--md-sys-color-on-primary-container);
+        border-color: var(--md-sys-color-primary);
+    }
+    .terminal-body {
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--md-sys-color-outline-variant) transparent;
+    }
+    .terminal-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    .terminal-body::-webkit-scrollbar-thumb {
+        background: var(--md-sys-color-outline-variant);
+        border-radius: 99px;
+    }
+    .terminal-pre {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: #e6e1e5;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+    .log-line {
+        margin-bottom: 2px;
+        line-height: 1.5;
+    }
+
+    /* ── STUNNING MATERIAL 3 ABOUT SECTION OVERRIDES ── */
+    .about-card {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+    }
+    .about-card h2 {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--md-sys-color-on-surface);
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1.5px solid var(--md-sys-color-outline-variant);
+        padding-bottom: 12px;
+    }
+    .about-card h3 {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        letter-spacing: -0.2px;
+        margin-top: 16px;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: uppercase;
+        font-size: 11.5px;
+        letter-spacing: 0.8px;
+    }
+    .about-card p {
+        font-size: 13.5px;
+        color: var(--md-sys-color-on-surface-variant);
+        line-height: 1.6;
+        margin-bottom: 8px;
+    }
+    .about-card ol, .about-card ul {
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+        padding: 0;
+        margin: 12px 0 24px 0;
+        counter-reset: about-counter;
+    }
+    .about-card ol li, .about-card ul li {
+        background: var(--md-sys-color-surface-container-low);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-md);
+        padding: 18px;
+        font-size: 12.5px;
+        color: var(--md-sys-color-on-surface);
+        line-height: 1.55;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.22s cubic-bezier(0.2, 0, 0, 1);
+        box-shadow: var(--elevation-1);
+    }
+    .about-card ol li:hover, .about-card ul li:hover {
+        background: var(--md-sys-color-surface-container);
+        border-color: var(--md-sys-color-primary);
+        transform: translateY(-2px);
+    }
+    .about-card ol li::before {
+        counter-increment: about-counter;
+        content: "0" counter(about-counter);
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        background: var(--md-sys-color-primary-container);
+        width: fit-content;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+    }
+    .about-card ul li {
+        border-left: 3px solid var(--green);
+    }
+    .about-card ul li::before {
+        content: "✓ Bias Protection Audit";
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--green);
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        background: var(--green-soft);
+        width: fit-content;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+    }
+    .about-card strong {
+        color: var(--md-sys-color-on-surface);
+        font-weight: 700;
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-step">Settings</div>
+    <h1 class="page-title">Settings</h1>
+    <p class="page-desc">Manage security, appearance, AI providers, and system info.</p>
+</div>
+
+<!-- Tab bar -->
+<div class="settings-tab-bar">
+    <button type="button" class="settings-tab active" onclick="switchSettingsTab('general')">General</button>
+    <button type="button" class="settings-tab" onclick="switchSettingsTab('ai')">Ollama</button>
+    <button type="button" class="settings-tab" onclick="switchSettingsTab('email')">Email</button>
+    <button type="button" class="settings-tab" onclick="switchSettingsTab('logs')">Logs</button>
+    <button type="button" class="settings-tab" onclick="switchSettingsTab('about')">About</button>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TAB: General                                 -->
+<!-- ════════════════════════════════════════════ -->
+<div class="settings-section active" id="tab-general">
+<form method="POST" action="/settings" autocomplete="off">
+
+<!-- Security -->
+<div class="card">
+    <div class="card-title">Security</div>
+    <div class="card-desc">Enable login to protect access. When off, the app opens directly to the dashboard.</div>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; font-size:0.9rem;">
+            <input type="checkbox" name="login_enabled" {{ 'checked' if cfg.LOGIN_ENABLED }}
+                   style="width:18px; height:18px; accent-color:#18181b;"
+                   onchange="document.getElementById('loginFields').style.display = this.checked ? '' : 'none'">
+            Require login
+        </label>
+    </div>
+
+    <div id="loginFields" style="{{ '' if cfg.LOGIN_ENABLED else 'display:none;' }}">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input class="form-input" name="hr_username" value="{{ cfg.HR_USERNAME }}" placeholder="hr">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password <span style="font-weight:400; color:var(--gray-400);">(leave blank to keep current)</span></label>
+                <input class="form-input" name="hr_password" type="password" placeholder="••••••••">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Appearance -->
+<div class="card" style="margin-top:16px;">
+    <div class="card-title">Appearance</div>
+    <div class="card-desc">Switch between light and dark theme, and choose your favorite color palette.</div>
+
+    <div style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+            <label class="form-label" style="margin-bottom:8px;">Theme Mode</label>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <label class="theme-opt {{ 'active' if cfg.THEME == 'light' }}" style="border-radius:var(--radius-pill); padding:8px 20px;">
+                    <input type="radio" name="theme" value="light"
+                           {{ 'checked' if cfg.THEME == 'light' }} onchange="selectTheme(this.value)">
+                    Light Mode
+                </label>
+                <label class="theme-opt {{ 'active' if cfg.THEME == 'dark' }}" style="border-radius:var(--radius-pill); padding:8px 20px;">
+                    <input type="radio" name="theme" value="dark"
+                           {{ 'checked' if cfg.THEME == 'dark' }} onchange="selectTheme(this.value)">
+                    Dark Mode
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <label class="form-label" style="margin-bottom:8px;">Color Palette</label>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <!-- Lavender -->
+                <label class="theme-opt {{ 'active' if (cfg.COLOR_PALETTE | default('lavender')) == 'lavender' }}" style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="color_palette" value="lavender"
+                           {{ 'checked' if (cfg.COLOR_PALETTE | default('lavender')) == 'lavender' }} onchange="selectPalette(this.value)">
+                    <span style="display:inline-block; width:12px; height:12px; background:#65558f; border-radius:50%;"></span>
+                    Lavender
+                </label>
+                <!-- Organic Sage -->
+                <label class="theme-opt {{ 'active' if cfg.COLOR_PALETTE == 'sage' }}" style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="color_palette" value="sage"
+                           {{ 'checked' if cfg.COLOR_PALETTE == 'sage' }} onchange="selectPalette(this.value)">
+                    <span style="display:inline-block; width:12px; height:12px; background:#386a20; border-radius:50%;"></span>
+                    Organic Sage
+                </label>
+                <!-- Slate Blue -->
+                <label class="theme-opt {{ 'active' if cfg.COLOR_PALETTE == 'blue' }}" style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="color_palette" value="blue"
+                           {{ 'checked' if cfg.COLOR_PALETTE == 'blue' }} onchange="selectPalette(this.value)">
+                    <span style="display:inline-block; width:12px; height:12px; background:#0f61a4; border-radius:50%;"></span>
+                    Slate Blue
+                </label>
+                <!-- Terracotta Rose -->
+                <label class="theme-opt {{ 'active' if cfg.COLOR_PALETTE == 'rose' }}" style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="color_palette" value="rose"
+                           {{ 'checked' if cfg.COLOR_PALETTE == 'rose' }} onchange="selectPalette(this.value)">
+                    <span style="display:inline-block; width:12px; height:12px; background:#984061; border-radius:50%;"></span>
+                    Terracotta Rose
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Profile -->
+<div class="card" style="margin-top:16px;">
+    <div class="card-title">HR Profile</div>
+    <div class="card-desc">Your display info (shown in reports).</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div class="form-group">
+            <label class="form-label">Display Name</label>
+            <input class="form-input" name="display_name" value="{{ cfg.HR_DISPLAY_NAME }}" placeholder="HR Admin">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" name="email" type="email" value="{{ cfg.HR_EMAIL }}" placeholder="hr@company.com">
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">Company / Organisation</label>
+            <input class="form-input" name="company" value="{{ cfg.HR_COMPANY }}" placeholder="Acme Corp">
+        </div>
+    </div>
+</div>
+
+<!-- Save button -->
+<div style="margin-top:24px; display:flex; justify-content:flex-end;">
+    <button type="submit" class="btn btn-primary" style="padding:10px 32px; font-size:0.95rem;">
+        Save Settings
+    </button>
+</div>
+
+</form>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TAB: Ollama                                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="settings-section" id="tab-ai">
+<form method="POST" action="/settings" autocomplete="off">
+
+<!-- hidden fields to preserve General tab values when submitting from AI tab -->
+<input type="hidden" name="theme" value="{{ cfg.THEME }}">
+<input type="hidden" name="color_palette" value="{{ cfg.COLOR_PALETTE }}">
+<input type="hidden" name="display_name" value="{{ cfg.HR_DISPLAY_NAME }}">
+<input type="hidden" name="email" value="{{ cfg.HR_EMAIL }}">
+<input type="hidden" name="company" value="{{ cfg.HR_COMPANY }}">
+<input type="hidden" name="hr_username" value="{{ cfg.HR_USERNAME }}">
+{% if cfg.LOGIN_ENABLED %}<input type="hidden" name="login_enabled" value="on">{% endif %}
+
+<style>
+    /* Scoped visual upgrades for AI settings */
+    #tab-ai .mode-selector-container {
+        display: flex;
+        background: var(--gray-100);
+        padding: 5px;
+        border-radius: 12px;
+        border: 1px solid var(--gray-200);
+        margin-top: 14px;
+    }
+    #tab-ai .mode-selector-btn {
+        flex: 1;
+        text-align: center;
+        padding: 11px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.88rem;
+        transition: all 0.18s ease;
+        border: 1px solid transparent;
+        color: var(--gray-500);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        user-select: none;
+    }
+    #tab-ai .mode-selector-btn input[type="radio"] {
+        display: none;
+    }
+    #tab-ai .mode-selector-btn.active {
+        background: var(--white);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        color: var(--black);
+        border-color: var(--gray-200);
+    }
+    #tab-ai .provider-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-bottom: 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+    }
+    #tab-ai .provider-card:hover {
+        border-color: var(--gray-300);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+    }
+    #tab-ai .provider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--gray-100);
+    }
+    #tab-ai .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    #tab-ai .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    #tab-ai .status-dot.active {
+        background: #10b981;
+        box-shadow: 0 0 8px #10b981;
+        animation: pulse-green 2s infinite;
+    }
+    #tab-ai .status-dot.inactive {
+        background: #9ca3af;
+    }
+    #tab-ai .status-dot.warning {
+        background: #f59e0b;
+        box-shadow: 0 0 8px #f59e0b;
+        animation: pulse-orange 2s infinite;
+    }
+    #tab-ai .provider-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+    #tab-ai .badge-flat {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    #tab-ai .terminal-block {
+        background: #18181b;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        color: #a1a1aa;
+        max-height: 160px;
+        overflow-y: auto;
+        border: 1px solid #27272a;
+    }
+
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
+        70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+        100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+    }
+    @keyframes pulse-orange {
+        0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.7); }
+        70% { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+        100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+    }
+</style>
+
+<!-- Mode selector card -->
+<div class="card">
+    <div class="card-title">Operational AI Mode</div>
+    <div class="card-desc">Choose between a completely offline local setup or a high-performance cloud load-balanced configuration.</div>
+    
+    <div class="mode-selector-container">
+        <label class="mode-selector-btn {% if cfg.APP_MODE == 'privacy' %}active{% endif %}" id="modeOptPrivacy">
+            <input type="radio" name="app_mode" value="privacy" {% if cfg.APP_MODE == 'privacy' %}checked{% endif %} 
+                   onchange="switchAiMode('privacy')">
+            Privacy Mode (Offline)
+        </label>
+        <label class="mode-selector-btn {% if cfg.APP_MODE == 'cloud' %}active{% endif %}" id="modeOptCloud">
+            <input type="radio" name="app_mode" value="cloud" {% if cfg.APP_MODE == 'cloud' %}checked{% endif %} 
+                   onchange="switchAiMode('cloud')">
+            Cloud Mode (API Layer)
+        </label>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- PANEL: PRIVACY MODE                           -->
+<!-- ============================================= -->
+<div id="panel-privacy" class="ai-mode-panel" style="margin-top:16px; {% if cfg.APP_MODE != 'privacy' %}display:none;{% endif %}">
+    <div class="card">
+        <div class="card-title">Privacy Mode (Local Ollama Engine)</div>
+        <div class="card-desc">Zero data leaves the machine. Uses a local lightweight model running inside your local Ollama server.</div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
+            <div class="form-group">
+                <label class="form-label">Active Model</label>
+                <div style="display:flex; gap:8px;">
+                    <select class="form-input" name="privacy_model" id="ollamaModelSelect" style="flex:1;">
+                        <option value="{{ cfg.PRIVACY_MODEL }}">{{ cfg.PRIVACY_MODEL }}</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" onclick="loadOllamaModels()" style="padding:8px 14px; font-size:0.82rem; white-space:nowrap;">
+                        Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Local Server URL</label>
+                <input class="form-input" name="ollama_base_url" value="{{ cfg.OLLAMA_BASE_URL }}" placeholder="http://localhost:11434">
+            </div>
+        </div>
+
+        <!-- Silent Setup Console -->
+        <div style="margin-top:20px; padding-top:18px; border-top:1px solid var(--gray-100);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label class="form-label" style="margin-bottom:0;">Local Environment Bootstrapper</label>
+                <button type="button" class="btn btn-secondary" id="btnStartSetup" onclick="startPrivacySetup()" style="font-size:0.8rem; padding:6px 14px;">
+                    Initialize Environment
+                </button>
+            </div>
+            <p style="font-size:0.82rem; color:var(--gray-400); margin-bottom:12px;">
+                Checks local environment. Silently downloads/installs Ollama & downloads the <strong>{{ cfg.PRIVACY_MODEL }}</strong> model.
+            </p>
+            
+            <!-- Progress Bar -->
+            <div id="setupProgressContainer" style="display:none; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:600; margin-bottom:6px;">
+                    <span id="setupProgressMsg" style="color:var(--black);">Setting up...</span>
+                    <span id="setupProgressPercent">0%</span>
+                </div>
+                <div style="width:100%; height:8px; background:var(--gray-150); border-radius:4px; overflow:hidden;">
+                    <div id="setupProgressBar" style="width:0%; height:100%; background:var(--black); transition:width 0.3s;"></div>
+                </div>
+            </div>
+
+            <!-- Terminal block -->
+            <div id="setupTerminalContainer" style="display:none; class="terminal-block">
+                <pre id="setupTerminal" style="margin:0; white-space:pre-wrap; font-family:var(--font-mono); font-size:0.78rem; color:#a1a1aa;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- PANEL: CLOUD MODE                             -->
+<!-- ============================================= -->
+<div id="panel-cloud" class="ai-mode-panel" style="margin-top:16px; {% if cfg.APP_MODE != 'cloud' %}display:none;{% endif %}">
+    
+    <!-- Provider: Anthropic -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="anthropic_enabled" {% if cfg.ANTHROPIC_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                Anthropic
+            </label>
+            <div class="status-indicator">
+                {% if cfg.ANTHROPIC_ENABLED and cfg.ANTHROPIC_KEY and cfg.ANTHROPIC_KEY != 'sk-ant-...' %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.ANTHROPIC_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:var(--accent-soft); color:var(--black); margin-left:8px;">Claude</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="anthropic_key" id="anthropic_key" type="password" value="{{ cfg.ANTHROPIC_KEY }}" placeholder="sk-ant-...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="anthropic_model" id="anthropic_model" value="{{ cfg.ANTHROPIC_MODEL }}" placeholder="claude-3-5-haiku-latest" list="dl-anthropic" style="flex:1;">
+                    <datalist id="dl-anthropic"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('anthropic','anthropic_key','anthropic_model','dl-anthropic')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: Google Gemini -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="gemini_enabled" {% if cfg.GEMINI_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                Google Gemini
+            </label>
+            <div class="status-indicator">
+                {% if cfg.GEMINI_ENABLED and cfg.GEMINI_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.GEMINI_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#e0f2fe; color:#0369a1; margin-left:8px;">Fastest</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="gemini_key" id="gemini_key" type="password" value="{{ cfg.GEMINI_KEY }}" placeholder="AIza...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="gemini_model" id="gemini_model" value="{{ cfg.GEMINI_MODEL }}" placeholder="gemini-1.5-flash" list="dl-gemini" style="flex:1;">
+                    <datalist id="dl-gemini"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('gemini','gemini_key','gemini_model','dl-gemini')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: Groq -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="groq_enabled" {% if cfg.GROQ_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                Groq
+            </label>
+            <div class="status-indicator">
+                {% if cfg.GROQ_ENABLED and cfg.GROQ_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.GROQ_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#f0fdf4; color:#166534; margin-left:8px;">Ultralight</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="groq_key" id="groq_key" type="password" value="{{ cfg.GROQ_KEY }}" placeholder="gsk_...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="groq_model" id="groq_model" value="{{ cfg.GROQ_MODEL }}" placeholder="llama3-8b-8192" list="dl-groq" style="flex:1;">
+                    <datalist id="dl-groq"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('groq','groq_key','groq_model','dl-groq')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: OpenAI -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="openai_enabled" {% if cfg.OPENAI_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                OpenAI
+            </label>
+            <div class="status-indicator">
+                {% if cfg.OPENAI_ENABLED and cfg.OPENAI_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.OPENAI_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#faf5ff; color:#6b21a8; margin-left:8px;">Premium</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="openai_key" id="openai_key" type="password" value="{{ cfg.OPENAI_KEY }}" placeholder="sk-...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="openai_model" id="openai_model" value="{{ cfg.OPENAI_MODEL }}" placeholder="gpt-4o-mini" list="dl-openai" style="flex:1;">
+                    <datalist id="dl-openai"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('openai','openai_key','openai_model','dl-openai')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: NVIDIA NIM -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="nvidia_enabled" {% if cfg.NVIDIA_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                NVIDIA NIM
+            </label>
+            <div class="status-indicator">
+                {% if cfg.NVIDIA_ENABLED and cfg.NVIDIA_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.NVIDIA_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#ecfdf5; color:#047857; margin-left:8px;">AgenticOS Core</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="nvidia_key" id="nvidia_key" type="password" value="{{ cfg.NVIDIA_KEY }}" placeholder="nvapi-...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="nvidia_model" id="nvidia_model" value="{{ cfg.NVIDIA_MODEL }}" placeholder="meta/llama-3.3-70b-instruct" list="dl-nvidia" style="flex:1;">
+                    <datalist id="dl-nvidia"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('nvidia','nvidia_key','nvidia_model','dl-nvidia')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: OpenRouter -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="openrouter_enabled" {% if cfg.OPENROUTER_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                OpenRouter
+            </label>
+            <div class="status-indicator">
+                {% if cfg.OPENROUTER_ENABLED and cfg.OPENROUTER_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.OPENROUTER_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#fff7ed; color:#c2410c; margin-left:8px;">Unified Gateway</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="openrouter_key" id="openrouter_key" type="password" value="{{ cfg.OPENROUTER_KEY }}" placeholder="sk-or-...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="openrouter_model" id="openrouter_model" value="{{ cfg.OPENROUTER_MODEL }}" placeholder="meta-llama/llama-3.1-8b-instruct:free" list="dl-openrouter" style="flex:1;">
+                    <datalist id="dl-openrouter"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('openrouter','openrouter_key','openrouter_model','dl-openrouter')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: GitHub Models -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="github_enabled" {% if cfg.GITHUB_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                GitHub Models
+            </label>
+            <div class="status-indicator">
+                {% if cfg.GITHUB_ENABLED and cfg.GITHUB_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.GITHUB_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Token</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#eff6ff; color:#1d4ed8; margin-left:8px;">Dev Sandbox</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">GitHub Token</label>
+                <input class="form-input" name="github_key" id="github_key" type="password" value="{{ cfg.GITHUB_KEY }}" placeholder="ghp_...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="github_model" id="github_model" value="{{ cfg.GITHUB_MODEL }}" placeholder="gpt-4o-mini" list="dl-github" style="flex:1;">
+                    <datalist id="dl-github"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('github','github_key','github_model','dl-github')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Provider: Ollama Cloud -->
+    <div class="provider-card">
+        <div class="provider-header">
+            <label style="display:flex; align-items:center; gap:10px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                <input type="checkbox" name="ollama_cloud_enabled" {% if cfg.OLLAMA_CLOUD_ENABLED %}checked{% endif %} style="width:16px; height:16px; accent-color:#18181b;">
+                Ollama Cloud
+            </label>
+            <div class="status-indicator">
+                {% if cfg.OLLAMA_CLOUD_ENABLED and cfg.OLLAMA_CLOUD_KEY %}
+                    <span class="status-dot active"></span> <span style="color:#10b981;">Connected</span>
+                {% elif cfg.OLLAMA_CLOUD_ENABLED %}
+                    <span class="status-dot warning"></span> <span style="color:#f59e0b;">Missing Key</span>
+                {% else %}
+                    <span class="status-dot inactive"></span> <span style="color:var(--gray-400);">Inactive</span>
+                {% endif %}
+                <span class="badge-flat" style="background:#f4f4f5; color:#71717a; margin-left:8px;">Hosted Ollama</span>
+            </div>
+        </div>
+        <div class="provider-grid">
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                <input class="form-input" name="ollama_cloud_key" id="ollama_cloud_key" type="password" value="{{ cfg.OLLAMA_CLOUD_KEY }}" placeholder="ollama_...">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:0.8rem;">Model</label>
+                <div style="display:flex; gap:6px;">
+                    <input class="form-input" name="ollama_cloud_model" id="ollama_cloud_model" value="{{ cfg.OLLAMA_CLOUD_MODEL }}" placeholder="llama3.2:3b" list="dl-ollama-cloud" style="flex:1;">
+                    <datalist id="dl-ollama-cloud"></datalist>
+                    <button type="button" class="btn btn-secondary" onclick="loadCloudModels('ollama_cloud','ollama_cloud_key','ollama_cloud_model','dl-ollama-cloud')" style="padding:8px 10px; font-size:0.78rem; white-space:nowrap;">Load</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div style="margin-top:24px; display:flex; justify-content:flex-end;">
+    <button type="submit" class="btn btn-primary" style="padding:10px 32px; font-size:0.95rem;">
+        Save Settings
+    </button>
+</div>
+
+</form>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TAB: Email / SMTP                            -->
+<!-- ════════════════════════════════════════════ -->
+<div class="settings-section" id="tab-email">
+<form method="POST" action="/settings" autocomplete="off">
+
+<!-- hidden fields to preserve other tab values -->
+<input type="hidden" name="theme" value="{{ cfg.THEME }}">
+<input type="hidden" name="color_palette" value="{{ cfg.COLOR_PALETTE }}">
+<input type="hidden" name="display_name" value="{{ cfg.HR_DISPLAY_NAME }}">
+<input type="hidden" name="email" value="{{ cfg.HR_EMAIL }}">
+<input type="hidden" name="company" value="{{ cfg.HR_COMPANY }}">
+<input type="hidden" name="hr_username" value="{{ cfg.HR_USERNAME }}">
+{% if cfg.LOGIN_ENABLED %}<input type="hidden" name="login_enabled" value="on">{% endif %}
+
+<div class="card">
+    <div class="card-title">Email (SMTP)</div>
+    <div class="card-desc">Configure Gmail SMTP to auto-send interview invitations to scheduled candidates.</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div class="form-group">
+            <label class="form-label">Gmail Address</label>
+            <input class="form-input" name="smtp_email" type="email"
+                   value="{{ cfg.SMTP_EMAIL }}" placeholder="hr@gmail.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">App Password</label>
+            <input class="form-input" name="smtp_password" type="password"
+                   value="{{ cfg.SMTP_PASSWORD }}" placeholder="xxxx xxxx xxxx xxxx">
+        </div>
+        <div class="form-group">
+            <label class="form-label">SMTP Host</label>
+            <input class="form-input" name="smtp_host" value="{{ cfg.SMTP_HOST }}" placeholder="smtp.gmail.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">SMTP Port</label>
+            <input class="form-input" name="smtp_port" type="number" value="{{ cfg.SMTP_PORT }}" placeholder="587">
+        </div>
+    </div>
+
+    <div style="margin-top:14px; display:flex; align-items:center; gap:12px;">
+        <button type="button" class="btn btn-secondary" onclick="testSmtp()" id="testSmtpBtn"
+                style="font-size:0.82rem; padding:8px 18px;">
+            Test Connection
+        </button>
+        <span id="testSmtpStatus" style="font-size:0.82rem; color:var(--gray-400);"></span>
+    </div>
+
+    <p style="font-size:0.8rem; color:var(--gray-400); margin-top:12px;">
+        Go to <strong>Google Account &rarr; Security &rarr; 2-Step Verification &rarr; App passwords</strong> to generate a 16-character app password.
+        Do not use your real Gmail password.
+    </p>
+</div>
+
+<div style="margin-top:24px; display:flex; justify-content:flex-end;">
+    <button type="submit" class="btn btn-primary" style="padding:10px 32px; font-size:0.95rem;">
+        Save Settings
+    </button>
+</div>
+
+</form>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TAB: Logs                                    -->
+<!-- ════════════════════════════════════════════ -->
+<div class="settings-section" id="tab-logs">
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-dots">
+                <span class="terminal-dot terminal-dot-red"></span>
+                <span class="terminal-dot terminal-dot-yellow"></span>
+                <span class="terminal-dot terminal-dot-green"></span>
+            </div>
+            <div class="terminal-title">
+                <span class="terminal-status-dot"></span>
+                Streaming Live Backend Console
+            </div>
+            <div class="terminal-actions">
+                <button onclick="clearLogs()" class="terminal-btn" title="Clear console buffer" type="button">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Clear
+                </button>
+                <button onclick="downloadLogs()" class="terminal-btn" title="Download text logs" type="button">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download
+                </button>
+            </div>
+        </div>
+        <div class="terminal-body" id="settingsTerminalViewport" style="max-height: 420px;">
+            <pre class="terminal-pre" id="logContainer"></pre>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- TAB: About                                   -->
+<!-- ════════════════════════════════════════════ -->
+<div class="settings-section" id="tab-about">
+<div class="card about-card">
+    {{ about_html | safe }}
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Settings tab switching ──
+    function switchSettingsTab(name) {
+        document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        const section = document.getElementById('tab-' + name);
+        if (section) section.classList.add('active');
+        
+        // Find correct tab button by checking its onclick attribute
+        document.querySelectorAll('.settings-tab').forEach(t => {
+            const attr = t.getAttribute('onclick') || '';
+            if (attr.includes("'" + name + "'")) {
+                t.classList.add('active');
+            }
+        });
+        
+        if (name === 'logs' && !window._logStreamStarted) startLogStream();
+        if (name === 'ai') loadOllamaModels();
+    }
+
+    // ── AI Operational Mode Switching ──
+    function switchAiMode(mode) {
+        // Toggle active visual class on mode selector options
+        document.getElementById('modeOptPrivacy').classList.remove('active');
+        document.getElementById('modeOptCloud').classList.remove('active');
+        
+        if (mode === 'privacy') {
+            document.getElementById('modeOptPrivacy').classList.add('active');
+        } else {
+            document.getElementById('modeOptCloud').classList.add('active');
+        }
+        
+        // Toggle display panels
+        document.querySelectorAll('.ai-mode-panel').forEach(p => p.style.display = 'none');
+        const activePanel = document.getElementById('panel-' + mode);
+        if (activePanel) activePanel.style.display = 'block';
+        
+        if (mode === 'privacy') loadOllamaModels();
+    }
+
+    // ── Privacy Mode silent setup bootsrapper ──
+    let setupInterval = null;
+    function startPrivacySetup() {
+        const btn = document.getElementById('btnStartSetup');
+        const container = document.getElementById('setupProgressContainer');
+        const termContainer = document.getElementById('setupTerminalContainer');
+        const term = document.getElementById('setupTerminal');
+        
+        btn.disabled = true;
+        btn.textContent = 'Initializing...';
+        container.style.display = 'block';
+        termContainer.style.display = 'block';
+        term.textContent = '>> Triggering background setup thread...\n';
+        
+        fetch('/api/setup-privacy', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    term.textContent += '>> Background task launched successfully. Monitoring progress...\n';
+                    // Start polling status
+                    if (setupInterval) clearInterval(setupInterval);
+                    setupInterval = setInterval(pollPrivacySetup, 1000);
+                } else {
+                    term.textContent += '>> Error starting setup: ' + data.message + '\n';
+                    btn.disabled = false;
+                    btn.textContent = 'Initialize Environment';
+                }
+            })
+            .catch(e => {
+                term.textContent += '>> Network error: ' + e + '\n';
+                btn.disabled = false;
+                btn.textContent = 'Initialize Environment';
+            });
+    }
+
+    function pollPrivacySetup() {
+        const msg = document.getElementById('setupProgressMsg');
+        const percentText = document.getElementById('setupProgressPercent');
+        const bar = document.getElementById('setupProgressBar');
+        const term = document.getElementById('setupTerminal');
+        const btn = document.getElementById('btnStartSetup');
+        
+        fetch('/api/setup-privacy/status')
+            .then(r => r.json())
+            .then(status => {
+                // Update terminal with unique log lines
+                term.textContent = '';
+                status.log.forEach(line => {
+                    term.textContent += `[${line.percent !== null ? line.percent + '%' : 'Ollama'}] ${line.message}\n`;
+                });
+                
+                // Auto-scroll terminal to bottom
+                const termContainer = document.getElementById('setupTerminalContainer');
+                termContainer.scrollTop = termContainer.scrollHeight;
+                
+                // Update progress metrics
+                msg.textContent = status.message;
+                const percent = status.percent || 0;
+                percentText.textContent = percent + '%';
+                bar.style.width = percent + '%';
+                
+                if (!status.running) {
+                    clearInterval(setupInterval);
+                    setupInterval = null;
+                    btn.disabled = false;
+                    btn.textContent = 'Initialize Environment';
+                    
+                    if (status.success) {
+                        term.textContent += '>> SUCCESS: Local AI environment is successfully configured!\n';
+                        loadOllamaModels();
+                    } else {
+                        term.textContent += '>> FAILURE: Local setup failed. See logs above.\n';
+                    }
+                }
+            })
+            .catch(e => {
+                term.textContent += `>> Polling error: ${e}\n`;
+            });
+    }
+
+    // ── Ollama model list ──
+    function loadOllamaModels() {
+        const sel = document.getElementById('ollamaModelSelect');
+        if (!sel) return;
+        const current = sel.value;
+        fetch('/api/ollama/models').then(r => r.json()).then(data => {
+            if (data.error) { console.warn('Ollama:', data.error); return; }
+            sel.innerHTML = '';
+            data.models.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m; opt.textContent = m;
+                if (m === current) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            // ensure current value stays selected even if not in list
+            if (!data.models.includes(current)) {
+                const opt = document.createElement('option');
+                opt.value = current; opt.textContent = current + ' (not found)';
+                opt.selected = true;
+                sel.prepend(opt);
+            }
+        }).catch(() => {});
+    }
+
+    // Load models on page load if AI tab is visible
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('tab-ai').classList.contains('active')) {
+            loadOllamaModels();
+        }
+    });
+
+    // ── Cloud Provider Model Loader ──
+    async function loadCloudModels(provider, keyFieldName, modelFieldId, datalistId) {
+        const keyEl   = document.getElementById(keyFieldName);
+        const modelEl = document.getElementById(modelFieldId);
+        const dlEl    = document.getElementById(datalistId);
+        if (!modelEl || !dlEl) return;
+
+        const key = keyEl ? keyEl.value.trim() : '';
+        const btn = event.currentTarget;
+        const originalText = btn.textContent;
+        btn.textContent = '...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/provider-models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, key })
+            });
+            const data = await res.json();
+
+            if (data.success && data.models.length > 0) {
+                dlEl.innerHTML = '';
+                data.models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    dlEl.appendChild(opt);
+                });
+                const src = data.source === 'api' ? data.count + ' models loaded' : 'models loaded';
+                btn.textContent = src;
+                setTimeout(() => { btn.textContent = originalText; }, 2500);
+            } else {
+                btn.textContent = 'Error';
+                console.warn('Model load error:', data.error);
+                setTimeout(() => { btn.textContent = originalText; }, 2500);
+            }
+        } catch (e) {
+            btn.textContent = 'Error';
+            setTimeout(() => { btn.textContent = originalText; }, 2500);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ── Test SMTP connection ──
+    function testSmtp() {
+        const btn = document.getElementById('testSmtpBtn');
+        const status = document.getElementById('testSmtpStatus');
+        btn.disabled = true; btn.textContent = 'Testing...';
+        status.textContent = ''; status.style.color = 'var(--gray-400)';
+        fetch('/api/test-smtp', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { status.textContent = 'Connection successful!'; status.style.color = 'var(--success,green)'; }
+                else { status.textContent = 'Failed: ' + data.error; status.style.color = 'var(--danger,red)'; }
+            })
+            .catch(e => { status.textContent = 'Error: ' + e; status.style.color = 'var(--danger,red)'; })
+            .finally(() => { btn.disabled = false; btn.textContent = 'Test Connection'; });
+    }
+
+    // Helper to color code and format server log lines dynamically
+    function formatLogLine(rawText) {
+        if (!rawText) return '';
+        
+        // Escape HTML
+        let escaped = rawText
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        
+        // Highlight log levels
+        escaped = escaped.replace(/\[INFO\]/g, '<span style="color: var(--green); font-weight: 700;">[INFO]</span>');
+        escaped = escaped.replace(/\[WARNING\]/g, '<span style="color: var(--amber); font-weight: 700;">[WARNING]</span>');
+        escaped = escaped.replace(/\[WARN\]/g, '<span style="color: var(--amber); font-weight: 700;">[WARN]</span>');
+        escaped = escaped.replace(/\[ERROR\]/g, '<span style="color: var(--red); font-weight: 700;">[ERROR]</span>');
+        escaped = escaped.replace(/\[ERR\]/g, '<span style="color: var(--red); font-weight: 700;">[ERR]</span>');
+        
+        // Highlight system components
+        escaped = escaped.replace(/\[DB\]/g, '<span style="color: var(--blue); font-weight: 700;">[DB]</span>');
+        escaped = escaped.replace(/\[SQL\]/g, '<span style="color: var(--blue); font-weight: 700;">[SQL]</span>');
+        escaped = escaped.replace(/\[AI\]/g, '<span style="color: var(--md-sys-color-primary); font-weight: 700;">[AI]</span>');
+        escaped = escaped.replace(/\[NLP\]/g, '<span style="color: var(--md-sys-color-primary); font-weight: 700;">[NLP]</span>');
+        escaped = escaped.replace(/\[RANK\]/g, '<span style="color: var(--amber); font-weight: 700;">[RANK]</span>');
+        
+        return `<div class="log-line">${escaped}</div>`;
+    }
+
+    // ── Log stream (lazy — only starts when Logs tab is clicked) ──
+    window._logStreamStarted = false;
+    function startLogStream() {
+        window._logStreamStarted = true;
+        const logEl = document.getElementById('logContainer');
+        const viewport = document.getElementById('settingsTerminalViewport');
+        const evtSource = new EventSource('/stream-logs');
+        
+        evtSource.onmessage = function(e) {
+            if (e.data && e.data.trim() !== '') {
+                const formatted = formatLogLine(e.data);
+                logEl.innerHTML += formatted;
+                if (viewport) {
+                    viewport.scrollTop = viewport.scrollHeight;
+                }
+            }
+        };
+        evtSource.onerror = function() {
+            logEl.innerHTML += `<div class="log-line" style="color: var(--red); font-weight:700; margin-top:8px;">[Connection terminated by server]</div>`;
+            evtSource.close();
+        };
+    }
+
+    function clearLogs() {
+        const logEl = document.getElementById('logContainer');
+        if (logEl) logEl.innerHTML = '';
+    }
+
+    function downloadLogs() {
+        const logEl = document.getElementById('logContainer');
+        if (!logEl) return;
+        const text = logEl.innerText;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'recruit_pipeline_server_logs.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function selectTheme(mode) {
+        if (mode === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        document.querySelectorAll('input[name="theme"]').forEach(r => {
+            const parent = r.closest('.theme-opt');
+            if (parent) {
+                parent.classList.toggle('active', r.value === mode);
+            }
+        });
+        fetch('/api/change-theme', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme: mode })
+        });
+    }
+
+    function selectPalette(pal) {
+        document.documentElement.setAttribute('data-palette', pal);
+        document.querySelectorAll('input[name="color_palette"]').forEach(r => {
+            const parent = r.closest('.theme-opt');
+            if (parent) {
+                parent.classList.toggle('active', r.value === pal);
+            }
+        });
+        fetch('/api/change-palette', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ palette: pal })
+        });
+    }
+</script>
+{% endblock %}

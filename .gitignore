@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets, API Keys & Private Configuration
+config.py
+config/config.py
+.env
+.env.*
+credentials.json
+token.json
+*.pem
+*.key
+*.crt
+
+# Runtime Application Data & Databases
+data/
+output/
+resumes/
+models/*
+!models/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+ars.db
+crash.log
+
+# Caches & Test Coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build & Packaging Output
+build/
+dist/
+*.egg-info/
+*.spec.bak
+
+# IDEs, Editors & Operating System
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

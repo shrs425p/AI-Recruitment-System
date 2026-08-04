@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-step">Step 01</div>
+    <h1 class="page-title">Upload Resumes</h1>
+    <p class="page-desc">Upload PDF or image resumes. The system will automatically extract text from each file.</p>
+</div>
+
+<div class="stats-row">
+    <div class="stat-chip">
+        <div class="stat-value" id="pdfCount" data-stat="pdf_count">{{ pdf_count }}</div>
+        <div class="stat-label">Files Uploaded</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value" id="txtCount" data-stat="txt_count">{{ txt_count }}</div>
+        <div class="stat-label">Texts Extracted</div>
+    </div>
+</div>
+
+<!-- Upload Zone -->
+<div class="card">
+    <div class="card-title">Drop Resumes Here</div>
+    <div class="card-desc">Supported: PDF, PNG, JPG, JPEG</div>
+
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </div>
+        <div class="upload-title">Click to browse or drag &amp; drop</div>
+        <div class="upload-sub">PDF, PNG, JPG, JPEG — multiple files supported</div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+    </div>
+
+    <div class="file-list" id="uploadList"></div>
+</div>
+
+<!-- Extract Text -->
+<div class="card">
+    <div class="card-title">Extract Text from PDFs</div>
+    <div class="card-desc">Converts uploaded files to text. Digital PDFs use direct extraction; scanned PDFs use OCR
+        automatically.</div>
+
+    <button class="btn btn-primary" id="extractBtn" onclick="extractText()">
+        Extract Text
+    </button>
+
+    <!-- Live progress bar — hidden until extraction starts -->
+    <div id="extractProgressWrap" style="display:none; margin-top:16px;">
+        <div
+            style="display:flex; justify-content:space-between; font-size:12px; color:var(--gray-600); margin-bottom:6px;">
+            <span id="extractProgressText">Starting…</span>
+        </div>
+        <div style="background:var(--gray-100); border-radius:99px; height:8px; overflow:hidden;">
+            <div id="extractProgressBar"
+                style="height:100%; background:var(--gray-600); border-radius:99px; width:0%; transition:width 0.4s ease;">
+            </div>
+        </div>
+    </div>
+
+    <div class="log-box" id="extractLog" style="margin-top:16px; display:none;"></div>
+</div>
+
+<!-- Next Step -->
+<div style="margin-top:24px; display:flex; justify-content:flex-end;">
+    <a href="/nlp" class="btn btn-secondary">Next: NLP Extraction →</a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadList = document.getElementById('uploadList');
+
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+    uploadZone.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+        handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+    async function handleFiles(files) {
+        if (!files.length) return;
+        const formData = new FormData();
+        [...files].forEach(f => formData.append('resumes', f));
+        [...files].forEach(f => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `<span class="file-name">${f.name}</span><span class="file-status status-pending">Uploading...</span>`;
+            item.id = 'file-' + f.name.replace(/\W/g, '_');
+            uploadList.appendChild(item);
+        });
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        data.saved.forEach(name => {
+            const item = document.getElementById('file-' + name.replace(/\W/g, '_'));
+            if (item) {
+                item.querySelector('.file-status').className = 'file-status status-success';
+                item.querySelector('.file-status').textContent = 'Saved';
+            }
+        });
+        document.getElementById('pdfCount').textContent =
+            parseInt(document.getElementById('pdfCount').textContent) + data.count;
+        showToast(`${data.count} file(s) uploaded`, 'success');
+    }
+
+    // ── Live progress polling ──
+    let _extractTimer = null;
+    let _extractTotal = 0;
+
+    function _startExtractPoll() {
+        _extractTotal = parseInt(document.getElementById('pdfCount').textContent) || 0;
+        _extractTimer = setInterval(async () => {
+            try {
+                const res = await fetch('/api/stats');
+                const s = await res.json();
+                const done = s.txt_count;
+                const pct = _extractTotal > 0 ? Math.round((done / _extractTotal) * 100) : 0;
+                document.getElementById('txtCount').textContent = done;
+                document.getElementById('extractProgressText').textContent =
+                    `Extracting… ${done} / ${_extractTotal} (${pct}%)`;
+                document.getElementById('extractProgressBar').style.width = Math.min(pct, 99) + '%';
+            } catch (e) { }
+        }, 800);
+    }
+
+    function _stopExtractPoll() {
+        if (_extractTimer) { clearInterval(_extractTimer); _extractTimer = null; }
+    }
+
+    async function extractText() {
+        const btn = document.getElementById('extractBtn');
+        const log = document.getElementById('extractLog');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Extracting...';
+        log.style.display = 'block';
+        log.innerHTML = '<span class="log-line">Starting extraction...</span>';
+        document.getElementById('extractProgressWrap').style.display = 'block';
+
+        _startExtractPoll();
+
+        const res = await fetch('/api/process-pdfs', { method: 'POST' });
+        const data = await res.json();
+
+        _stopExtractPoll();
+
+        // Final update
+        const finalCount = data.success.length + data.skipped.length;
+        document.getElementById('txtCount').textContent = finalCount;
+        document.getElementById('extractProgressText').textContent = `✓ Done — ${finalCount} files extracted`;
+        document.getElementById('extractProgressBar').style.width = '100%';
+
+        log.innerHTML = '';
+        data.success.forEach(f => log.innerHTML += `<span class="log-line success">✓ ${f}</span>`);
+        data.skipped.forEach(f => log.innerHTML += `<span class="log-line skip">— ${f} (already done)</span>`);
+        data.failed.forEach(f => log.innerHTML += `<span class="log-line error">✗ ${f.file}: ${f.error}</span>`);
+
+        btn.disabled = false;
+        btn.textContent = 'Extract Text';
+        showToast(`Done! ${data.success.length} extracted, ${data.skipped.length} skipped`, 'success');
+    }
+
+    // Restore running state if extraction was in progress when user navigated away
+    (async function _restoreState() {
+        try {
+            const res = await fetch('/api/task-status');
+            const tasks = await res.json();
+            if (tasks.pdf && tasks.pdf.status === 'running') {
+                const btn = document.getElementById('extractBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Extracting...';
+                document.getElementById('extractProgressWrap').style.display = 'block';
+                _startExtractPoll();
+                // Poll until task is done
+                const _waitDone = setInterval(async () => {
+                    try {
+                        const r2 = await fetch('/api/task-status');
+                        const t2 = await r2.json();
+                        if (!t2.pdf || t2.pdf.status !== 'running') {
+                            clearInterval(_waitDone);
+                            _stopExtractPoll();
+                            const s = await (await fetch('/api/stats')).json();
+                            document.getElementById('txtCount').textContent = s.txt_count;
+                            document.getElementById('extractProgressText').textContent = '✓ Done — ' + s.txt_count + ' files extracted';
+                            document.getElementById('extractProgressBar').style.width = '100%';
+                            btn.disabled = false;
+                            btn.textContent = 'Extract Text';
+                        }
+                    } catch(e) {}
+                }, 1500);
+            }
+        } catch(e) {}
+    })();
+</script>
+{% endblock %}
