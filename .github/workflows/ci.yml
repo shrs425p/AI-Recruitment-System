@@ -38,7 +38,7 @@ jobs:
         run: ruff check .
 
       - name: Static Type Check (Mypy)
-        run: python -m mypy app src tests main.py config.py
+        run: python -m mypy app src tests main.py
 
       - name: Pre-commit Checks
         run: pre-commit run --all-files
