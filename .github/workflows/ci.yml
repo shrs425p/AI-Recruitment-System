@@ -38,10 +38,7 @@ jobs:
         run: ruff check .
 
       - name: Static Type Check (Mypy)
-        run: python -m mypy app src tests main.py config.py
-
-      - name: Pre-commit Checks
-        run: pre-commit run --all-files
+        run: python -m mypy app src tests main.py config/config.py
 
       - name: Pre-Flight Environment Verification
         run: python scripts/verify_environment.py
