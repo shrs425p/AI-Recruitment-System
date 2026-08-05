@@ -21,10 +21,16 @@ from pathlib import Path
 
 from flask import jsonify, redirect, request, session, url_for
 
-try:
-    from ai_mode import get_app_mode
-except ImportError:
-    from src.ai_mode import get_app_mode
+# Ensure the repo root and project package directories are on sys.path when app modules
+# are imported from scripts or non-standard startup paths.
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / 'src'
+CONFIG_DIR = ROOT_DIR / 'config'
+for path in (str(CONFIG_DIR), str(SRC_DIR), str(ROOT_DIR)):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+from src.ai_mode import get_app_mode
 
 try:
     import anthropic
@@ -198,7 +204,7 @@ async def call_ai_async(system_msg: str, user_msg: str,
 
     else:
         # Cloud mode — use load-balanced provider router
-        from provider_router import router
+        from src.provider_router import router
         return await router.call(system_msg, user_msg, max_tokens=num_predict)
 
 
@@ -249,6 +255,13 @@ PUBLIC_PATH_PREFIXES = (
     "/api/candidate/",
     "/api/health",
     "/static/",
+    # Allow lightweight UI customization and settings helper APIs without HR auth
+    "/api/toggle-theme",
+    "/api/change-theme",
+    "/api/change-palette",
+    "/api/toggle-ai-mode",
+    "/api/provider-models",
+    "/api/test-smtp",
 )
 
 
