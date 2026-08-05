@@ -63,7 +63,7 @@
     </div>
 
     <!-- Score Comparison Chart -->
-    <div class="card" id="chartCard" style="{% if not ranking %}display:none;{% endif %} margin-bottom:20px;">
+    <div class="card {% if not ranking %}hidden{% endif %}" id="chartCard" style="margin-bottom:20px;">
         <div class="card-title">Score Comparison</div>
         <div style="position:relative; height:300px;">
             <canvas id="rankChart"></canvas>
@@ -142,6 +142,9 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script type="application/json" id="rankingData">
+    {% if ranking %}{{ ranking.ranked_candidates | tojson }}{% else %}null{% endif %}
+</script>
 <script>
     let _rankAnim = null;
     let rankChartInstance = null;
@@ -294,12 +297,13 @@
     }
 
     // Render chart from server-side data on page load
-    {% if ranking %}
-    document.addEventListener('DOMContentLoaded', () => {
-        const serverData = {{ ranking.ranked_candidates | tojson }};
-        renderRankChart(serverData);
-    });
-    {% endif %}
+    const rawData = document.getElementById('rankingData').textContent;
+    if (rawData && rawData.trim() !== "null" && rawData.trim() !== "") {
+        document.addEventListener('DOMContentLoaded', () => {
+            const serverData = JSON.parse(rawData);
+            renderRankChart(serverData);
+        });
+    }
 
     // Restore running state if ranking was in progress when user navigated away
     (async function _restoreState() {

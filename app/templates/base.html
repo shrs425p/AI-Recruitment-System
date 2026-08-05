@@ -210,30 +210,9 @@
                             id="aiModeToggleBtn"
                             onclick="toggleAiMode()"
                             title="Switch between Offline (Ollama) and Cloud (API) mode"
-                            style="
-                                position: relative;
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 5px;
-                                padding: 3px 8px 3px 6px;
-                                height: 24px;
-                                border-radius: var(--radius-pill);
-                                border: 1.5px solid {% if config.APP_MODE == 'cloud' %}#22c55e{% else %}var(--md-sys-color-outline-variant){% endif %};
-                                background: {% if config.APP_MODE == 'cloud' %}#f0fdf4{% else %}var(--md-sys-color-surface-container){% endif %};
-                                color: {% if config.APP_MODE == 'cloud' %}#15803d{% else %}var(--md-sys-color-on-surface-variant){% endif %};
-                                font-size: 9px;
-                                font-weight: 700;
-                                letter-spacing: 0.4px;
-                                text-transform: uppercase;
-                                cursor: pointer;
-                                transition: all 0.2s ease;
-                            ">
+                            class="ai-mode-btn {% if config.APP_MODE == 'cloud' %}cloud-mode{% else %}offline-mode{% endif %}">
                             <!-- Indicator dot -->
-                            <span style="
-                                width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-                                background: {% if config.APP_MODE == 'cloud' %}#22c55e{% else %}#94a3b8{% endif %};
-                                {% if config.APP_MODE == 'cloud' %}box-shadow: 0 0 6px #22c55e; animation: ai-pulse 2s infinite;{% endif %}
-                            "></span>
+                            <span class="ai-mode-dot"></span>
                             {% if config.APP_MODE == 'cloud' %}Cloud{% else %}Offline{% endif %}
                         </button>
                     </div>
@@ -243,13 +222,13 @@
                         <span class="status-label" style="margin-bottom:0; font-size:9.5px; letter-spacing:0.5px;">UI Accent</span>
                         <div style="display:flex; gap:6px; align-items:center;">
                             <!-- Lavender -->
-                            <button onclick="changePalette('lavender')" style="width: 14px; height: 14px; background: #65558f; border: 1.5px solid {% if (config.COLOR_PALETTE | default('lavender')) == 'lavender' %}var(--md-sys-color-on-surface){% else %}transparent{% endif %}; border-radius: 50%; cursor: pointer;" title="Lavender"></button>
+                            <button onclick="changePalette('lavender')" class="palette-btn lavender {% if (config.COLOR_PALETTE | default('lavender')) == 'lavender' %}active{% endif %}" title="Lavender"></button>
                             <!-- Organic Sage -->
-                            <button onclick="changePalette('sage')" style="width: 14px; height: 14px; background: #386a20; border: 1.5px solid {% if config.COLOR_PALETTE == 'sage' %}var(--md-sys-color-on-surface){% else %}transparent{% endif %}; border-radius: 50%; cursor: pointer;" title="Organic Sage"></button>
+                            <button onclick="changePalette('sage')" class="palette-btn sage {% if config.COLOR_PALETTE == 'sage' %}active{% endif %}" title="Organic Sage"></button>
                             <!-- Slate Blue -->
-                            <button onclick="changePalette('blue')" style="width: 14px; height: 14px; background: #0f61a4; border: 1.5px solid {% if config.COLOR_PALETTE == 'blue' %}var(--md-sys-color-on-surface){% else %}transparent{% endif %}; border-radius: 50%; cursor: pointer;" title="Slate Blue"></button>
+                            <button onclick="changePalette('blue')" class="palette-btn blue {% if config.COLOR_PALETTE == 'blue' %}active{% endif %}" title="Slate Blue"></button>
                             <!-- Terracotta Rose -->
-                            <button onclick="changePalette('rose')" style="width: 14px; height: 14px; background: #984061; border: 1.5px solid {% if config.COLOR_PALETTE == 'rose' %}var(--md-sys-color-on-surface){% else %}transparent{% endif %}; border-radius: 50%; cursor: pointer;" title="Terracotta Rose"></button>
+                            <button onclick="changePalette('rose')" class="palette-btn rose {% if config.COLOR_PALETTE == 'rose' %}active{% endif %}" title="Terracotta Rose"></button>
                         </div>
                     </div>
                 </div>

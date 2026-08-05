@@ -1179,3 +1179,68 @@ html[data-palette="rose"].dark {
     --md-sys-color-on-surface:        #ebdbe0;
     --md-sys-color-on-surface-variant: #d5c2c6;
 }
+
+/* ─────────────────────────────────────────────
+   UI TOGGLES (base.html)
+   ───────────────────────────────────────────── */
+.ai-mode-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px 3px 6px;
+    height: 24px;
+    border-radius: var(--radius-pill);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ai-mode-btn.cloud-mode {
+    border: 1.5px solid #22c55e;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.ai-mode-btn.offline-mode {
+    border: 1.5px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container);
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.ai-mode-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.ai-mode-btn.cloud-mode .ai-mode-dot {
+    background: #22c55e;
+    box-shadow: 0 0 6px #22c55e;
+    animation: ai-pulse 2s infinite;
+}
+
+.ai-mode-btn.offline-mode .ai-mode-dot {
+    background: #94a3b8;
+}
+
+.palette-btn {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+}
+
+.palette-btn.active {
+    border-color: var(--md-sys-color-on-surface);
+}
+
+.palette-btn.lavender { background: #65558f; }
+.palette-btn.sage     { background: #386a20; }
+.palette-btn.blue     { background: #0f61a4; }
+.palette-btn.rose     { background: #984061; }
