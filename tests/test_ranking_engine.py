@@ -1,6 +1,6 @@
 import json
 
-from ranking_engine import WEIGHTS, load_candidates
+from src.ranking_engine import WEIGHTS, load_candidates
 
 
 def test_weights_sum_to_100():

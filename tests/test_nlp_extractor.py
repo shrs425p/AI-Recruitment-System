@@ -1,4 +1,4 @@
-from nlp_extractor import build_prompt
+from src.nlp_extractor import build_prompt
 
 
 def test_build_prompt_embeds_resume_text():
