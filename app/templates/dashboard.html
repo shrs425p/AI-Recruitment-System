@@ -486,7 +486,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                 Safe Auto-Pilot
             </button>
-            <button onclick="openOutputFolder()" class="btn btn-secondary" style="font-size: 12.5px; border-radius: var(--radius-pill); padding: 8px 16px;">
+            <button type="button" onclick="openOutputFolder()" class="btn btn-secondary" style="font-size: 12.5px; border-radius: var(--radius-pill); padding: 8px 16px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 Open Folder
             </button>
@@ -930,7 +930,21 @@
     }
 
     async function openOutputFolder() {
-        await fetch('/api/open-output-folder', { method: 'POST' });
+        try {
+            const btn = document.querySelector('button[onclick="openOutputFolder()"]');
+            if (btn) btn.disabled = true;
+            
+            const res = await fetch('/api/open-output-folder', { method: 'POST' });
+            if (res.ok) {
+                showToast('Opened Output Folder in File Explorer', 'success');
+            } else {
+                showToast('Failed to open folder', 'error');
+            }
+            
+            if (btn) btn.disabled = false;
+        } catch(e) {
+            showToast('Error: ' + e.message, 'error');
+        }
     }
 </script>
 {% endblock %}
