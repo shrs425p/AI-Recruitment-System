@@ -30,7 +30,7 @@ for path in (str(CONFIG_DIR), str(SRC_DIR), str(ROOT_DIR)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from src.ai_mode import get_app_mode
+from src.ai_mode import get_app_mode  # noqa: E402
 
 try:
     import anthropic

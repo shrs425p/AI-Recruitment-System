@@ -1,4 +1,5 @@
 from app import create_app
+
 app = create_app()
 with app.test_client() as c:
     r = c.post('/api/toggle-theme')
