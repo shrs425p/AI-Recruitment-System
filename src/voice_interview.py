@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import queue  # Thread-safe queue for TTS text dispatch
 import re  # Regex — strip markdown from TTS text
 import threading  # TTS runs in a background thread to avoid blocking
@@ -6,7 +9,7 @@ import time  # sleep() calls and timing
 import pyttsx3  # Offline TTS engine (no internet needed for speech)
 import speech_recognition as sr  # Wrapper for multiple speech-to-text backends
 
-from app.app_paths import install_path
+from src.common import install_path
 
 # ─────────────────────────────────────────────
 # OPEN-SOURCE SPEECH RECOGNITION: VOSK (Apache 2.0)
@@ -55,10 +58,10 @@ def _load_vosk_model():
         import vosk
         vosk.SetLogLevel(-1)  # suppress noisy Vosk logs
         _vosk_model = VoskModel(str(_VOSK_MODEL_DIR))
-        print(f"[STT] Vosk model loaded: {_VOSK_MODEL_DIR.name} (offline, Apache 2.0)")
+        logger.info(f"[STT] Vosk model loaded: {_VOSK_MODEL_DIR.name} (offline, Apache 2.0)")
         return _vosk_model
     except Exception as e:
-        print(f"[STT] Vosk model load failed: {e}")
+        logger.info(f"[STT] Vosk model load failed: {e}")
         return None
 
 
@@ -77,12 +80,12 @@ def _transcribe_audio(audio_data: sr.AudioData) -> str:
             result = _json.loads(rec.Result())
             return result.get("text", "")
         except Exception as e:
-            print(f"[STT] Vosk transcription error: {e}")
+            logger.info(f"[STT] Vosk transcription error: {e}")
             return ""
     else:
         # No Vosk model installed — fall back to Google free API with a clear warning
-        print("[STT] WARNING: No Vosk model found. Falling back to Google Speech API (requires internet).")
-        print("[STT]          Run 'python setup_vosk.py' to download the offline Indian-English model.")
+        logger.info("[STT] WARNING: No Vosk model found. Falling back to Google Speech API (requires internet).")
+        logger.info("[STT]          Run 'python setup_vosk.py' to download the offline Indian-English model.")
         try:
             return sr.Recognizer().recognize_google(audio_data, language='en-IN')
         except Exception:
@@ -142,7 +145,7 @@ def _init_tts():
 
         return True
     except Exception as e:
-        print(f"[TTS] Init failed: {e}")
+        logger.info(f"[TTS] Init failed: {e}")
         return False
 
 
@@ -169,7 +172,7 @@ def _tts_worker():
         except queue.Empty:
             continue  # no item in queue — loop back and wait
         except Exception as e:
-            print(f"[TTS] Speak error: {e}")
+            logger.info(f"[TTS] Speak error: {e}")
 
 
 def start_tts_engine():
@@ -255,10 +258,10 @@ def init_speech_recognition():
 
         _microphone     = sr.Microphone()
         _sr_initialized = True
-        print("[SR] Speech recognition initialized.")
+        logger.info("[SR] Speech recognition initialized.")
         return True
     except Exception as e:
-        print(f"[SR] Init failed: {e}")
+        logger.info(f"[SR] Init failed: {e}")
         _sr_initialized = False
         return False
 

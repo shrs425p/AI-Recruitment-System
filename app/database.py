@@ -3,9 +3,9 @@ import sqlite3
 from contextlib import contextmanager
 
 try:
-    from .app_paths import data_path
+    from src.common import data_path
 except ImportError:
-    from app.app_paths import data_path
+    from src.common import data_path
 
 # Database file lives in the writable app data directory.
 DB_PATH = data_path("ars.db")

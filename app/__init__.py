@@ -4,7 +4,7 @@ import secrets
 from flask import Flask, jsonify, render_template, request
 
 import config
-from app.app_paths import APP_RESOURCE_DIR
+from src.common import APP_RESOURCE_DIR
 from app.utils import protect_hr_routes
 
 

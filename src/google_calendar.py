@@ -1,8 +1,10 @@
+import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from app.app_paths import data_path, install_path, resource_path
+from src.common import data_path, install_path, resource_path
 
 # Google API libraries
 try:
@@ -163,8 +165,8 @@ def get_free_slots(days_ahead: int = LOOKAHEAD_DAYS,
                     s = datetime.fromisoformat(ev_start)
                     e = datetime.fromisoformat(ev_end)
                     busy.append((s, e))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning('Caught exception: %s', e, exc_info=True)
 
         # Generate candidate slots (working hours only)
         free_slots = []

@@ -1,5 +1,6 @@
 import io  # BytesIO for in-memory image conversion
 import logging
+logger = logging.getLogger(__name__)
 import re  # Regex — used to clean whitespace in extracted text
 import sys  # Used for sys.exit() in the watcher
 import time  # Used for sleep() in the polling loop
@@ -9,7 +10,7 @@ import fitz  # PyMuPDF — extract text + render pages to images
 import pytesseract  # Python wrapper for the Tesseract OCR engine
 from PIL import Image  # Pillow — open PNG/JPG image files
 
-from app.app_paths import data_path, install_path
+from src.common import data_path, install_path
 
 logger = logging.getLogger("ars.pdf_to_txt")
 
@@ -58,7 +59,7 @@ def extract_direct_text(pdf_path):
                 text += page.get_text("text") + "\n"
             return text.strip()
     except Exception as e:
-        print(f"> [extract_direct_text] Error: {e}")
+        logger.info(f"> [extract_direct_text] Error: {e}")
         return ""
 
 # ─────────────────────────────────────────────
@@ -109,7 +110,7 @@ def process_file(file_path: Path, output_path: Path):
     if target_txt.exists():
         return False  # Already done, not a new file
 
-    print(f"> Processing: {file_path.name}...", end=" ", flush=True)
+    logger.info(f"> Processing: {file_path.name}...", end=" ", flush=True)
 
     try:
         full_text = ""
@@ -121,7 +122,7 @@ def process_file(file_path: Path, output_path: Path):
             if len(extracted_text) > MIN_DIGITAL_TEXT_LENGTH:
                 # PDF has proper embedded text — use it directly (fast path)
                 full_text = extracted_text
-                print("(Direct Text)", end=" ")
+                logger.info("(Direct Text)", end=" ")
             else:
                 # Likely a scanned PDF — render pages to images via PyMuPDF then OCR
                 # matrix with zoom=3 gives ~300 dpi (72 * 3 ≈ 216–300 effective)
@@ -130,19 +131,19 @@ def process_file(file_path: Path, output_path: Path):
                         pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
                         img = Image.open(io.BytesIO(pix.tobytes("png")))
                         full_text += pytesseract.image_to_string(img) + "\n"
-                print("(OCR Fallback)", end=" ")
+                logger.info("(OCR Fallback)", end=" ")
 
         else:
             # PNG / JPG — always OCR because there is no embedded text layer
             full_text = pytesseract.image_to_string(Image.open(file_path))
-            print("(Image OCR)", end=" ")
+            logger.info("(Image OCR)", end=" ")
 
         # Clean up the raw text regardless of how it was extracted
         full_text = clean_text(full_text)
 
         # Guard: do not save a blank file (OCR may produce nothing for blank pages)
         if not full_text.strip():
-            print("> Empty output, skipping save.")
+            logger.info("> Empty output, skipping save.")
             return False
 
         # Write the cleaned text to disk in UTF-8 encoding
@@ -150,11 +151,11 @@ def process_file(file_path: Path, output_path: Path):
         with open(target_txt, "w", encoding="utf-8") as f:
             f.write(full_text)
 
-        print("> Success")
+        logger.info("> Success")
         return True  # Signal to caller that a new file was created
 
     except Exception as e:
-        print(f"> Failed! {e}")
+        logger.info(f"> Failed! {e}")
         return False
 
 # ─────────────────────────────────────────────
@@ -176,14 +177,14 @@ def run_watcher():
     input_path.mkdir(exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    print("=" * 50)
-    print("   PDF -> TXT LIVE WATCHER STARTED")
-    print("=" * 50)
-    print(f"> Watching folder : {input_path}")
-    print(f"> Output folder   : {output_path}")
-    print(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
-    print("> Supported types : PDF, PNG, JPG, JPEG")
-    print("> Press Ctrl+C to stop\n")
+    logger.info("=" * 50)
+    logger.info("   PDF -> TXT LIVE WATCHER STARTED")
+    logger.info("=" * 50)
+    logger.info(f"> Watching folder : {input_path}")
+    logger.info(f"> Output folder   : {output_path}")
+    logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
+    logger.info("> Supported types : PDF, PNG, JPG, JPEG")
+    logger.info("> Press Ctrl+C to stop\n")
 
     processed_count = 0  # Counter for reporting at end of session
 
@@ -206,19 +207,19 @@ def run_watcher():
 
             # Show an idle status indicator when there is nothing new to process
             if not new_files_found:
-                print(f"\r> Watching... (processed so far: {processed_count}) | waiting for new files...", end="", flush=True)
+                logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new files...", end="", flush=True)
 
             time.sleep(WATCH_INTERVAL_SECONDS)
 
         except KeyboardInterrupt:
             # Ctrl+C pressed — exit cleanly with a summary
-            print("\n\n> Watcher stopped safely.")
-            print(f"> Total files processed this session: {processed_count}")
+            logger.info("\n\n> Watcher stopped safely.")
+            logger.info(f"> Total files processed this session: {processed_count}")
             sys.exit(0)
 
         except Exception as e:
             # Unexpected error — log and keep watching (resilient)
-            print(f"\n> [Watcher Error] {e} — retrying in {WATCH_INTERVAL_SECONDS}s...")
+            logger.info(f"\n> [Watcher Error] {e} — retrying in {WATCH_INTERVAL_SECONDS}s...")
             time.sleep(WATCH_INTERVAL_SECONDS)
             continue
 

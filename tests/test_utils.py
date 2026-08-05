@@ -1,4 +1,4 @@
-from app.utils import clean_json_response
+from src.common import clean_json_response
 
 
 def test_clean_json_response_accepts_plain_json():

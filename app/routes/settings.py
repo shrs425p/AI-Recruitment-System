@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 from urllib.parse import urlparse
 
@@ -113,8 +115,8 @@ def register_settings_routes(app):
                 cfg.SMTP_HOST     = request.form.get("smtp_host", cfg.SMTP_HOST).strip()
                 try:
                     cfg.SMTP_PORT = int(request.form.get("smtp_port", cfg.SMTP_PORT))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning('Caught exception: %s', e, exc_info=True)
                 if "email_template_subject" in request.form:
                     cfg.EMAIL_TEMPLATE_SUBJECT = request.form.get("email_template_subject", getattr(cfg, "EMAIL_TEMPLATE_SUBJECT", "")).strip()
                     cfg.EMAIL_TEMPLATE_BODY = request.form.get("email_template_body", getattr(cfg, "EMAIL_TEMPLATE_BODY", "")).strip()
@@ -232,8 +234,8 @@ def register_settings_routes(app):
             body = ""
             try:
                 body = e.read().decode()[:200]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
             return jsonify({"success": False, "error": f"HTTP {e.code}: {body}"}), 400
         except Exception as ex:
             return jsonify({"success": False, "error": str(ex)}), 500

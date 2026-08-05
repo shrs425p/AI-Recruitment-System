@@ -75,7 +75,7 @@ def check_database():
 
 def check_tesseract():
     print("[4/5] Checking Tesseract OCR Executable...", end=" ")
-    from app.app_paths import install_path
+    from src.common import install_path
     bundled_cmd = install_path("models/Tesseract-OCR") / "tesseract.exe"
     if bundled_cmd.exists():
         print(f"OK (Bundled binary found at {bundled_cmd})")

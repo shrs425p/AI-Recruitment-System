@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 # provider_router.py - Load Balanced Multi-Provider Router with Jittered Backoff
 
 import asyncio
@@ -35,8 +37,8 @@ def sync_http_post(url, headers, payload):
         body = ""
         try:
             body = e.read().decode("utf-8", errors="replace")[:400]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning('Caught exception: %s', e, exc_info=True)
         raise RuntimeError(
             f"HTTP {e.code} {e.reason} calling {url} "
             f"[model={payload.get('model', payload.get('contents','?'))}] "

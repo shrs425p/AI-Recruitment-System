@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -36,8 +38,8 @@ def register_ranking_routes(app):
                 import json
                 with open(ranking_files[0], encoding="utf-8") as f:
                     latest = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
         templates = get_all_job_templates()
         return render_template("ranking.html", nlp_count=nlp_count, ranking=latest, templates=templates)
 

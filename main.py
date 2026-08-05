@@ -115,8 +115,8 @@ def _write_crash_log(exc_type, exc_value, exc_tb):
             "".join(traceback.format_exception(exc_type, exc_value, exc_tb)),
             encoding="utf-8",
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning('Caught exception: %s', e, exc_info=True)
 
 
 def _handle_unhandled_exception(exc_type, exc_value, exc_tb):
@@ -128,7 +128,7 @@ sys.excepthook = _handle_unhandled_exception
 
 # Create the flask app
 from app import create_app
-from app.app_paths import APP_DATA_DIR
+from src.common import APP_DATA_DIR
 from app.core import add_log_line, log_queue
 
 app = create_app()
@@ -167,8 +167,8 @@ class QueueHandler(logging.Handler):
         try:
             formatted = self.format(record)
             add_log_line(formatted)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning('Caught exception: %s', e, exc_info=True)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

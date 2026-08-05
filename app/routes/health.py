@@ -1,6 +1,6 @@
 from flask import jsonify
 
-from app.app_paths import APP_DATA_DIR
+from src.common import APP_DATA_DIR
 from app.database import get_connection
 
 

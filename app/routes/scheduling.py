@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import time
 from datetime import datetime
@@ -57,8 +59,8 @@ def register_scheduling_routes(app):
             try:
                 with open(ranking_files[0], encoding="utf-8") as f:
                     latest_ranking = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
 
         has_ranking    = len(ranking_files) > 0
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
@@ -67,8 +69,8 @@ def register_scheduling_routes(app):
             try:
                 with open(schedule_files[0], encoding="utf-8") as f:
                     latest_schedule = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
 
         try:
             cal_status = check_calendar_auth()

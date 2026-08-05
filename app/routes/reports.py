@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import re
 import time
@@ -34,8 +36,8 @@ def register_reports_routes(app):
                         "verdict":        rdata.get("ai_report", {}).get("hire_recommendation", "N/A"),
                         "risk":           rdata.get("ai_report", {}).get("risk_level", "N/A"),
                     })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
 
         summary_files = sorted((OUTPUT_FOLDER / "reports").glob("final_summary*.json"), reverse=True)
         summary       = None
@@ -43,8 +45,8 @@ def register_reports_routes(app):
             try:
                 with open(summary_files[0], encoding="utf-8") as f:
                     summary = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
         return render_template("reports.html", reports=reports_data, summary=summary)
 
     @app.route("/api/generate-reports", methods=["POST"])

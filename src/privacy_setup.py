@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 # privacy_setup.py - Silent Ollama Install + Model Pull
 
 import subprocess  # nosec B404
@@ -108,8 +110,8 @@ def run_setup_process(progress_callback=None) -> bool:
             if inst.exists():
                 try:
                     inst.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning('Caught exception: %s', e, exc_info=True)
 
         # Now check/pull model
         import config

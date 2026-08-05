@@ -1,10 +1,13 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import json  # Serialize / deserialize JSON (saving NLP output)
 import time  # Sleep between polling cycles in the watcher loop
 from pathlib import Path  # Cross-platform file/folder path handling
 
-from app.utils import call_ollama, clean_json_response  # Shared AI calling utilities
+from src.common import call_ollama, clean_json_response  # Shared AI calling utilities
 
-from app.app_paths import data_path
+from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -267,7 +270,7 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
     if (output_path / f"{txt_file.stem}_nlp.json").exists():
         return False
 
-    print(f"> Processing: {txt_file.name}...", end=" ", flush=True)
+    logger.info(f"> Processing: {txt_file.name}...", end=" ", flush=True)
 
     try:
         # Read the plain-text resume content
@@ -276,14 +279,14 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
 
         # Guard against empty files (e.g. OCR produced nothing)
         if not resume_text.strip():
-            print("> Empty file, skipping.")
+            logger.info("> Empty file, skipping.")
             return False
 
         # Send to AI and parse the structured JSON response
         extracted_data = extract_with_ai(resume_text)
 
         if not extracted_data:
-            print("> No data extracted.")
+            logger.info("> No data extracted.")
             return False
 
         # Ensure personal_info is a dict even if AI returned null for that field
@@ -292,17 +295,17 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
             # Fall back to using the filename as the candidate identifier
             extracted_data["personal_info"] = personal_info
             extracted_data["personal_info"]["name"] = f"{UNKNOWN_NAME}_{txt_file.stem}"
-            print("\n  [INFO] Name not found — using filename as identifier.", end=" ", flush=True)
+            logger.info("\n  [INFO] Name not found — using filename as identifier.", end=" ", flush=True)
 
         # Build the output path prefix (suffix is added by save_output)
         output_file = output_path / f"{txt_file.stem}_nlp"
         save_output(extracted_data, output_file, txt_file.stem)
 
-        print(f"> Success  [{extracted_data.get('domain', 'Unknown Domain')}]")
+        logger.info(f"> Success  [{extracted_data.get('domain', 'Unknown Domain')}]")
         return True
 
     except Exception as e:
-        print(f"> Failed! {e}")
+        logger.info(f"> Failed! {e}")
         return False
 
 # ─────────────────────────────────────────────
@@ -321,15 +324,15 @@ def run_watcher():
     input_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    print("=" * 50)
-    print("   NLP LIVE WATCHER STARTED")
-    print("=" * 50)
-    print(f"> Watching folder : {INPUT_FOLDER}/")
-    print(f"> Output folder   : {OUTPUT_FOLDER}/")
+    logger.info("=" * 50)
+    logger.info("   NLP LIVE WATCHER STARTED")
+    logger.info("=" * 50)
+    logger.info(f"> Watching folder : {INPUT_FOLDER}/")
+    logger.info(f"> Output folder   : {OUTPUT_FOLDER}/")
     import config
-    print(f"> Model           : {getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')}")
-    print(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
-    print("> Press Ctrl+C to stop\n")
+    logger.info(f"> Model           : {getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')}")
+    logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
+    logger.info("> Press Ctrl+C to stop\n")
 
     processed_count = 0
 
@@ -345,17 +348,17 @@ def run_watcher():
                     new_files_found = True
 
             if not new_files_found:
-                print(f"\r> Watching... (processed so far: {processed_count}) | waiting for new TXT files...", end="", flush=True)
+                logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new TXT files...", end="", flush=True)
 
             time.sleep(WATCH_INTERVAL_SECONDS)
 
         except KeyboardInterrupt:
-            print("\n\n> Watcher stopped safely.")
-            print(f"> Total files processed this session: {processed_count}")
+            logger.info("\n\n> Watcher stopped safely.")
+            logger.info(f"> Total files processed this session: {processed_count}")
             exit(0)
 
         except Exception as e:
-            print(f"\n> [Watcher Error] {e} — retrying in {WATCH_INTERVAL_SECONDS}s...")
+            logger.info(f"\n> [Watcher Error] {e} — retrying in {WATCH_INTERVAL_SECONDS}s...")
             time.sleep(WATCH_INTERVAL_SECONDS)
             continue
 

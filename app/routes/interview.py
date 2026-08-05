@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import hmac
 import json
 import re
@@ -378,6 +380,6 @@ def register_interview_routes(app):
                 with open(f, encoding="utf-8") as file:
                     data = json.load(file)
                     list_ints.append(data)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning('Caught exception: %s', e, exc_info=True)
         return jsonify(list_ints)

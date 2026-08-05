@@ -2,9 +2,25 @@ import collections
 import json
 import queue
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Paths Setup
-from .app_paths import data_path
+from src.common import data_path
+
+# Setup Centralized Logging
+log_file_path = data_path("logs") / "app.log"
+log_file_path.parent.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
+    handlers=[
+        logging.FileHandler(log_file_path, encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 def ensure_app_directories():
@@ -12,8 +28,8 @@ def ensure_app_directories():
     for sub in ["resumes", "output", "output/txt", "output/nlp", "output/ranking", "output/scheduling", "output/interviews", "output/reports", "output/ssl"]:
         try:
             data_path(sub).mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to create directory {sub}: {e}", exc_info=True)
 
 ensure_app_directories()
 
@@ -33,8 +49,8 @@ def add_log_line(line: str):
         log_history.append(line)
     try:
         log_queue.put_nowait(line)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to put log line in queue: {e}", exc_info=True)
 
 
 def get_log_history() -> list:
@@ -46,7 +62,8 @@ def _load_tasks():
     if TASK_STATE_FILE.exists():
         try:
             return json.loads(TASK_STATE_FILE.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to load tasks from {TASK_STATE_FILE}: {e}", exc_info=True)
             return {}
     return {}
 
@@ -57,8 +74,8 @@ def _save_tasks():
             json.dumps(pipeline_tasks, indent=2, ensure_ascii=False),
             encoding="utf-8"
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to save tasks to {TASK_STATE_FILE}: {e}", exc_info=True)
 
 pipeline_tasks = _load_tasks()
 

@@ -1,12 +1,15 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import hashlib  # Hash-based candidate deduplication
 import json  # JSON serialisation for candidate data and output files
 from concurrent.futures import ThreadPoolExecutor, as_completed  # Parallel scoring
 from datetime import datetime  # Timestamps in output filenames
 from pathlib import Path  # Cross-platform path handling
 
-from app.utils import call_ollama, clean_json_response  # Shared AI utilities
+from src.common import call_ollama, clean_json_response  # Shared AI utilities
 
-from app.app_paths import data_path
+from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -201,8 +204,8 @@ def load_candidates(nlp_folder: Path) -> list:
     json_files = list(nlp_folder.glob("*_nlp.json"))
 
     if not json_files:
-        print(f"[ERROR] No NLP JSON files found in '{nlp_folder}'.")
-        print("  Run nlp_extractor.py first.")
+        logger.info(f"[ERROR] No NLP JSON files found in '{nlp_folder}'.")
+        logger.info("  Run nlp_extractor.py first.")
         return []
 
     dupes = 0
@@ -228,7 +231,7 @@ def load_candidates(nlp_folder: Path) -> list:
             ).hexdigest()[:16]
 
             if dedup_key in seen_ids:
-                print(f"  [SKIP] Duplicate resume skipped: {jf.name} (same as a previously loaded candidate)")
+                logger.info(f"  [SKIP] Duplicate resume skipped: {jf.name} (same as a previously loaded candidate)")
                 dupes += 1
                 continue
 
@@ -238,13 +241,13 @@ def load_candidates(nlp_folder: Path) -> list:
             candidates.append(data)
 
         except Exception as e:
-            print(f"  [WARNING] Could not load {jf.name}: {e}")
+            logger.info(f"  [WARNING] Could not load {jf.name}: {e}")
 
     total = len(candidates)
     if dupes:
-        print(f"> Found {total + dupes} file(s) — {dupes} duplicate(s) removed — ranking {total} unique candidate(s).")
+        logger.info(f"> Found {total + dupes} file(s) — {dupes} duplicate(s) removed — ranking {total} unique candidate(s).")
     else:
-        print(f"> Found {total} candidate(s) to rank.")
+        logger.info(f"> Found {total} candidate(s) to rank.")
 
     return candidates
 
@@ -295,7 +298,7 @@ def score_candidate(candidate: dict, jd: dict):
         score_result = call_ai(prompt)
 
         if not score_result:
-            print(f"  [FAILED]  {name}")
+            logger.info(f"  [FAILED]  {name}")
             return None
 
         # Fill candidate_name if AI left it blank
@@ -322,11 +325,11 @@ def score_candidate(candidate: dict, jd: dict):
         # The score is computed from rubrics and is more reliable than free-text AI.
         score_result["hire_recommendation"] = _score_to_recommendation(total)
 
-        print(f"  [DONE]    {str(name):<40} Score: {total}/100  [{confidence} confidence]")
+        logger.info(f"  [DONE]    {str(name):<40} Score: {total}/100  [{confidence} confidence]")
         return score_result
 
     except Exception as e:
-        print(f"  [ERROR]   {name} — {e}")
+        logger.info(f"  [ERROR]   {name} — {e}")
         return None
 
 
@@ -396,7 +399,7 @@ def save_leaderboard_txt(ranked: list, jd: dict, output_path: Path):
 
             f.write("\n" + "=" * 60 + "\n\n")
 
-    print(f"> Leaderboard saved : {txt_file}")
+    logger.info(f"> Leaderboard saved : {txt_file}")
 
 # ─────────────────────────────────────────────
 # SAVE SCORES JSON
@@ -415,7 +418,7 @@ def save_scores_json(ranked: list, jd: dict, output_path: Path):
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=4, ensure_ascii=False)
 
-    print(f"> Scores JSON saved : {json_file}")
+    logger.info(f"> Scores JSON saved : {json_file}")
 
 # ─────────────────────────────────────────────
 # MAIN RANKING PIPELINE
@@ -438,13 +441,13 @@ def run_ranking():
     output_path.mkdir(parents=True, exist_ok=True)
     nlp_path    = Path(NLP_FOLDER)
 
-    print("=" * 50)
-    print("   AI RECRUITMENT RANKING ENGINE")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("   AI RECRUITMENT RANKING ENGINE")
+    logger.info("=" * 50)
 
     # ── Step 1: Get Job Description from user ──
-    print("\n> Paste the Job Description below.")
-    print("> When done, type 'END' on a new line and press Enter:\n")
+    logger.info("\n> Paste the Job Description below.")
+    logger.info("> When done, type 'END' on a new line and press Enter:\n")
 
     jd_lines = []
     while True:
@@ -455,19 +458,19 @@ def run_ranking():
 
     jd_text = "\n".join(jd_lines).strip()
     if not jd_text:
-        print("[ERROR] No Job Description provided. Exiting.")
+        logger.info("[ERROR] No Job Description provided. Exiting.")
         return
 
     # ── Step 2: Parse JD ──
-    print("\n> Parsing Job Description with AI...", end=" ", flush=True)
+    logger.info("\n> Parsing Job Description with AI...", end=" ", flush=True)
     jd_data = call_ai(build_jd_prompt(jd_text))
     if not jd_data:
-        print("[ERROR] Failed to parse JD. Exiting.")
+        logger.info("[ERROR] Failed to parse JD. Exiting.")
         return
-    print(f"Done! [{jd_data.get('job_title', 'Unknown Role')}]")
+    logger.info(f"Done! [{jd_data.get('job_title', 'Unknown Role')}]")
 
     # ── Step 3: Load candidates ──
-    print()
+    logger.info("")
     candidates = load_candidates(nlp_path)
     if not candidates:
         return
@@ -475,7 +478,7 @@ def run_ranking():
     # ── Step 4: Score candidates IN PARALLEL ──
     # ThreadPoolExecutor creates a pool of MAX_WORKERS threads.
     # Each thread scores one candidate independently — no shared state.
-    print(f"\n> Scoring {len(candidates)} candidates in parallel (workers: {MAX_WORKERS})...\n")
+    logger.info(f"\n> Scoring {len(candidates)} candidates in parallel (workers: {MAX_WORKERS})...\n")
 
     # elapsed defined before try block so it is accessible in the except block
     elapsed           = 0
@@ -498,35 +501,35 @@ def run_ranking():
         elapsed = (datetime.now() - start_time).seconds
 
     except Exception as e:
-        print(f"\n[ERROR] Parallel scoring failed: {e}")
+        logger.info(f"\n[ERROR] Parallel scoring failed: {e}")
         elapsed = (datetime.now() - start_time).seconds
 
     if not scored_candidates:
-        print("[ERROR] No candidates were scored. Exiting.")
+        logger.info("[ERROR] No candidates were scored. Exiting.")
         return
 
-    print(f"\n> Scored {len(scored_candidates)}/{len(candidates)} candidates in {elapsed}s")
+    logger.info(f"\n> Scored {len(scored_candidates)}/{len(candidates)} candidates in {elapsed}s")
 
     # ── Step 5: Sort by score ── highest score first
     ranked = sorted(scored_candidates, key=lambda x: x.get("total_score", 0), reverse=True)
 
     # ── Step 6: Save outputs ──
-    print("\n> Saving results...")
+    logger.info("\n> Saving results...")
     save_leaderboard_txt(ranked, jd_data, output_path)  # human-readable leaderboard
     save_scores_json(ranked, jd_data, output_path)       # machine-readable JSON
 
     # ── Step 7: Print ranked summary table ──
-    print(f"\n{'=' * 55}")
-    print("  RANKING COMPLETE — TOP CANDIDATES")
-    print(f"{'=' * 55}")
+    logger.info(f"\n{'=' * 55}")
+    logger.info("  RANKING COMPLETE — TOP CANDIDATES")
+    logger.info(f"{'=' * 55}")
     for rank, c in enumerate(ranked, start=1):
         name     = c.get("candidate_name") or "Unknown"
         filename = c.get("_source_file", "")
         display  = f"{name} ({filename})" if filename else name
-        print(f"  #{rank:<3} {str(display):<45} {c.get('total_score', 0)}/100")
-    print(f"{'=' * 55}")
-    print(f"\n> Time taken        : {elapsed} seconds")
-    print(f"> Full results saved: {OUTPUT_FOLDER}")
+        logger.info(f"  #{rank:<3} {str(display):<45} {c.get('total_score', 0)}/100")
+    logger.info(f"{'=' * 55}")
+    logger.info(f"\n> Time taken        : {elapsed} seconds")
+    logger.info(f"> Full results saved: {OUTPUT_FOLDER}")
 
 
 if __name__ == "__main__":

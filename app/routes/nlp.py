@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import threading
 import time
@@ -83,8 +85,8 @@ def register_nlp_routes(app):
                             source_file=txt_file.name,
                             skills=ndata.get("skills", {}).get("technical_skills", []),
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning('Caught exception: %s', e, exc_info=True)
             else:
                 results["skipped"].append(txt_file.name)
 

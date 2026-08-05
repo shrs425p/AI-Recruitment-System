@@ -1,12 +1,15 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import json  # JSON serialisation for report files
 import re  # Regex — sanitise filenames
 from datetime import datetime  # Timestamps for file names
 from pathlib import Path  # Cross-platform path handling
 
-from app.utils import call_ollama
-from app.utils import clean_json_response as clean_json  # AI utilities
+from src.common import call_ollama
+from src.common import clean_json_response as clean_json  # AI utilities
 
-from app.app_paths import data_path
+from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -46,11 +49,11 @@ def load_interview_transcripts(interviews_folder: Path) -> list:
     json_files = sorted(interviews_folder.glob("interview_*.json"))  # sorted alphabetically
 
     if not json_files:
-        print(f"[ERROR] No interview transcripts found in '{interviews_folder}'.")
-        print("  Run interview_bot.py first.")
+        logger.info(f"[ERROR] No interview transcripts found in '{interviews_folder}'.")
+        logger.info("  Run interview_bot.py first.")
         return []
 
-    print(f"> Found {len(json_files)} interview transcript(s).")
+    logger.info(f"> Found {len(json_files)} interview transcript(s).")
     transcripts = []
 
     for jf in json_files:
@@ -60,7 +63,7 @@ def load_interview_transcripts(interviews_folder: Path) -> list:
             data["_source_file"] = jf.name  # track which file this came from
             transcripts.append(data)
         except Exception as e:
-            print(f"  [WARNING] Could not load {jf.name}: {e}")
+            logger.info(f"  [WARNING] Could not load {jf.name}: {e}")
 
     return transcripts
 
@@ -270,7 +273,7 @@ def save_report_txt(transcript: dict, ai_report: dict, combined_score: float, ou
                 f.write(f"  FLAGS     : {', '.join(r['proctor']['flags'])}\n")
             f.write(f"  Time      : {r.get('time_taken', 0)}s\n\n")
 
-    print(f"  Report TXT saved: {txt_file.name}")
+    logger.info(f"  Report TXT saved: {txt_file.name}")
     return txt_file
 
 # ─────────────────────────────────────────────
@@ -317,7 +320,7 @@ def save_report_json(transcript: dict, ai_report: dict, combined_score: float, o
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=4, ensure_ascii=False)
 
-    print(f"  Report JSON saved: {json_file.name}")
+    logger.info(f"  Report JSON saved: {json_file.name}")
 
 # ─────────────────────────────────────────────
 # STEP 6: SAVE FINAL SUMMARY LEADERBOARD
@@ -361,8 +364,8 @@ def save_final_summary(all_reports: list, output_path: Path):
             "candidates":   sorted_reports
         }, f, indent=4, ensure_ascii=False)
 
-    print(f"\n> Final Summary TXT  : {txt_file.name}")
-    print(f"> Final Summary JSON : {json_file.name}")
+    logger.info(f"\n> Final Summary TXT  : {txt_file.name}")
+    logger.info(f"> Final Summary JSON : {json_file.name}")
 
 # ─────────────────────────────────────────────
 # MAIN PIPELINE
@@ -373,9 +376,9 @@ def run_report_generator():
     output_path.mkdir(parents=True, exist_ok=True)
     interviews_path = Path(INTERVIEWS_FOLDER)
 
-    print("=" * 55)
-    print("   POST-INTERVIEW REPORT GENERATOR")
-    print("=" * 55)
+    logger.info("=" * 55)
+    logger.info("   POST-INTERVIEW REPORT GENERATOR")
+    logger.info("=" * 55)
 
     # Load all transcripts
     transcripts = load_interview_transcripts(interviews_path)
@@ -388,21 +391,21 @@ def run_report_generator():
 
     for i, transcript in enumerate(transcripts, start=1):
         name = transcript.get("candidate_name", "Unknown")
-        print(f"\n> [{i}/{len(transcripts)}] Generating report for: {name}...")
+        logger.info(f"\n> [{i}/{len(transcripts)}] Generating report for: {name}...")
 
         # Calculate combined score
         combined_score = calculate_combined_score(transcript)
 
         # Generate AI report
-        print("  Analyzing with AI...", end=" ", flush=True)
+        logger.info("  Analyzing with AI...", end=" ", flush=True)
         ai_report = generate_ai_report(transcript)
 
         if not ai_report:
-            print("Failed!")
+            logger.info("Failed!")
             failed_count += 1
             continue
 
-        print(f"Done! [{ai_report.get('hire_recommendation', 'N/A')}]")
+        logger.info(f"Done! [{ai_report.get('hire_recommendation', 'N/A')}]")
 
         # Save individual report
         save_report_txt(transcript, ai_report, combined_score, output_path)
@@ -426,16 +429,16 @@ def run_report_generator():
 
     # Save final summary of all candidates
     if all_reports:
-        print("\n> Generating final hiring summary...")
+        logger.info("\n> Generating final hiring summary...")
         save_final_summary(all_reports, output_path)
 
-    print(f"\n{'='*55}")
-    print("  REPORT GENERATION COMPLETE")
-    print(f"{'='*55}")
-    print(f"  Success  : {success_count}")
-    print(f"  Failed   : {failed_count}")
-    print(f"  Output   : {OUTPUT_FOLDER}")
-    print(f"{'='*55}")
+    logger.info(f"\n{'='*55}")
+    logger.info("  REPORT GENERATION COMPLETE")
+    logger.info(f"{'='*55}")
+    logger.info(f"  Success  : {success_count}")
+    logger.info(f"  Failed   : {failed_count}")
+    logger.info(f"  Output   : {OUTPUT_FOLDER}")
+    logger.info(f"{'='*55}")
 
 
 if __name__ == "__main__":

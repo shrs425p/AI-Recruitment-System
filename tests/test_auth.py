@@ -3,7 +3,7 @@ from werkzeug.security import generate_password_hash
 
 import config
 from app import create_app
-from app.app_paths import APP_RESOURCE_DIR
+from src.common import APP_RESOURCE_DIR
 from app.routes.auth import register_auth_routes
 
 

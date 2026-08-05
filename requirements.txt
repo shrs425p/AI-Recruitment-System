@@ -6,6 +6,7 @@ numpy>=1.26
 
 # AI / LLM
 ollama>=0.1.7
+anthropic>=0.31.1
 
 # GUI / Web
 pywebview>=5.0

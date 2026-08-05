@@ -1,13 +1,16 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import json  # JSON I/O for schedule files and transcripts
 import re  # Regex — used to sanitise filenames
 import time  # time.time() for measuring answer duration (proctoring)
 from datetime import datetime  # Timestamp for output filenames
 from pathlib import Path  # Cross-platform path handling
 
-from app.utils import call_ollama
-from app.utils import clean_json_response as clean_json  # AI utilities
+from src.common import call_ollama
+from src.common import clean_json_response as clean_json  # AI utilities
 
-from app.app_paths import data_path
+from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -46,12 +49,12 @@ def load_scheduled_candidates(scheduling_folder: Path):
     schedule_files = sorted(scheduling_folder.glob("schedule_*.json"), reverse=True)
 
     if not schedule_files:
-        print(f"[ERROR] No schedule file found in '{scheduling_folder}'.")
-        print("  Run scheduling.py first.")
+        logger.info(f"[ERROR] No schedule file found in '{scheduling_folder}'.")
+        logger.info("  Run scheduling.py first.")
         return [], ""
 
     latest = schedule_files[0]
-    print(f"> Loading schedule from: {latest.name}")
+    logger.info(f"> Loading schedule from: {latest.name}")
 
     with open(latest, encoding="utf-8") as f:
         data = json.load(f)
@@ -59,7 +62,7 @@ def load_scheduled_candidates(scheduling_folder: Path):
     confirmed = [c for c in data.get("schedule", []) if c["status"] == "CONFIRMED"]
     job_title = data.get("job_title", "Open Position")
 
-    print(f"> Confirmed candidates  : {len(confirmed)}")
+    logger.info(f"> Confirmed candidates  : {len(confirmed)}")
     return confirmed, job_title
 
 # ─────────────────────────────────────────────
@@ -110,7 +113,7 @@ def generate_questions(candidate_data: dict, job_title: str) -> dict:
             return {"technical": [], "behavioral": []}
         return clean_json(raw)
     except Exception as e:
-        print(f"  [ERROR] Question generation failed: {e}")
+        logger.info(f"  [ERROR] Question generation failed: {e}")
         return {"technical": [], "behavioral": []}
 
 # ─────────────────────────────────────────────
@@ -158,7 +161,7 @@ def evaluate_answer(question: str, answer: str, job_title: str, domain: str) -> 
         return result
 
     except Exception as e:
-        print(f"  [ERROR] Evaluation failed: {e}")
+        logger.info(f"  [ERROR] Evaluation failed: {e}")
         return {
             "relevance": 0, "depth": 0, "clarity": 0,
             "correctness": 0, "total": 0,
@@ -234,28 +237,28 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
 
     total_q = len(all_questions)
 
-    print(f"\n{'='*55}")
-    print(f"  INTERVIEW — {name}")
-    print(f"{'='*55}")
-    print(f"  Job Title    : {job_title}")
-    print(f"  Domain       : {domain}")
-    print(f"  Questions    : {total_q} total")
-    print(f"  Time Limit   : {ANSWER_TIME_LIMIT}s per question")
-    print("\n  Instructions:")
-    print("  - Read each question carefully.")
-    print("  - Type your answer and press Enter.")
-    print("  - Type 'SKIP' to skip a question.")
-    print(f"{'='*55}")
+    logger.info(f"\n{'='*55}")
+    logger.info(f"  INTERVIEW — {name}")
+    logger.info(f"{'='*55}")
+    logger.info(f"  Job Title    : {job_title}")
+    logger.info(f"  Domain       : {domain}")
+    logger.info(f"  Questions    : {total_q} total")
+    logger.info(f"  Time Limit   : {ANSWER_TIME_LIMIT}s per question")
+    logger.info("\n  Instructions:")
+    logger.info("  - Read each question carefully.")
+    logger.info("  - Type your answer and press Enter.")
+    logger.info("  - Type 'SKIP' to skip a question.")
+    logger.info(f"{'='*55}")
     input("\n  Press Enter to begin...\n")
 
     for q_num, (q_type, q_data) in enumerate(all_questions, start=1):
         q_text = q_data.get("question", "")
         topic  = q_data.get("topic", q_data.get("type", ""))
 
-        print(f"\n{'─'*55}")
-        print(f"  Q{q_num}/{total_q}  [{q_type}]  {topic}")
-        print(f"{'─'*55}")
-        print(f"\n  {q_text}\n")
+        logger.info(f"\n{'─'*55}")
+        logger.info(f"  Q{q_num}/{total_q}  [{q_type}]  {topic}")
+        logger.info(f"{'─'*55}")
+        logger.info(f"\n  {q_text}\n")
 
         start_time = time.time()
         answer     = input("  Your Answer: ").strip()
@@ -265,12 +268,12 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
         proctor = proctor_check(q_num, answer, time_taken)
         proctor_log.append(proctor)
         if proctor["flagged"]:
-            print(f"  [PROCTOR] {', '.join(proctor['flags'])}")
+            logger.info(f"  [PROCTOR] {', '.join(proctor['flags'])}")
 
         # Evaluate
-        print("  Evaluating...", end=" ", flush=True)
+        logger.info("  Evaluating...", end=" ", flush=True)
         evaluation = evaluate_answer(q_text, answer, job_title, domain)
-        print(f"Score: {evaluation['total']}/10  — {evaluation.get('feedback', '')}")
+        logger.info(f"Score: {evaluation['total']}/10  — {evaluation.get('feedback', '')}")
 
         responses.append({
             "question_num": q_num,
@@ -298,13 +301,13 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
     tech_max       = len(tech_responses) * 10
     beh_max        = len(beh_responses)  * 10
 
-    print(f"\n{'='*55}")
-    print("  INTERVIEW COMPLETE")
-    print(f"  Total Score       : {total_score}/{max_score} ({percentage}%)")
-    print(f"  Technical Score   : {tech_score}/{tech_max}")
-    print(f"  Behavioral Score  : {beh_score}/{beh_max}")
-    print(f"  Proctor Flags     : {flagged_count}")
-    print(f"{'='*55}\n")
+    logger.info(f"\n{'='*55}")
+    logger.info("  INTERVIEW COMPLETE")
+    logger.info(f"  Total Score       : {total_score}/{max_score} ({percentage}%)")
+    logger.info(f"  Technical Score   : {tech_score}/{tech_max}")
+    logger.info(f"  Behavioral Score  : {beh_score}/{beh_max}")
+    logger.info(f"  Proctor Flags     : {flagged_count}")
+    logger.info(f"{'='*55}\n")
 
     return {
         "candidate_name":    name,
@@ -386,8 +389,8 @@ def save_interview_result(result: dict, output_path: Path):
                 f.write(f"FLAGS     : {', '.join(r['proctor']['flags'])}\n")
             f.write(f"Time Taken: {r['time_taken']}s\n\n")
 
-    print(f"  Saved: {json_file.name}")
-    print(f"  Saved: {txt_file.name}")
+    logger.info(f"  Saved: {json_file.name}")
+    logger.info(f"  Saved: {txt_file.name}")
 
 # ─────────────────────────────────────────────
 # MAIN PIPELINE
@@ -399,59 +402,59 @@ def run_interview_bot():
     scheduling_path = Path(SCHEDULING_FOLDER)
     nlp_path        = Path(NLP_FOLDER)
 
-    print("=" * 55)
-    print("   AI INTERVIEW BOT — LAYER 1 (TEXT MODE)")
-    print("=" * 55)
+    logger.info("=" * 55)
+    logger.info("   AI INTERVIEW BOT — LAYER 1 (TEXT MODE)")
+    logger.info("=" * 55)
 
     # Load confirmed candidates
     candidates, job_title = load_scheduled_candidates(scheduling_path)
     if not candidates:
         return
 
-    print(f"> Job Title : {job_title}")
-    print(f"> Starting  : {len(candidates)} interviews\n")
+    logger.info(f"> Job Title : {job_title}")
+    logger.info(f"> Starting  : {len(candidates)} interviews\n")
 
     for i, candidate in enumerate(candidates, start=1):
         name = candidate.get("candidate_name", "Unknown")
 
-        print(f"\n{'='*55}")
-        print(f"  CANDIDATE {i}/{len(candidates)}: {name}")
-        print(f"{'='*55}")
+        logger.info(f"\n{'='*55}")
+        logger.info(f"  CANDIDATE {i}/{len(candidates)}: {name}")
+        logger.info(f"{'='*55}")
 
         # Load NLP data for context
         candidate_data = load_candidate_nlp(candidate.get("source_file", ""), nlp_path)
 
         # Generate questions
-        print("> Generating questions...", end=" ", flush=True)
+        logger.info("> Generating questions...", end=" ", flush=True)
         questions = generate_questions(candidate_data, job_title)
 
         tech_q = len(questions.get("technical",  []))
         behv_q = len(questions.get("behavioral", []))
 
         if tech_q == 0 and behv_q == 0:
-            print("Failed! Skipping.")
+            logger.info("Failed! Skipping.")
             continue
 
-        print(f"Done! ({tech_q} technical + {behv_q} behavioral)")
+        logger.info(f"Done! ({tech_q} technical + {behv_q} behavioral)")
 
         # Conduct interview
         result = conduct_interview(candidate, questions, job_title, candidate_data)
 
         # Save transcript
-        print("> Saving transcript...")
+        logger.info("> Saving transcript...")
         save_interview_result(result, output_path)
 
         # Continue prompt
         if i < len(candidates):
             cont = input("\n> Next candidate? (Enter=Yes / 'STOP'=Stop): ").strip()
             if cont.upper() == "STOP":
-                print("> Session stopped.")
+                logger.info("> Session stopped.")
                 break
 
-    print(f"\n{'='*55}")
-    print("  ALL INTERVIEWS COMPLETE")
-    print(f"  Transcripts saved to: {OUTPUT_FOLDER}")
-    print(f"{'='*55}")
+    logger.info(f"\n{'='*55}")
+    logger.info("  ALL INTERVIEWS COMPLETE")
+    logger.info(f"  Transcripts saved to: {OUTPUT_FOLDER}")
+    logger.info(f"{'='*55}")
 
 
 def generate_interview_question(candidate_name: str, job_title: str, topic: str, q_num: int, q_type: str, transcript: str = "") -> str:
@@ -472,7 +475,7 @@ def generate_interview_question(candidate_name: str, job_title: str, topic: str,
         prompt += f"\nAsk an introductory question testing their alignment and interest in the {job_title} role, specializing in {topic}."
 
     try:
-        from app.utils import call_ollama
+        from src.common import call_ollama
         raw = call_ollama(system_msg, prompt, temperature=0.5, num_predict=512)
         if raw:
             # Strip extra quotes or prefixes if the AI generated them
@@ -481,7 +484,7 @@ def generate_interview_question(candidate_name: str, job_title: str, topic: str,
             cleaned = re.sub(r'^(Q|Question\s*\d*)\s*:\s*', '', cleaned, flags=re.IGNORECASE)
             return cleaned.strip()
     except Exception as e:
-        print(f"  [ERROR] Single question generation failed: {e}")
+        logger.info(f"  [ERROR] Single question generation failed: {e}")
 
     # Fallback questions
     if q_num == 1:

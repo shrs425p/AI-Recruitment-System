@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import json  # JSON serialisation for schedule files
 import re  # Regex — used to sanitise filenames (remove special chars)
 import uuid  # Generate unique event IDs for .ics files
@@ -6,7 +9,7 @@ from pathlib import Path  # Cross-platform path handling
 
 from icalendar import Calendar, Event  # Build .ics calendar invite files
 
-from app.app_paths import data_path
+from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -45,12 +48,12 @@ def load_top_candidates(ranking_folder: Path, top_n: int) -> list:
     ranking_files = sorted(ranking_folder.glob("ranking_scores*.json"), reverse=True)
 
     if not ranking_files:
-        print(f"[ERROR] No ranking file found in '{ranking_folder}'.")
-        print("  Run ranking_engine.py first.")
+        logger.info(f"[ERROR] No ranking file found in '{ranking_folder}'.")
+        logger.info("  Run ranking_engine.py first.")
         return []
 
     latest_file = ranking_files[0]  # most recent ranking run
-    print(f"> Loading ranking from: {latest_file.name}")
+    logger.info(f"> Loading ranking from: {latest_file.name}")
 
     with open(latest_file, encoding="utf-8") as f:
         data = json.load(f)
@@ -59,14 +62,14 @@ def load_top_candidates(ranking_folder: Path, top_n: int) -> list:
 
     # Guard: ranking file exists but contains no candidates (shouldn't happen, but safe)
     if not all_candidates:
-        print("[ERROR] Ranking file is empty. Run ranking_engine.py first.")
+        logger.info("[ERROR] Ranking file is empty. Run ranking_engine.py first.")
         return []
 
     # Slice to top N only — candidates are already sorted by score in the file
     top_candidates = all_candidates[:top_n]
 
-    print(f"> Total ranked candidates : {len(all_candidates)}")
-    print(f"> Selecting top           : {len(top_candidates)}")
+    logger.info(f"> Total ranked candidates : {len(all_candidates)}")
+    logger.info(f"> Selecting top           : {len(top_candidates)}")
 
     return top_candidates
 
@@ -80,12 +83,12 @@ def get_hr_availability_terminal() -> list:
     GUI VERSION: Replace this function with a calendar picker widget.
     Returns list of datetime objects.
     """
-    print("\n" + "=" * 50)
-    print("  ENTER HR / HIRING MANAGER AVAILABILITY")
-    print("=" * 50)
-    print("> Enter available time slots one by one.")
-    print("> Format: YYYY-MM-DD HH:MM  (e.g. 2026-03-01 10:00)")
-    print("> Type 'DONE' when finished.\n")
+    logger.info("\n" + "=" * 50)
+    logger.info("  ENTER HR / HIRING MANAGER AVAILABILITY")
+    logger.info("=" * 50)
+    logger.info("> Enter available time slots one by one.")
+    logger.info("> Format: YYYY-MM-DD HH:MM  (e.g. 2026-03-01 10:00)")
+    logger.info("> Type 'DONE' when finished.\n")
 
     slots: list = []
     while True:
@@ -93,19 +96,19 @@ def get_hr_availability_terminal() -> list:
 
         if raw.upper() == "DONE":
             if len(slots) < SLOTS_TO_OFFER:
-                print(f"  [WARNING] Please enter at least {SLOTS_TO_OFFER} slots.")
+                logger.info(f"  [WARNING] Please enter at least {SLOTS_TO_OFFER} slots.")
                 continue
             break
 
         try:
             slot_dt = datetime.strptime(raw, "%Y-%m-%d %H:%M")
             if slot_dt < datetime.now():
-                print("  [WARNING] Slot is in the past. Enter a future date.")
+                logger.info("  [WARNING] Slot is in the past. Enter a future date.")
                 continue
             slots.append(slot_dt)
-            print(f"  Added: {slot_dt.strftime('%A, %B %d %Y at %I:%M %p')}")
+            logger.info(f"  Added: {slot_dt.strftime('%A, %B %d %Y at %I:%M %p')}")
         except ValueError:
-            print("  [ERROR] Invalid format. Use: YYYY-MM-DD HH:MM")
+            logger.info("  [ERROR] Invalid format. Use: YYYY-MM-DD HH:MM")
 
     return slots
 
@@ -154,7 +157,7 @@ def assign_slots_to_candidates(candidates: list, hr_slots: list, slots_per_candi
 
         # Warn if HR didn't provide enough unique slots
         if len(offered_slots) < slots_per_candidate:
-            print(f"  [WARNING] Only {len(offered_slots)} unique slot(s) available for {name} — consider adding more HR slots.")
+            logger.info(f"  [WARNING] Only {len(offered_slots)} unique slot(s) available for {name} — consider adding more HR slots.")
 
         # Present slots in chronological order to the candidate
         offered_slots.sort()
@@ -180,22 +183,22 @@ def collect_candidate_selections_terminal(scheduled: list) -> list:
     Simulate candidate picking a slot via terminal.
     GUI VERSION: Replace with candidate-facing web form or email link.
     """
-    print("\n" + "=" * 50)
-    print("  CANDIDATE SLOT SELECTION (SIMULATION)")
-    print("=" * 50)
-    print("> In production: candidates receive an email with slot options.")
-    print("> For now: manually select slot for each candidate.\n")
+    logger.info("\n" + "=" * 50)
+    logger.info("  CANDIDATE SLOT SELECTION (SIMULATION)")
+    logger.info("=" * 50)
+    logger.info("> In production: candidates receive an email with slot options.")
+    logger.info("> For now: manually select slot for each candidate.\n")
 
     for entry in scheduled:
         name   = entry["candidate_name"]
         source = entry["source_file"]
         slots  = entry["offered_slots"]
 
-        print(f"\n  Candidate : {name} ({source})  [Score: {entry['score']}/100]")
-        print("  Offered slots:")
+        logger.info(f"\n  Candidate : {name} ({source})  [Score: {entry['score']}/100]")
+        logger.info("  Offered slots:")
         for idx, slot in enumerate(slots, start=1):
             dt = datetime.strptime(slot, "%Y-%m-%d %H:%M")
-            print(f"    {idx}. {dt.strftime('%A, %B %d %Y at %I:%M %p')}")
+            logger.info(f"    {idx}. {dt.strftime('%A, %B %d %Y at %I:%M %p')}")
 
         while True:
             choice = input(f"  Select slot (1-{len(slots)}) or 'SKIP' to skip: ").strip()
@@ -209,12 +212,12 @@ def collect_candidate_selections_terminal(scheduled: list) -> list:
                 if 0 <= choice_idx < len(slots):
                     entry["selected_slot"] = slots[choice_idx]
                     entry["status"]        = "CONFIRMED"
-                    print(f"  Confirmed: {slots[choice_idx]}")
+                    logger.info(f"  Confirmed: {slots[choice_idx]}")
                     break
                 else:
-                    print(f"  [ERROR] Enter a number between 1 and {len(slots)}.")
+                    logger.info(f"  [ERROR] Enter a number between 1 and {len(slots)}.")
             except ValueError:
-                print("  [ERROR] Invalid input.")
+                logger.info("  [ERROR] Invalid input.")
 
     return scheduled
 
@@ -341,8 +344,8 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str, me
 
             f.write("\n" + "=" * 60 + "\n\n")
 
-    print(f"> Schedule JSON saved : {json_file}")
-    print(f"> Schedule TXT saved  : {txt_file}")
+    logger.info(f"> Schedule JSON saved : {json_file}")
+    logger.info(f"> Schedule TXT saved  : {txt_file}")
 
 # ─────────────────────────────────────────────
 # MAIN PIPELINE
@@ -356,9 +359,9 @@ def run_scheduling():
     # Shared timestamp for this session — keeps all files consistent
     session_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    print("=" * 50)
-    print("   INTERVIEW SCHEDULING MODULE")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("   INTERVIEW SCHEDULING MODULE")
+    logger.info("=" * 50)
 
     # ── Step 1: Load top candidates ──
     top_candidates = load_top_candidates(ranking_path, TOP_N_CANDIDATES)
@@ -372,43 +375,43 @@ def run_scheduling():
     # ── Step 3: Get HR availability ──
     hr_slots = get_hr_availability_terminal()
     if not hr_slots:
-        print("[ERROR] No slots entered. Exiting.")
+        logger.info("[ERROR] No slots entered. Exiting.")
         return
 
     # ── Step 4: Assign slots to candidates ──
-    print(f"\n> Assigning slots to top {len(top_candidates)} candidates...")
+    logger.info(f"\n> Assigning slots to top {len(top_candidates)} candidates...")
     scheduled = assign_slots_to_candidates(top_candidates, hr_slots, SLOTS_TO_OFFER)
 
     # ── Step 5: Collect candidate selections ──
     scheduled = collect_candidate_selections_terminal(scheduled)
 
     # ── Step 6: Generate .ics files ──
-    print("\n> Generating calendar invites (.ics)...")
+    logger.info("\n> Generating calendar invites (.ics)...")
     ics_count = 0
     for entry in scheduled:
         ics_path = generate_ics(entry, output_path, hr_name, job_title, session_stamp)
         if ics_path:
-            print(f"  Created: {ics_path.name}")
+            logger.info(f"  Created: {ics_path.name}")
             ics_count += 1
 
     # ── Step 7: Save summary ──
-    print("\n> Saving schedule summary...")
+    logger.info("\n> Saving schedule summary...")
     save_schedule_summary(scheduled, output_path, job_title)
 
     # ── Step 8: Print final summary ──
     confirmed = [s for s in scheduled if s["status"] == "CONFIRMED"]
     skipped   = [s for s in scheduled if s["status"] == "SKIPPED"]
 
-    print(f"\n{'=' * 50}")
-    print("  SCHEDULING COMPLETE")
-    print(f"{'=' * 50}")
-    print(f"  Confirmed interviews : {len(confirmed)}")
-    print(f"  Skipped              : {len(skipped)}")
-    print(f"  Calendar invites     : {ics_count} .ics files generated")
-    print(f"  Output folder        : {OUTPUT_FOLDER}")
-    print(f"{'=' * 50}")
-    print("\n> TIP: .ics files can be opened with Google Calendar,")
-    print("       Outlook, or Apple Calendar directly.")
+    logger.info(f"\n{'=' * 50}")
+    logger.info("  SCHEDULING COMPLETE")
+    logger.info(f"{'=' * 50}")
+    logger.info(f"  Confirmed interviews : {len(confirmed)}")
+    logger.info(f"  Skipped              : {len(skipped)}")
+    logger.info(f"  Calendar invites     : {ics_count} .ics files generated")
+    logger.info(f"  Output folder        : {OUTPUT_FOLDER}")
+    logger.info(f"{'=' * 50}")
+    logger.info("\n> TIP: .ics files can be opened with Google Calendar,")
+    logger.info("       Outlook, or Apple Calendar directly.")
 
 
 if __name__ == "__main__":
