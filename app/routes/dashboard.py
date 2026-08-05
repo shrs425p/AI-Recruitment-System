@@ -445,11 +445,22 @@ def register_dashboard_routes(app):
             except Exception:
                 pass
 
+        db_connected = False
+        try:
+            from app.database import get_connection
+            with get_connection() as conn:
+                # Just execute a simple query to ensure it's responsive
+                conn.execute("SELECT 1").fetchone()
+                db_connected = True
+        except Exception:
+            pass
+
         return render_template("dashboard.html",
                                pdf_count=pdf_count, txt_count=txt_count,
                                nlp_count=nlp_count, has_ranking=has_ranking,
                                has_schedule=has_schedule, interview_count=interview_count,
-                               report_count=report_count, ranking=latest_ranking)
+                               report_count=report_count, ranking=latest_ranking,
+                               db_connected=db_connected)
 
     @app.route("/api/stats", methods=["GET"])
     def api_stats():
@@ -504,11 +515,17 @@ def register_dashboard_routes(app):
     @app.route("/api/open-output-folder", methods=["POST"])
     def api_open_output_folder():
         import os
+        import subprocess
         try:
-            os.startfile(str(OUTPUT_FOLDER))
-        except Exception:
-            pass
-        return jsonify({"success": True})
+            if os.name == 'nt':
+                subprocess.Popen(['explorer', str(OUTPUT_FOLDER)])
+            elif hasattr(os, 'startfile'):
+                os.startfile(str(OUTPUT_FOLDER))
+            else:
+                subprocess.Popen(['xdg-open', str(OUTPUT_FOLDER)])
+            return jsonify({"success": True})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
 
     @app.route("/api/run-auto-pipeline", methods=["POST"])
     @login_required

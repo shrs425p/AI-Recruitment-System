@@ -475,8 +475,13 @@
                     <span id="dashboardDate">Saturday, May 30, 2026</span>
                 </div>
                 <div class="hero-chip">
-                    <span style="display:inline-block; width:5px; height:5px; background:var(--green); border-radius:50%; margin-right:6px;"></span>
-                    Database: Connected
+                    {% if db_connected %}
+                        <span style="display:inline-block; width:5px; height:5px; background:var(--green); border-radius:50%; margin-right:6px;"></span>
+                        Database: Connected
+                    {% else %}
+                        <span style="display:inline-block; width:5px; height:5px; background:var(--red); border-radius:50%; margin-right:6px;"></span>
+                        Database: Error
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -935,10 +940,12 @@
             if (btn) btn.disabled = true;
             
             const res = await fetch('/api/open-output-folder', { method: 'POST' });
-            if (res.ok) {
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
                 showToast('Opened Output Folder in File Explorer', 'success');
             } else {
-                showToast('Failed to open folder', 'error');
+                showToast('Failed to open folder: ' + (data.error || 'Unknown error'), 'error');
             }
             
             if (btn) btn.disabled = false;
