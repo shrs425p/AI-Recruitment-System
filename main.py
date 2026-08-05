@@ -353,11 +353,11 @@ def _pick_port(host: str, preferred_port: int) -> int:
 def run_flask_https():
     cert_path, key_path = _ensure_ssl_cert()
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "127.0.0.1")
-    app.run(host=candidate_host, port=CANDIDATE_PORT, debug=False, use_reloader=False,
+    app.run(host=candidate_host, port=CANDIDATE_PORT, debug=True, use_reloader=False,
             ssl_context=(cert_path, key_path))
 
 def run_flask_http_local():
-    app.run(host="127.0.0.1", port=DESKTOP_PORT, debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=DESKTOP_PORT, debug=True, use_reloader=False)
 
 def main():
     global CANDIDATE_PORT, DESKTOP_PORT
