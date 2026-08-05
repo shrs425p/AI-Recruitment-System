@@ -158,6 +158,7 @@ def save_output(data: dict, output_file: Path, stem: str):
     tmp_txt      = output_file.with_suffix(".tmp_txt")
 
     try:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         # ── Step 1: Write JSON to a temp file ──
         # ensure_ascii=False keeps non-ASCII characters (e.g. accented names) intact
         with open(tmp_json, "w", encoding="utf-8") as f:

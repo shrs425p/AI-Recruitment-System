@@ -6,18 +6,18 @@ import threading
 # Paths Setup
 from .app_paths import data_path
 
+def ensure_app_directories():
+    """Ensure all critical runtime directories exist on disk."""
+    for sub in ["resumes", "output", "output/txt", "output/nlp", "output/ranking", "output/scheduling", "output/interviews", "output/reports", "output/ssl"]:
+        try:
+            data_path(sub).mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+ensure_app_directories()
+
 RESUMES_FOLDER = data_path("resumes")
 OUTPUT_FOLDER = data_path("output")
-RESUMES_FOLDER.mkdir(exist_ok=True)
-OUTPUT_FOLDER.mkdir(exist_ok=True)
-
-(OUTPUT_FOLDER / "txt").mkdir(parents=True, exist_ok=True)
-(OUTPUT_FOLDER / "nlp").mkdir(parents=True, exist_ok=True)
-(OUTPUT_FOLDER / "ranking").mkdir(parents=True, exist_ok=True)
-(OUTPUT_FOLDER / "scheduling").mkdir(parents=True, exist_ok=True)
-(OUTPUT_FOLDER / "interviews").mkdir(parents=True, exist_ok=True)
-(OUTPUT_FOLDER / "reports").mkdir(parents=True, exist_ok=True)
-(OUTPUT_FOLDER / "ssl").mkdir(parents=True, exist_ok=True)
 
 # Centralized State
 TASK_STATE_FILE = OUTPUT_FOLDER / "task_state.json"
@@ -51,6 +51,7 @@ def _load_tasks():
 
 def _save_tasks():
     try:
+        TASK_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         TASK_STATE_FILE.write_text(
             json.dumps(pipeline_tasks, indent=2, ensure_ascii=False),
             encoding="utf-8"

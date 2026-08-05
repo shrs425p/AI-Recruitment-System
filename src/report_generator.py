@@ -177,6 +177,7 @@ def save_report_txt(transcript: dict, ai_report: dict, combined_score: float, ou
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     txt_file  = output_path / f"report_{safe_name}_{timestamp}.txt"
 
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(txt_file, "w", encoding="utf-8") as f:
         f.write("=" * 65 + "\n")
         f.write("          POST-INTERVIEW EVALUATION REPORT\n")
@@ -312,6 +313,7 @@ def save_report_json(transcript: dict, ai_report: dict, combined_score: float, o
         "responses":   transcript.get("responses", [])
     }
 
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=4, ensure_ascii=False)
 
@@ -332,6 +334,7 @@ def save_final_summary(all_reports: list, output_path: Path):
     sorted_reports = sorted(all_reports, key=lambda x: x["combined_score"], reverse=True)
 
     # Save TXT summary
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(txt_file, "w", encoding="utf-8") as f:
         f.write("=" * 65 + "\n")
         f.write("        FINAL HIRING DECISION SUMMARY\n")

@@ -350,6 +350,7 @@ def save_leaderboard_txt(ranked: list, jd: dict, output_path: Path):
     txt_file  = output_path / f"leaderboard_{stamp}.txt"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(txt_file, "w", encoding="utf-8") as f:
         f.write("=" * 60 + "\n")
         f.write("       AI RECRUITMENT RANKING LEADERBOARD\n")
@@ -410,6 +411,7 @@ def save_scores_json(ranked: list, jd: dict, output_path: Path):
         "generated_at":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "ranked_candidates": ranked
     }
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=4, ensure_ascii=False)
 

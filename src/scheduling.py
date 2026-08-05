@@ -273,6 +273,7 @@ def generate_ics(entry: dict, output_path: Path, hr_name: str, job_title: str, s
     ics_path  = output_path / f"interview_{entry['rank']}_{safe_name}_{stamp}.ics"
 
     # Write binary iCal data — .ics files use \r\n line endings (RFC 5545)
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(ics_path, "wb") as f:
         f.write(cal.to_ical())
 
@@ -289,6 +290,7 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str, me
 
     # Save JSON (machine readable / GUI ready)
     json_file = output_path / f"schedule_{timestamp}.json"
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump({
             "job_title":    job_title,

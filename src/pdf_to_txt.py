@@ -146,6 +146,7 @@ def process_file(file_path: Path, output_path: Path):
             return False
 
         # Write the cleaned text to disk in UTF-8 encoding
+        target_txt.parent.mkdir(parents=True, exist_ok=True)
         with open(target_txt, "w", encoding="utf-8") as f:
             f.write(full_text)
 

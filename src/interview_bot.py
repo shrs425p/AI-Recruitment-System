@@ -348,6 +348,7 @@ def save_interview_result(result: dict, output_path: Path):
 
     # JSON transcript (for report generation stage)
     json_file = output_path / f"interview_{safe_name}_{timestamp}.json"
+    output_path.mkdir(parents=True, exist_ok=True)
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=4, ensure_ascii=False)
 
