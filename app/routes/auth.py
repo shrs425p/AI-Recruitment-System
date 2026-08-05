@@ -56,16 +56,24 @@ def register_auth_routes(app):
 
     @app.route("/api/desktop-login", methods=["POST"])
     def api_desktop_login():
+        if session.get("logged_in") and session.get("desktop_session"):
+            return jsonify({"success": True})
+            
         data = request.json or {}
         nonce = data.get("nonce")
         import os
         
         stored_nonce = os.environ.get("DESKTOP_AUTH_NONCE")
+        with open("C:/Users/Shrs/Documents/AI-Recruitment-System/debug_auth.log", "a") as f:
+            f.write(f"DEBUG AUTH: received={nonce}, stored={stored_nonce}\n")
+            
         print(f"DEBUG AUTH: received={nonce}, stored={stored_nonce}", flush=True)
         
         # Verify and immediately invalidate the nonce to prevent replay
         if nonce and stored_nonce and nonce == stored_nonce:
-            os.environ.pop("DESKTOP_AUTH_NONCE", None)
+            # Double check to prevent race condition if a new nonce was generated
+            if os.environ.get("DESKTOP_AUTH_NONCE") == nonce:
+                os.environ.pop("DESKTOP_AUTH_NONCE", None)
             
             session.clear()
             session["logged_in"] = True
