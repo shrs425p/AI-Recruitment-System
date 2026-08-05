@@ -34,18 +34,21 @@ def register_auth_routes(app):
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({ nonce: nonce })
                         }).then(function(res) {
+                            if (window.loginSuccess) return;
                             if (res.ok) {
+                                window.loginSuccess = true;
                                 window.location.href = '/dashboard';
                             } else {
                                 document.getElementById('status').innerText = 'Authentication Failed. (HTTP ' + res.status + ')';
                             }
                         }).catch(function(err) {
+                            if (window.loginSuccess) return;
                             document.getElementById('status').innerText = 'Connection Error: ' + err;
                         });
                     });
                 });
                 setTimeout(function() {
-                    if (!window.pywebview) {
+                    if (!window.pywebview && !window.loginSuccess) {
                         document.getElementById('status').innerText = 'Access Denied: Please use the Desktop Application.';
                     }
                 }, 3000);
@@ -64,6 +67,7 @@ def register_auth_routes(app):
         import os
         
         current_pool = os.environ.get("DESKTOP_AUTH_NONCES", "")
+        print(f"DEBUG AUTH: received={nonce}, pool={current_pool}", flush=True)
         
         # Verify and immediately invalidate the nonce to prevent replay
         if nonce and f"{nonce}," in current_pool:
