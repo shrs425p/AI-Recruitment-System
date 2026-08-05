@@ -125,7 +125,7 @@ html, body {
    ───────────────────────────────────────────── */
 .app-shell {
     display: flex;
-    height: 100vh;
+    height: calc(100vh - 38px);
     overflow: hidden;
 }
 
