@@ -141,7 +141,17 @@ def register_interview_routes(app):
     def candidate_interview(token):
         token_data = get_interview_token(token)
         if not token_data or token_data.get("used") == 1:
-            return render_template("login.html", error="Invalid or expired interview token.")
+            from flask import render_template_string
+            return render_template_string("""
+            <html><head><title>Interview Expired</title>
+            <style>body{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}</style>
+            </head><body>
+            <div style="text-align:center; padding:40px; background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+            <h2 style="color:#ef4444; margin-top:0;">Invalid or Expired Link</h2>
+            <p style="color:#6b7280;">This interview has already been completed or the link is invalid.</p>
+            </div>
+            </body></html>
+            """), 403
 
         return render_template("candidate_interview.html",
                                token=token,
