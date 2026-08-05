@@ -13,7 +13,7 @@ from app.database import (
     upsert_candidate,
 )
 from app.utils import login_required
-from ranking_engine import (
+from src.ranking_engine import (
     build_jd_prompt,
     call_ai,
     load_candidates,
@@ -21,7 +21,7 @@ from ranking_engine import (
     save_scores_json,
     score_candidate,
 )
-from shortlist_report import save_shortlist_report
+from src.shortlist_report import save_shortlist_report
 
 
 def register_ranking_routes(app):
