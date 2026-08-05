@@ -34,10 +34,7 @@ def _auth_failure_response():
         return redirect("/login")
 
 def hr_access_allowed() -> bool:
-    import config
     if session.get("logged_in"):
-        return True
-    if not getattr(config, "LOGIN_ENABLED", False) and is_local_request():
         return True
     return False
 

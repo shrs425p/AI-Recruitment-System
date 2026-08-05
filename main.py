@@ -367,16 +367,16 @@ def run_flask_https():
 
 def run_flask_http_local():
     from waitress import serve as waitress_serve
-    # The desktop UI and candidate links are served via Waitress. 
-    # Bind to 0.0.0.0 so phones on the same WiFi can access the links.
-    waitress_serve(app, host="0.0.0.0", port=DESKTOP_PORT, threads=8, ident="ARS")
+    # The desktop UI is served only on loopback, but it is still a production
+    # request server. Waitress avoids Flask's development server and debugger.
+    waitress_serve(app, host="127.0.0.1", port=DESKTOP_PORT, threads=8, ident="ARS")
 
 def main():
     from app.database import init_db
     init_db()
 
     global CANDIDATE_PORT, DESKTOP_PORT
-    candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "127.0.0.1")
+    candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")
     CANDIDATE_PORT = _pick_port(candidate_host, _env_port("ARS_CANDIDATE_PORT", 5000))
     DESKTOP_PORT = _pick_port("127.0.0.1", _env_port("ARS_DESKTOP_PORT", 5001))
 
@@ -397,9 +397,15 @@ def main():
             webview.windows[0].close() if hasattr(webview.windows[0], 'close') else webview.windows[0].destroy()
 
     api = Api()
+    
+    import secrets
+    import os
+    if "DESKTOP_AUTH_TOKEN" not in os.environ:
+        os.environ["DESKTOP_AUTH_TOKEN"] = secrets.token_urlsafe(32)
+        
     webview.create_window(
         title     = "AI Recruitment System",
-        url       = f"http://127.0.0.1:{DESKTOP_PORT}",
+        url       = f"http://127.0.0.1:{DESKTOP_PORT}/desktop-login?token={os.environ['DESKTOP_AUTH_TOKEN']}",
         width     = 1280,
         height    = 800,
         min_size  = (1024, 700),
