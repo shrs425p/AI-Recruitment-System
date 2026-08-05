@@ -16,7 +16,7 @@ try:
 except (ImportError, AttributeError):
     _MP_AVAILABLE = False  # Fall back to Haar cascade (mediapipe missing or incompatible version)
     print("[PROCTOR] mediapipe unavailable — falling back to Haar cascade.")
-    print("  For mediapipe support install: pip install mediapipe==0.10.9")
+    print("  For mediapipe support install: pip install mediapipe>=0.10.9")
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
