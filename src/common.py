@@ -191,34 +191,38 @@ async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0
 
 def call_ollama(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048) -> str:
     import logging
+    import threading
+    import asyncio
+    
     logger = logging.getLogger(__name__)
+    result = ""
+    exception = None
+
+    def _worker():
+        nonlocal result, exception
+        try:
+            result = asyncio.run(call_ai_async(system_msg, user_msg, temperature, num_predict))
+        except Exception as e:
+            exception = e
+
     try:
-        return asyncio.run(call_ai_async(system_msg, user_msg, temperature, num_predict))
-    except RuntimeError as e:
-        err_str = str(e)
-        if "cannot be called when another event loop is running" in err_str:
-            import config as _cfg
-            attempts = getattr(_cfg, "AI_RETRY_ATTEMPTS", 3)
-            backoff  = getattr(_cfg, "AI_RETRY_BACKOFF", 2)
-            model    = getattr(_cfg, "OLLAMA_MODEL", "llama3.2:3b")
-            for attempt in range(1, attempts + 1):
-                try:
-                    response = _ollama().chat(
-                        model=model,
-                        messages=[
-                            {"role": "system", "content": system_msg},
-                            {"role": "user",   "content": user_msg},
-                        ],
-                        options={"temperature": temperature, "num_predict": num_predict},
-                    )
-                    return response["message"]["content"]
-                except Exception as se:
-                    logger.error(f"  [ERROR] Ollama attempt {attempt}: {se}")
-                    if attempt < attempts:
-                        time.sleep(backoff * attempt)
-            return ""
-        logger.error(f"  [ERROR] AI call failed: {err_str}")
-        return ""
-    except Exception as e:
-        logger.error(f"  [ERROR] call_ollama unexpected error: {e}")
-        return ""
+        asyncio.get_running_loop()
+        in_loop = True
+    except RuntimeError:
+        in_loop = False
+
+    if in_loop:
+        # We are already in an event loop, asyncio.run will fail.
+        # Run in a background thread to get a fresh event loop.
+        t = threading.Thread(target=_worker)
+        t.start()
+        t.join()
+        if exception:
+            logger.error(f"  [ERROR] AI call failed in worker thread: {exception}")
+    else:
+        try:
+            result = asyncio.run(call_ai_async(system_msg, user_msg, temperature, num_predict))
+        except Exception as e:
+            logger.error(f"  [ERROR] AI call failed: {e}")
+            
+    return result
