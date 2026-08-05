@@ -46,7 +46,7 @@ def install_path(relative: str) -> Path:
 
 def data_path(relative: str) -> Path:
     path = APP_DATA_DIR / "data" / relative
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 

@@ -4,8 +4,9 @@ from flask import jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 import config
-from app.utils import is_local_request
-
+import threading
+VALID_DESKTOP_NONCES = set()
+nonce_lock = threading.Lock()
 
 def register_auth_routes(app):
     @app.route("/desktop-bootstrap")
@@ -64,16 +65,13 @@ def register_auth_routes(app):
             
         data = request.json or {}
         nonce = data.get("nonce")
-        import os
         
-        current_pool = os.environ.get("DESKTOP_AUTH_NONCES", "")
-        print(f"DEBUG AUTH: received={nonce}, pool={current_pool}", flush=True)
-        
-        # Verify and immediately invalidate the nonce to prevent replay
-        if nonce and f"{nonce}," in current_pool:
-            # Atomically remove only this specific nonce to prevent clobbering concurrently generated nonces
-            os.environ["DESKTOP_AUTH_NONCES"] = os.environ.get("DESKTOP_AUTH_NONCES", "").replace(f"{nonce},", "", 1)
-            
+        with nonce_lock:
+            is_valid = nonce and nonce in VALID_DESKTOP_NONCES
+            if is_valid:
+                VALID_DESKTOP_NONCES.remove(nonce)
+                
+        if is_valid:
             session.clear()
             session["logged_in"] = True
             session["desktop_session"] = True

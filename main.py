@@ -397,9 +397,10 @@ def main():
             webview.windows[0].close() if hasattr(webview.windows[0], 'close') else webview.windows[0].destroy()
         def get_auth_nonce(self):
             import secrets
+            from app.routes.auth import VALID_DESKTOP_NONCES, nonce_lock
             nonce = secrets.token_urlsafe(32)
-            current = os.environ.get("DESKTOP_AUTH_NONCES", "")
-            os.environ["DESKTOP_AUTH_NONCES"] = f"{current}{nonce},"
+            with nonce_lock:
+                VALID_DESKTOP_NONCES.add(nonce)
             return nonce
 
     api = Api()
