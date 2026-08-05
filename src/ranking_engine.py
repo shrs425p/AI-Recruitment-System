@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import hashlib  # Hash-based candidate deduplication
@@ -7,9 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed  # Parallel scor
 from datetime import datetime  # Timestamps in output filenames
 from pathlib import Path  # Cross-platform path handling
 
-from src.common import call_ollama, clean_json_response  # Shared AI utilities
-
-from src.common import data_path
+from src.common import call_ollama, clean_json_response, data_path  # Shared AI utilities
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -462,7 +461,7 @@ def run_ranking():
         return
 
     # ── Step 2: Parse JD ──
-    logger.info("\n> Parsing Job Description with AI...", end=" ", flush=True)
+    logger.info("\n> Parsing Job Description with AI...")
     jd_data = call_ai(build_jd_prompt(jd_text))
     if not jd_data:
         logger.info("[ERROR] Failed to parse JD. Exiting.")

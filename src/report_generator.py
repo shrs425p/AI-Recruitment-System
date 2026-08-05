@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import json  # JSON serialisation for report files
@@ -6,10 +7,8 @@ import re  # Regex — sanitise filenames
 from datetime import datetime  # Timestamps for file names
 from pathlib import Path  # Cross-platform path handling
 
-from src.common import call_ollama
+from src.common import call_ollama, data_path
 from src.common import clean_json_response as clean_json  # AI utilities
-
-from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -397,7 +396,7 @@ def run_report_generator():
         combined_score = calculate_combined_score(transcript)
 
         # Generate AI report
-        logger.info("  Analyzing with AI...", end=" ", flush=True)
+        logger.info("  Analyzing with AI...")
         ai_report = generate_ai_report(transcript)
 
         if not ai_report:

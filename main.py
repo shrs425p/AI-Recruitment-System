@@ -352,16 +352,29 @@ def _pick_port(host: str, preferred_port: int) -> int:
         return int(sock.getsockname()[1])
 
 
+def _debug_mode() -> bool:
+    """Keep Flask's debugger off unless a developer explicitly enables it."""
+    return not getattr(sys, "frozen", False) and os.environ.get("ARS_DEBUG", "").lower() in {
+        "1", "true", "yes",
+    }
+
+
 def run_flask_https():
     cert_path, key_path = _ensure_ssl_cert()
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "127.0.0.1")
-    app.run(host=candidate_host, port=CANDIDATE_PORT, debug=True, use_reloader=False,
+    app.run(host=candidate_host, port=CANDIDATE_PORT, debug=_debug_mode(), use_reloader=False,
             ssl_context=(cert_path, key_path))
 
 def run_flask_http_local():
-    app.run(host="127.0.0.1", port=DESKTOP_PORT, debug=True, use_reloader=False)
+    from waitress import serve as waitress_serve
+    # The desktop UI is served only on loopback, but it is still a production
+    # request server. Waitress avoids Flask's development server and debugger.
+    waitress_serve(app, host="127.0.0.1", port=DESKTOP_PORT, threads=8, ident="ARS")
 
 def main():
+    from app.database import init_db
+    init_db()
+
     global CANDIDATE_PORT, DESKTOP_PORT
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "127.0.0.1")
     CANDIDATE_PORT = _pick_port(candidate_host, _env_port("ARS_CANDIDATE_PORT", 5000))
