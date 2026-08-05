@@ -399,7 +399,6 @@ def main():
     api = Api()
     
     import secrets
-    import os
     if "DESKTOP_AUTH_TOKEN" not in os.environ:
         os.environ["DESKTOP_AUTH_TOKEN"] = secrets.token_urlsafe(32)
         
