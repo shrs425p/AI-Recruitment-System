@@ -286,6 +286,8 @@ def _save_config(cfg):
         config_dir_file.write_text(content, encoding="utf-8")
 
     # Reload the config module so the running process picks up the new values
+    if "config.config" in sys.modules:
+        importlib.reload(sys.modules["config.config"])
     importlib.reload(cfg)
 
 def _ensure_ssl_cert():
