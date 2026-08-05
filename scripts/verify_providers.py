@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import config
-from ai_mode import get_providers
+from src.ai_mode import get_providers
 
 PLACEHOLDERS = {'sk-ant-...','sk-...','AIza...','gsk_...','nvapi-...','ghp_...','sk-or-...'}
 
