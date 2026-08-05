@@ -367,9 +367,9 @@ def run_flask_https():
 
 def run_flask_http_local():
     from waitress import serve as waitress_serve
-    # The desktop UI is served only on loopback, but it is still a production
-    # request server. Waitress avoids Flask's development server and debugger.
-    waitress_serve(app, host="127.0.0.1", port=DESKTOP_PORT, threads=8, ident="ARS")
+    # The desktop UI and candidate links are served via Waitress. 
+    # Bind to 0.0.0.0 so phones on the same WiFi can access the links.
+    waitress_serve(app, host="0.0.0.0", port=DESKTOP_PORT, threads=8, ident="ARS")
 
 def main():
     from app.database import init_db
