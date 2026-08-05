@@ -22,72 +22,74 @@ Generated automatically on first run.
 """
 
 # Login / Security
-LOGIN_ENABLED = False
-HR_USERNAME = ''
-HR_PASSWORD = ''
-HR_PASSWORD_HASH = ''
-FLASK_SECRET_KEY = ''
+LOGIN_ENABLED: bool = False
+HR_USERNAME: str = ''
+HR_PASSWORD: str = ''
+HR_PASSWORD_HASH: str = ''
+FLASK_SECRET_KEY: str = ''
 
 # HR Profile
-HR_DISPLAY_NAME = 'HR Admin'
-HR_EMAIL = ''
-HR_COMPANY = ''
+HR_DISPLAY_NAME: str = 'HR Admin'
+HR_EMAIL: str = ''
+HR_COMPANY: str = ''
 
 # UI Theme
-THEME = 'light'
-COLOR_PALETTE = 'lavender'
+THEME: str = 'light'
+COLOR_PALETTE: str = 'lavender'
 
 # Ollama
-OLLAMA_MODEL = 'llama3.2:3b'
-OLLAMA_BASE_URL = 'http://localhost:11434'
+OLLAMA_MODEL: str = 'llama3.2:3b'
+OLLAMA_BASE_URL: str = 'http://localhost:11434'
 
 # Legacy cloud aliases (kept for compatibility)
-CLOUD_ENABLED = False
-CLOUD_MODEL = 'claude-3-5-haiku-latest'
+CLOUD_ENABLED: bool = False
+CLOUD_MODEL: str = 'claude-3-5-haiku-latest'
 
 # SMTP / Email
-SMTP_HOST = 'smtp.gmail.com'
-SMTP_PORT = 587
-SMTP_EMAIL = ''
-SMTP_PASSWORD = ''
+SMTP_HOST: str = 'smtp.gmail.com'
+SMTP_PORT: int = 587
+SMTP_EMAIL: str = ''
+SMTP_PASSWORD: str = ''
+EMAIL_TEMPLATE_SUBJECT: str = ''
+EMAIL_TEMPLATE_BODY: str = ''
 
 # Retry / Backoff
-AI_RETRY_ATTEMPTS = 3
-AI_RETRY_BACKOFF = 2
+AI_RETRY_ATTEMPTS: int = 3
+AI_RETRY_BACKOFF: int = 2
 
 # AI Mode  ('privacy' = local Ollama, 'cloud' = external API)
-APP_MODE = 'privacy'
+APP_MODE: str = 'privacy'
 
 # API Keys
-ANTHROPIC_KEY = ''
-GEMINI_KEY = ''
-GROQ_KEY = ''
-OPENAI_KEY = ''
-NVIDIA_KEY = ''
-OPENROUTER_KEY = ''
-GITHUB_KEY = ''
-OLLAMA_CLOUD_KEY = ''
+ANTHROPIC_KEY: str = ''
+GEMINI_KEY: str = ''
+GROQ_KEY: str = ''
+OPENAI_KEY: str = ''
+NVIDIA_KEY: str = ''
+OPENROUTER_KEY: str = ''
+GITHUB_KEY: str = ''
+OLLAMA_CLOUD_KEY: str = ''
 
 # Models
-PRIVACY_MODEL = 'llama3.2:3b'
-ANTHROPIC_MODEL = 'claude-3-5-haiku-latest'
-GEMINI_MODEL = 'gemini-1.5-flash'
-GROQ_MODEL = 'llama3-8b-8192'
-OPENAI_MODEL = 'gpt-4o-mini'
-NVIDIA_MODEL = 'meta/llama-3.3-70b-instruct'
-OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
-GITHUB_MODEL = 'gpt-4o-mini'
-OLLAMA_CLOUD_MODEL = 'llama3.2:3b'
+PRIVACY_MODEL: str = 'llama3.2:3b'
+ANTHROPIC_MODEL: str = 'claude-3-5-haiku-latest'
+GEMINI_MODEL: str = 'gemini-1.5-flash'
+GROQ_MODEL: str = 'llama3-8b-8192'
+OPENAI_MODEL: str = 'gpt-4o-mini'
+NVIDIA_MODEL: str = 'meta/llama-3.3-70b-instruct'
+OPENROUTER_MODEL: str = 'meta-llama/llama-3.1-8b-instruct:free'
+GITHUB_MODEL: str = 'gpt-4o-mini'
+OLLAMA_CLOUD_MODEL: str = 'llama3.2:3b'
 
 # Enabled Providers
-ANTHROPIC_ENABLED = False
-GEMINI_ENABLED = False
-GROQ_ENABLED = False
-OPENAI_ENABLED = False
-NVIDIA_ENABLED = False
-OPENROUTER_ENABLED = False
-GITHUB_ENABLED = False
-OLLAMA_CLOUD_ENABLED = False
+ANTHROPIC_ENABLED: bool = False
+GEMINI_ENABLED: bool = False
+GROQ_ENABLED: bool = False
+OPENAI_ENABLED: bool = False
+NVIDIA_ENABLED: bool = False
+OPENROUTER_ENABLED: bool = False
+GITHUB_ENABLED: bool = False
+OLLAMA_CLOUD_ENABLED: bool = False
 '''
 
 if getattr(sys, "frozen", False):
@@ -268,7 +270,8 @@ def _save_config(cfg):
 
         if key in SECTION_COMMENTS:
             lines.append(SECTION_COMMENTS[key])
-        lines.append(f"{key} = {_q(val)}\n")
+        tname = "bool" if typ is bool else ("int" if typ is int else "str")
+        lines.append(f"{key}: {tname} = {_q(val)}\n")
 
     content = "".join(lines)
 
