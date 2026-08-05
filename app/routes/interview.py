@@ -382,7 +382,7 @@ def register_interview_routes(app):
         from app.database import delete_all_tokens
         delete_all_tokens()
 
-        created = []
+        links = []
         for entry in sdata.get("schedule", []):
             if entry.get("status") == "CONFIRMED":
                 token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
@@ -394,8 +394,12 @@ def register_interview_routes(app):
                     rank=entry["rank"],
                     score=entry["score"]
                 )
-                created.append(entry["candidate_name"])
-        return jsonify({"success": True, "created": created})
+                links.append({
+                    "candidate_name": entry["candidate_name"],
+                    "url": request.host_url + f"candidate-interview/{token}",
+                    "used": 0
+                })
+        return jsonify({"success": True, "links": links})
 
     @app.route("/api/interview-links", methods=["GET"])
     def api_interview_links():
