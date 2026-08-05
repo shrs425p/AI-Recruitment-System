@@ -447,10 +447,11 @@ def register_dashboard_routes(app):
 
         db_connected = False
         try:
-            from app.database import db_session
-            with db_session() as conn:
-                conn.execute("SELECT 1").fetchone()
-                db_connected = True
+            from app.database import get_connection
+            conn = get_connection()
+            conn.execute("SELECT 1").fetchone()
+            conn.close()
+            db_connected = True
         except Exception as e:
             print(f"Database check failed: {e}")
 
@@ -515,13 +516,25 @@ def register_dashboard_routes(app):
     def api_open_output_folder():
         import os
         import subprocess
+        import sys
         try:
+            folder_path = str(OUTPUT_FOLDER.resolve())
             if os.name == 'nt':
-                subprocess.Popen(['explorer', str(OUTPUT_FOLDER)])
-            elif hasattr(os, 'startfile'):
-                os.startfile(str(OUTPUT_FOLDER))
+                os.startfile(folder_path)
+                try:
+                    import ctypes, time
+                    time.sleep(0.5)
+                    user32 = ctypes.windll.user32
+                    hwnd = user32.FindWindowW(None, "output")
+                    if hwnd:
+                        user32.ShowWindow(hwnd, 9)
+                        user32.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
+            elif sys.platform == 'darwin':
+                subprocess.Popen(['open', folder_path])
             else:
-                subprocess.Popen(['xdg-open', str(OUTPUT_FOLDER)])
+                subprocess.Popen(['xdg-open', folder_path])
             return jsonify({"success": True})
         except Exception as e:
             return jsonify({"success": False, "error": str(e)})
