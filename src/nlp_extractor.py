@@ -2,7 +2,7 @@ import json  # Serialize / deserialize JSON (saving NLP output)
 import time  # Sleep between polling cycles in the watcher loop
 from pathlib import Path  # Cross-platform file/folder path handling
 
-from utils import call_ollama, clean_json_response  # Shared AI calling utilities
+from app.utils import call_ollama, clean_json_response  # Shared AI calling utilities
 
 from app.app_paths import data_path
 

@@ -3,8 +3,8 @@ import re  # Regex — sanitise filenames
 from datetime import datetime  # Timestamps for file names
 from pathlib import Path  # Cross-platform path handling
 
-from utils import call_ollama
-from utils import clean_json_response as clean_json  # AI utilities
+from app.utils import call_ollama
+from app.utils import clean_json_response as clean_json  # AI utilities
 
 from app.app_paths import data_path
 

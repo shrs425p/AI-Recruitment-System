@@ -4,8 +4,8 @@ import time  # time.time() for measuring answer duration (proctoring)
 from datetime import datetime  # Timestamp for output filenames
 from pathlib import Path  # Cross-platform path handling
 
-from utils import call_ollama
-from utils import clean_json_response as clean_json  # AI utilities
+from app.utils import call_ollama
+from app.utils import clean_json_response as clean_json  # AI utilities
 
 from app.app_paths import data_path
 
@@ -472,7 +472,7 @@ def generate_interview_question(candidate_name: str, job_title: str, topic: str,
         prompt += f"\nAsk an introductory question testing their alignment and interest in the {job_title} role, specializing in {topic}."
 
     try:
-        from utils import call_ollama
+        from app.utils import call_ollama
         raw = call_ollama(system_msg, prompt, temperature=0.5, num_predict=512)
         if raw:
             # Strip extra quotes or prefixes if the AI generated them

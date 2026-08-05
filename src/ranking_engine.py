@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed  # Parallel scor
 from datetime import datetime  # Timestamps in output filenames
 from pathlib import Path  # Cross-platform path handling
 
-from utils import call_ollama, clean_json_response  # Shared AI utilities
+from app.utils import call_ollama, clean_json_response  # Shared AI utilities
 
 from app.app_paths import data_path
 
