@@ -63,13 +63,12 @@ def register_auth_routes(app):
         nonce = data.get("nonce")
         import os
         
-        valid_nonces = [n for n in os.environ.get("DESKTOP_AUTH_NONCES", "").split(",") if n]
+        current_pool = os.environ.get("DESKTOP_AUTH_NONCES", "")
         
         # Verify and immediately invalidate the nonce to prevent replay
-        if nonce and nonce in valid_nonces:
-            # Remove this specific nonce from the active pool
-            valid_nonces.remove(nonce)
-            os.environ["DESKTOP_AUTH_NONCES"] = ",".join(valid_nonces) + "," if valid_nonces else ""
+        if nonce and f"{nonce}," in current_pool:
+            # Atomically remove only this specific nonce to prevent clobbering concurrently generated nonces
+            os.environ["DESKTOP_AUTH_NONCES"] = os.environ.get("DESKTOP_AUTH_NONCES", "").replace(f"{nonce},", "", 1)
             
             session.clear()
             session["logged_in"] = True
