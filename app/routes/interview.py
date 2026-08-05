@@ -103,20 +103,34 @@ def register_interview_routes(app):
         
         tokens = get_all_tokens()
         
+        # Load the latest schedule to find confirmed candidates
+        schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
+        candidates = []
+        job_title = "Open Position"
+        
+        if schedule_files:
+            try:
+                with open(schedule_files[0], encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    job_title = sdata.get("job_title", job_title)
+                    for entry in sdata.get("schedule", []):
+                        if entry.get("status") == "CONFIRMED":
+                            candidates.append(entry)
+            except Exception as e:
+                logger.error(f"Failed to load schedule: {e}")
+                
         # Hardware checks
         mic = check_microphone().get("available", False)
         tts = check_tts().get("available", False)
         cam = check_webcam_available().get("available", False)
         
-        job_title = tokens[0]["job_title"] if tokens else "Open Position"
-        
         return render_template("interview.html", 
-                               candidates=tokens, 
-                               tokens=tokens,
+                               candidates=candidates, 
                                job_title=job_title,
                                mic_available=mic, 
                                tts_available=tts, 
-                               webcam_available=cam)
+                               webcam_available=cam,
+                               tokens=tokens)
 
     @app.route("/rules")
     @login_required
