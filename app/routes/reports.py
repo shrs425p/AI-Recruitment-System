@@ -6,7 +6,7 @@ from flask import Response, jsonify, render_template
 
 from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.utils import login_required
-from report_generator import (
+from src.report_generator import (
     calculate_combined_score,
     generate_ai_report,
     load_interview_transcripts,

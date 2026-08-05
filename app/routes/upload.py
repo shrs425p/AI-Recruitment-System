@@ -3,7 +3,7 @@ from werkzeug.utils import secure_filename
 
 from app.core import OUTPUT_FOLDER, RESUMES_FOLDER
 from app.utils import login_required
-from pdf_to_txt import process_file as pdf_process_file
+from src.pdf_to_txt import process_file as pdf_process_file
 
 
 def register_upload_routes(app):

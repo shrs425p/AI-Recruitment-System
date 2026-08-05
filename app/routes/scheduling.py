@@ -8,8 +8,8 @@ from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.database import create_run, finish_run
 from app.database import save_schedule as db_save_schedule
 from app.utils import login_required
-from google_calendar import check_calendar_auth, create_event_from_dict, get_free_slots, trigger_auth_flow
-from scheduling import (
+from src.google_calendar import check_calendar_auth, create_event_from_dict, get_free_slots, trigger_auth_flow
+from src.scheduling import (
     SLOTS_TO_OFFER,
     assign_slots_to_candidates,
     generate_ics,
