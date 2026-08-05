@@ -406,7 +406,12 @@ def register_interview_routes(app):
         host_url = request.host_url
         if "127.0.0.1" in host_url or "localhost" in host_url:
             lan_ip = _get_lan_ip()
-            host_url = host_url.replace("127.0.0.1", lan_ip).replace("localhost", lan_ip)
+            try:
+                import main
+                cand_port = getattr(main, "CANDIDATE_PORT", 5000)
+            except Exception:
+                cand_port = 5000
+            host_url = f"https://{lan_ip}:{cand_port}/"
 
         links = []
         for entry in sdata.get("schedule", []):
