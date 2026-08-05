@@ -4,7 +4,7 @@ import time
 
 from flask import jsonify, render_template
 
-import privacy_setup
+from src import privacy_setup
 from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.database import create_run, finish_run, upsert_candidate
 from app.utils import login_required
@@ -44,7 +44,7 @@ def register_nlp_routes(app):
 
         import asyncio
 
-        from nlp_extractor import process_file_async
+        from src.nlp_extractor import process_file_async
 
         async def run_batch():
             sem = asyncio.Semaphore(4)
