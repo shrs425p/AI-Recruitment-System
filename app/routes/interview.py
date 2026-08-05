@@ -377,6 +377,17 @@ def register_interview_routes(app):
         # Process face detection frame
         return jsonify({"success": True, "face_count": 1, "flag_count": 0, "flags": []})
 
+    def _get_lan_ip():
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
     @app.route("/api/generate-interview-links", methods=["POST"])
     def api_generate_interview_links():
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
@@ -392,6 +403,11 @@ def register_interview_routes(app):
         from app.database import delete_all_tokens
         delete_all_tokens()
 
+        host_url = request.host_url
+        if "127.0.0.1" in host_url or "localhost" in host_url:
+            lan_ip = _get_lan_ip()
+            host_url = host_url.replace("127.0.0.1", lan_ip).replace("localhost", lan_ip)
+
         links = []
         for entry in sdata.get("schedule", []):
             if entry.get("status") == "CONFIRMED":
@@ -406,7 +422,7 @@ def register_interview_routes(app):
                 )
                 links.append({
                     "candidate_name": entry["candidate_name"],
-                    "url": request.host_url + f"candidate-interview/{token}",
+                    "url": host_url + f"candidate-interview/{token}",
                     "used": 0
                 })
         return jsonify({"success": True, "links": links})
