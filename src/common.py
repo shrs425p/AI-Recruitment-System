@@ -73,7 +73,9 @@ def _ollama():
     global _ollama_client
     if _ollama_client is None:
         import ollama
-        _ollama_client = ollama
+        import config
+        base_url = getattr(config, "OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+        _ollama_client = ollama.Client(host=base_url, timeout=300.0)
     return _ollama_client
 
 def _repair_json_string(s: str) -> str:
@@ -105,8 +107,9 @@ def clean_json_response(text: str) -> dict:
 clean_json = clean_json_response
 
 async def call_ollama_async(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048) -> str:
-    import config
     import logging
+
+    import config
     logger = logging.getLogger(__name__)
     attempts = getattr(config, "AI_RETRY_ATTEMPTS", 3)
     backoff  = getattr(config, "AI_RETRY_BACKOFF", 2)
@@ -148,7 +151,7 @@ async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 204
     )
     return msg.content[0].text
 
-async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048, local_timeout: float = 45.0) -> str:
+async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048, local_timeout: float = 300.0) -> str:
     import logging
     logger = logging.getLogger(__name__)
     mode = get_app_mode()
