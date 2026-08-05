@@ -447,13 +447,12 @@ def register_dashboard_routes(app):
 
         db_connected = False
         try:
-            from app.database import get_connection
-            with get_connection() as conn:
-                # Just execute a simple query to ensure it's responsive
+            from app.database import db_session
+            with db_session() as conn:
                 conn.execute("SELECT 1").fetchone()
                 db_connected = True
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Database check failed: {e}")
 
         return render_template("dashboard.html",
                                pdf_count=pdf_count, txt_count=txt_count,
