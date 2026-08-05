@@ -53,20 +53,21 @@ def register_settings_routes(app):
     @login_required
     def settings():
         if request.method == "POST":
-            # ── Security / Login ──
-            cfg.LOGIN_ENABLED = request.form.get("login_enabled") == "on"
-            cfg.HR_USERNAME    = request.form.get("hr_username", cfg.HR_USERNAME).strip()
-            new_pw = request.form.get("hr_password", "").strip()
-            if new_pw:
-                cfg.HR_PASSWORD = ""
-                cfg.HR_PASSWORD_HASH = generate_password_hash(new_pw)
-            # ── Theme & Palette ──
-            cfg.THEME = request.form.get("theme", "light")
-            cfg.COLOR_PALETTE = request.form.get("color_palette", "lavender")
-            # ── Profile ──
-            cfg.HR_DISPLAY_NAME = request.form.get("display_name", "").strip()
-            cfg.HR_EMAIL        = request.form.get("email", "").strip()
-            cfg.HR_COMPANY      = request.form.get("company", "").strip()
+            if "hr_username" in request.form:
+                # ── Security / Login ──
+                cfg.LOGIN_ENABLED = request.form.get("login_enabled") == "on"
+                cfg.HR_USERNAME    = request.form.get("hr_username", cfg.HR_USERNAME).strip()
+                new_pw = request.form.get("hr_password", "").strip()
+                if new_pw:
+                    cfg.HR_PASSWORD = ""
+                    cfg.HR_PASSWORD_HASH = generate_password_hash(new_pw)
+                # ── Theme & Palette ──
+                cfg.THEME = request.form.get("theme", getattr(cfg, "THEME", "light"))
+                cfg.COLOR_PALETTE = request.form.get("color_palette", getattr(cfg, "COLOR_PALETTE", "lavender"))
+                # ── Profile ──
+                cfg.HR_DISPLAY_NAME = request.form.get("display_name", "").strip()
+                cfg.HR_EMAIL        = request.form.get("email", "").strip()
+                cfg.HR_COMPANY      = request.form.get("company", "").strip()
 
             # ── Ollama / AI Mode ──
             if "ollama_model" in request.form:
