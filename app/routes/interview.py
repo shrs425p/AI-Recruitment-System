@@ -98,8 +98,25 @@ def register_interview_routes(app):
     @app.route("/interview")
     @login_required
     def interview():
+        from src.voice_interview import check_microphone, check_tts
+        from src.webcam_proctor import check_webcam_available
+        
         tokens = get_all_tokens()
-        return render_template("interview.html", tokens=tokens)
+        
+        # Hardware checks
+        mic = check_microphone().get("available", False)
+        tts = check_tts().get("available", False)
+        cam = check_webcam_available().get("available", False)
+        
+        job_title = tokens[0]["job_title"] if tokens else "Open Position"
+        
+        return render_template("interview.html", 
+                               candidates=tokens, 
+                               tokens=tokens,
+                               job_title=job_title,
+                               mic_available=mic, 
+                               tts_available=tts, 
+                               webcam_available=cam)
 
     @app.route("/rules")
     @login_required
