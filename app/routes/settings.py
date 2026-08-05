@@ -8,6 +8,46 @@ import config as cfg
 from app.utils import login_required
 
 
+def _get_about_html() -> str:
+    return (
+        "<div style='display:flex; align-items:center; gap:20px; margin-bottom:24px; padding:20px; background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-lg);'>"
+        "<img src='/static/icon/ai.png' alt='AI Logo' style='width:64px; height:64px; border-radius:16px; object-fit:contain; box-shadow:var(--elevation-1);'>"
+        "<div>"
+        "<h2 style='margin:0 0 4px 0; border:none; padding:0; font-size:24px; font-weight:800;'>AI Recruitment System</h2>"
+        "<p style='margin:0; font-size:13px; color:var(--md-sys-color-primary); font-weight:600;'>v1.1.0 Enterprise Edition — Offline-First Talent Acquisition Platform</p>"
+        "</div>"
+        "</div>"
+        "<p>The AI Recruitment System is an enterprise-grade desktop application engineered for modern HR teams and talent acquisition specialists. It automates end-to-end recruitment pipelines—including resume intake, OCR text extraction, structured candidate profiling, objective ranking, automated scheduling, interactive evaluations, AI proctoring, and executive reporting.</p>"
+        "<h3>Core Architectural Capabilities</h3>"
+        "<ol>"
+        "<li><strong>Intake &amp; OCR Engine:</strong> High-speed extraction for digital PDFs via PyMuPDF and scanned document images (PNG/JPG) using embedded Tesseract OCR.</li>"
+        "<li><strong>Structured Profile Extraction:</strong> Natural Language Processing (NLP) converts raw text into standardized JSON candidate profiles detailing technical skills, work experience, education, and domain expertise.</li>"
+        "<li><strong>Objective Leaderboard Ranking:</strong> Job Description template library and weighted scoring algorithm rank candidates objectively against target role requirements.</li>"
+        "<li><strong>Calendar &amp; Scheduling Automation:</strong> Automated slot coordination, iCalendar (.ics) invitation generation, and 2-way Google Calendar API synchronization.</li>"
+        "<li><strong>Interactive Evaluation Portal:</strong> Secure token-authenticated portal supporting both <strong>Text</strong> and offline <strong>Voice</strong> (Vosk STT &amp; pyttsx3 TTS) response modes.</li>"
+        "<li><strong>AI Proctoring &amp; Security:</strong> Real-time MediaPipe and OpenCV Haar Cascade webcam face detection combined with browser tab-switch and copy-paste violation logging.</li>"
+        "<li><strong>Live System Console:</strong> Streaming log history buffer enabling real-time monitoring of background jobs, database transactions, and model inference.</li>"
+        "<li><strong>Executive Analytics:</strong> Exportable shortlist reports, candidate evaluation cards, and aggregate hiring pool summaries.</li>"
+        "</ol>"
+        "<h3>Technology &amp; Security Stack</h3>"
+        "<p>Built on a resilient, multi-threaded local architecture:</p>"
+        "<ul>"
+        "<li><strong>Application Framework:</strong> Python 3.12, Flask 3.0, pywebview Desktop Frame</li>"
+        "<li><strong>Data Persistence:</strong> SQLite in Write-Ahead Logging (WAL) mode with busy timeout handling</li>"
+        "<li><strong>Privacy &amp; AI Execution:</strong> Zero-egress local LLMs via Ollama (llama3.2, mistral) with optional cloud API routing (OpenAI, Claude, Gemini, Groq)</li>"
+        "<li><strong>Security Middleware:</strong> Request rate-limiting, session TTL expiration, and PBKDF2 credential hashing</li>"
+        "</ul>"
+        "<h3>Demographic Neutrality &amp; Fairness Policy</h3>"
+        "<p>The application enforces strict anti-bias protocols across all evaluation stages:</p>"
+        "<ul>"
+        "<li>Ranking scores are computed <em>exclusively</em> from verified skills, education, and relevant work experience matched against role requirements.</li>"
+        "<li>Candidate names, age, gender, ethnicity, and demographic identifiers are <strong>strictly excluded</strong> from LLM scoring prompts.</li>"
+        "<li>Interview questions are dynamically constructed from job responsibilities and technical domains, never personal attributes.</li>"
+        "<li>All compiled reports include an audited fairness verification line confirming non-discriminatory scoring.</li>"
+        "</ul>"
+    )
+
+
 def register_settings_routes(app):
     @app.route("/settings", methods=["GET", "POST"])
     @login_required
@@ -82,48 +122,11 @@ def register_settings_routes(app):
             main._save_config(cfg)
             return redirect(url_for("settings"))
 
-        about_html = (
-            "<div style='display:flex; align-items:center; gap:20px; margin-bottom:24px; padding:20px; background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-lg);'>"
-            "<img src='/static/icon/ai.png' alt='AI Logo' style='width:64px; height:64px; border-radius:16px; object-fit:contain; box-shadow:var(--elevation-1);'>"
-            "<div>"
-            "<h2 style='margin:0 0 4px 0; border:none; padding:0; font-size:24px; font-weight:800;'>AI Recruitment System</h2>"
-            "<p style='margin:0; font-size:13px; color:var(--md-sys-color-primary); font-weight:600;'>v1.1.0 Enterprise Edition — Offline-First Talent Acquisition Platform</p>"
-            "</div>"
-            "</div>"
-            "<p>The AI Recruitment System is an enterprise-grade desktop application engineered for modern HR teams and talent acquisition specialists. It automates end-to-end recruitment pipelines—including resume intake, OCR text extraction, structured candidate profiling, objective ranking, automated scheduling, interactive evaluations, AI proctoring, and executive reporting.</p>"
-            "<h3>Core Architectural Capabilities</h3>"
-            "<ol>"
-            "<li><strong>Intake &amp; OCR Engine:</strong> High-speed extraction for digital PDFs via PyMuPDF and scanned document images (PNG/JPG) using embedded Tesseract OCR.</li>"
-            "<li><strong>Structured Profile Extraction:</strong> Natural Language Processing (NLP) converts raw text into standardized JSON candidate profiles detailing technical skills, work experience, education, and domain expertise.</li>"
-            "<li><strong>Objective Leaderboard Ranking:</strong> Job Description template library and weighted scoring algorithm rank candidates objectively against target role requirements.</li>"
-            "<li><strong>Calendar &amp; Scheduling Automation:</strong> Automated slot coordination, iCalendar (.ics) invitation generation, and 2-way Google Calendar API synchronization.</li>"
-            "<li><strong>Interactive Evaluation Portal:</strong> Secure token-authenticated portal supporting both <strong>Text</strong> and offline <strong>Voice</strong> (Vosk STT &amp; pyttsx3 TTS) response modes.</li>"
-            "<li><strong>AI Proctoring &amp; Security:</strong> Real-time MediaPipe and OpenCV Haar Cascade webcam face detection combined with browser tab-switch and copy-paste violation logging.</li>"
-            "<li><strong>Live System Console:</strong> Streaming log history buffer enabling real-time monitoring of background jobs, database transactions, and model inference.</li>"
-            "<li><strong>Executive Analytics:</strong> Exportable shortlist reports, candidate evaluation cards, and aggregate hiring pool summaries.</li>"
-            "</ol>"
-            "<h3>Technology &amp; Security Stack</h3>"
-            "<p>Built on a resilient, multi-threaded local architecture:</p>"
-            "<ul>"
-            "<li><strong>Application Framework:</strong> Python 3.12, Flask 3.0, pywebview Desktop Frame</li>"
-            "<li><strong>Data Persistence:</strong> SQLite in Write-Ahead Logging (WAL) mode with busy timeout handling</li>"
-            "<li><strong>Privacy &amp; AI Execution:</strong> Zero-egress local LLMs via Ollama (llama3.2, mistral) with optional cloud API routing (OpenAI, Claude, Gemini, Groq)</li>"
-            "<li><strong>Security Middleware:</strong> Request rate-limiting, session TTL expiration, and PBKDF2 credential hashing</li>"
-            "</ul>"
-            "<h3>Demographic Neutrality &amp; Fairness Policy</h3>"
-            "<p>The application enforces strict anti-bias protocols across all evaluation stages:</p>"
-            "<ul>"
-            "<li>Ranking scores are computed <em>exclusively</em> from verified skills, education, and relevant work experience matched against role requirements.</li>"
-            "<li>Candidate names, age, gender, ethnicity, and demographic identifiers are <strong>strictly excluded</strong> from LLM scoring prompts.</li>"
-            "<li>Interview questions are dynamically constructed from job responsibilities and technical domains, never personal attributes.</li>"
-            "<li>All compiled reports include an audited fairness verification line confirming non-discriminatory scoring.</li>"
-            "</ul>"
-        )
-        return render_template("settings.html", cfg=cfg, about_html=about_html)
+        return render_template("settings.html", cfg=cfg, about_html=_get_about_html())
 
     @app.route("/about")
     def about_page():
-        return render_template("about.html", about_html=about_html)
+        return render_template("about.html", about_html=_get_about_html())
 
     @app.route("/api/toggle-theme", methods=["POST"])
     def api_toggle_theme():

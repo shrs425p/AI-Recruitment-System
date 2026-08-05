@@ -6,6 +6,7 @@ import threading
 # Paths Setup
 from .app_paths import data_path
 
+
 def ensure_app_directories():
     """Ensure all critical runtime directories exist on disk."""
     for sub in ["resumes", "output", "output/txt", "output/nlp", "output/ranking", "output/scheduling", "output/interviews", "output/reports", "output/ssl"]:
