@@ -23,7 +23,11 @@ def register_auth_routes(app):
         <body>
             <div id="status">Initializing Secure Desktop Session...</div>
             <script>
+                var authAttempted = false;
                 window.addEventListener('pywebviewready', function() {
+                    if (authAttempted) return;
+                    authAttempted = true;
+                    
                     window.pywebview.api.get_auth_nonce().then(function(nonce) {
                         fetch('/api/desktop-login', {
                             method: 'POST',
@@ -33,10 +37,10 @@ def register_auth_routes(app):
                             if (res.ok) {
                                 window.location.href = '/dashboard';
                             } else {
-                                document.getElementById('status').innerText = 'Authentication Failed.';
+                                document.getElementById('status').innerText = 'Authentication Failed. (HTTP ' + res.status + ')';
                             }
-                        }).catch(function() {
-                            document.getElementById('status').innerText = 'Connection Error.';
+                        }).catch(function(err) {
+                            document.getElementById('status').innerText = 'Connection Error: ' + err;
                         });
                     });
                 });
@@ -57,6 +61,7 @@ def register_auth_routes(app):
         import os
         
         stored_nonce = os.environ.get("DESKTOP_AUTH_NONCE")
+        print(f"DEBUG AUTH: received={nonce}, stored={stored_nonce}", flush=True)
         
         # Verify and immediately invalidate the nonce to prevent replay
         if nonce and stored_nonce and nonce == stored_nonce:
