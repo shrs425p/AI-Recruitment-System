@@ -239,7 +239,7 @@ def register_settings_routes(app):
 
     @app.route("/api/test-smtp", methods=["POST"])
     def api_test_smtp():
-        from email_sender import test_smtp_connection
+        from src.email_sender import test_smtp_connection
         success, err = test_smtp_connection()
         if success:
             return jsonify({"success": True})
