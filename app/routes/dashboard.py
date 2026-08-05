@@ -12,12 +12,12 @@ from app.core import OUTPUT_FOLDER, RESUMES_FOLDER, _save_tasks, pipeline_tasks
 from app.database import create_interview_token, create_run, finish_run, upsert_candidate
 from app.database import save_schedule as db_save_schedule
 from app.utils import login_required
-from nlp_extractor import process_file_async
+from src.nlp_extractor import process_file_async
 
 # Imports for auto-pipeline
-from pdf_to_txt import process_file as pdf_process_file
-from ranking_engine import load_candidates, save_leaderboard_txt, save_scores_json, score_candidate
-from report_generator import (
+from src.pdf_to_txt import process_file as pdf_process_file
+from src.ranking_engine import load_candidates, save_leaderboard_txt, save_scores_json, score_candidate
+from src.report_generator import (
     calculate_combined_score,
     generate_ai_report,
     load_interview_transcripts,
@@ -25,13 +25,13 @@ from report_generator import (
     save_report_json,
     save_report_txt,
 )
-from scheduling import (
+from src.scheduling import (
     SLOTS_TO_OFFER,
     generate_ics,
     load_top_candidates,
     save_schedule_summary,
 )
-from shortlist_report import save_shortlist_report
+from src.shortlist_report import save_shortlist_report
 
 AUTO_PIPELINE_STEPS = 5
 _pipeline_lock = threading.Lock()
