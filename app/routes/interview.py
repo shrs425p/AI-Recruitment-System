@@ -11,9 +11,9 @@ from app.core import OUTPUT_FOLDER
 from app.database import create_interview_token, get_all_tokens, get_interview_token
 from app.rate_limiter import SimpleRateLimiter
 from app.utils import login_required
-from interview_bot import evaluate_answer, generate_interview_question, proctor_check
-from webcam_proctor import start_proctoring as start_proctoring_session
-from webcam_proctor import stop_proctoring
+from src.interview_bot import evaluate_answer, generate_interview_question, proctor_check
+from src.webcam_proctor import start_proctoring as start_proctoring_session
+from src.webcam_proctor import stop_proctoring
 
 rate_limiter = SimpleRateLimiter(requests_per_minute=30)
 
