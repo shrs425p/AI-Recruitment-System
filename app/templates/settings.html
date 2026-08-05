@@ -358,7 +358,7 @@
                 </label>
             </div>
 
-            <div id="loginFields" style="{{ '' if cfg.LOGIN_ENABLED else 'display:none;' }}">
+            <div id="loginFields" {% if not cfg.LOGIN_ENABLED %}style="display:none;"{% endif %}>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                     <div class="form-group">
                         <label class="form-label">Username</label>
@@ -666,7 +666,7 @@
         <!-- PANEL: PRIVACY MODE                           -->
         <!-- ============================================= -->
         <div id="panel-privacy" class="ai-mode-panel"
-            style="margin-top:16px; {% if cfg.APP_MODE != 'privacy' %}display:none;{% endif %}">
+            {% if cfg.APP_MODE != 'privacy' %}style="margin-top:16px; display:none;"{% else %}style="margin-top:16px;"{% endif %}>
             <div class="card">
                 <div class="card-title">Privacy Mode (Local Ollama Engine)</div>
                 <div class="card-desc">Zero data leaves the machine. Uses a local lightweight model running inside your
@@ -721,7 +721,7 @@
                     </div>
 
                     <!-- Terminal block -->
-                    <div id="setupTerminalContainer" style="display:none; class=" terminal-block">
+                    <div id="setupTerminalContainer" style="display:none;" class="terminal-block">
                         <pre id="setupTerminal"
                             style="margin:0; white-space:pre-wrap; font-family:var(--font-mono); font-size:0.78rem; color:#a1a1aa;"></pre>
                     </div>
@@ -733,7 +733,7 @@
         <!-- PANEL: CLOUD MODE                             -->
         <!-- ============================================= -->
         <div id="panel-cloud" class="ai-mode-panel"
-            style="margin-top:16px; {% if cfg.APP_MODE != 'cloud' %}display:none;{% endif %}">
+            {% if cfg.APP_MODE != 'cloud' %}style="margin-top:16px; display:none;"{% else %}style="margin-top:16px;"{% endif %}>
 
             <!-- Provider: Anthropic -->
             <div class="provider-card">
