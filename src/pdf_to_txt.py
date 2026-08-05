@@ -1,5 +1,6 @@
 import io  # BytesIO for in-memory image conversion
 import logging
+
 logger = logging.getLogger(__name__)
 import re  # Regex — used to clean whitespace in extracted text
 import sys  # Used for sys.exit() in the watcher
@@ -110,7 +111,7 @@ def process_file(file_path: Path, output_path: Path):
     if target_txt.exists():
         return False  # Already done, not a new file
 
-    logger.info(f"> Processing: {file_path.name}...", end=" ", flush=True)
+    logger.info(f"> Processing: {file_path.name}...")
 
     try:
         full_text = ""
@@ -122,7 +123,7 @@ def process_file(file_path: Path, output_path: Path):
             if len(extracted_text) > MIN_DIGITAL_TEXT_LENGTH:
                 # PDF has proper embedded text — use it directly (fast path)
                 full_text = extracted_text
-                logger.info("(Direct Text)", end=" ")
+                logger.info("(Direct Text)")
             else:
                 # Likely a scanned PDF — render pages to images via PyMuPDF then OCR
                 # matrix with zoom=3 gives ~300 dpi (72 * 3 ≈ 216–300 effective)
@@ -131,12 +132,12 @@ def process_file(file_path: Path, output_path: Path):
                         pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
                         img = Image.open(io.BytesIO(pix.tobytes("png")))
                         full_text += pytesseract.image_to_string(img) + "\n"
-                logger.info("(OCR Fallback)", end=" ")
+                logger.info("(OCR Fallback)")
 
         else:
             # PNG / JPG — always OCR because there is no embedded text layer
             full_text = pytesseract.image_to_string(Image.open(file_path))
-            logger.info("(Image OCR)", end=" ")
+            logger.info("(Image OCR)")
 
         # Clean up the raw text regardless of how it was extracted
         full_text = clean_text(full_text)
@@ -207,7 +208,7 @@ def run_watcher():
 
             # Show an idle status indicator when there is nothing new to process
             if not new_files_found:
-                logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new files...", end="", flush=True)
+                logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new files...")
 
             time.sleep(WATCH_INTERVAL_SECONDS)
 

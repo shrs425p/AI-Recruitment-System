@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import json  # JSON I/O for schedule files and transcripts
@@ -7,10 +8,8 @@ import time  # time.time() for measuring answer duration (proctoring)
 from datetime import datetime  # Timestamp for output filenames
 from pathlib import Path  # Cross-platform path handling
 
-from src.common import call_ollama
+from src.common import call_ollama, data_path
 from src.common import clean_json_response as clean_json  # AI utilities
-
-from src.common import data_path
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -271,7 +270,7 @@ def conduct_interview(candidate: dict, questions: dict, job_title: str, candidat
             logger.info(f"  [PROCTOR] {', '.join(proctor['flags'])}")
 
         # Evaluate
-        logger.info("  Evaluating...", end=" ", flush=True)
+        logger.info("  Evaluating...")
         evaluation = evaluate_answer(q_text, answer, job_title, domain)
         logger.info(f"Score: {evaluation['total']}/10  — {evaluation.get('feedback', '')}")
 
@@ -425,7 +424,7 @@ def run_interview_bot():
         candidate_data = load_candidate_nlp(candidate.get("source_file", ""), nlp_path)
 
         # Generate questions
-        logger.info("> Generating questions...", end=" ", flush=True)
+        logger.info("> Generating questions...")
         questions = generate_questions(candidate_data, job_title)
 
         tech_q = len(questions.get("technical",  []))

@@ -1,13 +1,12 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import json  # Serialize / deserialize JSON (saving NLP output)
 import time  # Sleep between polling cycles in the watcher loop
 from pathlib import Path  # Cross-platform file/folder path handling
 
-from src.common import call_ollama, clean_json_response  # Shared AI calling utilities
-
-from src.common import data_path
+from src.common import call_ollama, clean_json_response, data_path  # Shared AI calling utilities
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -270,7 +269,7 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
     if (output_path / f"{txt_file.stem}_nlp.json").exists():
         return False
 
-    logger.info(f"> Processing: {txt_file.name}...", end=" ", flush=True)
+    logger.info(f"> Processing: {txt_file.name}...")
 
     try:
         # Read the plain-text resume content
@@ -295,7 +294,7 @@ def process_file(txt_file: Path, output_path: Path) -> bool:
             # Fall back to using the filename as the candidate identifier
             extracted_data["personal_info"] = personal_info
             extracted_data["personal_info"]["name"] = f"{UNKNOWN_NAME}_{txt_file.stem}"
-            logger.info("\n  [INFO] Name not found — using filename as identifier.", end=" ", flush=True)
+            logger.info("\n  [INFO] Name not found — using filename as identifier.")
 
         # Build the output path prefix (suffix is added by save_output)
         output_file = output_path / f"{txt_file.stem}_nlp"
@@ -348,7 +347,7 @@ def run_watcher():
                     new_files_found = True
 
             if not new_files_found:
-                logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new TXT files...", end="", flush=True)
+                logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new TXT files...")
 
             time.sleep(WATCH_INTERVAL_SECONDS)
 
