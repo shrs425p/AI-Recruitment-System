@@ -63,17 +63,13 @@ def register_auth_routes(app):
         nonce = data.get("nonce")
         import os
         
-        stored_nonce = os.environ.get("DESKTOP_AUTH_NONCE")
-        with open("C:/Users/Shrs/Documents/AI-Recruitment-System/debug_auth.log", "a") as f:
-            f.write(f"DEBUG AUTH: received={nonce}, stored={stored_nonce}\n")
-            
-        print(f"DEBUG AUTH: received={nonce}, stored={stored_nonce}", flush=True)
+        valid_nonces = [n for n in os.environ.get("DESKTOP_AUTH_NONCES", "").split(",") if n]
         
         # Verify and immediately invalidate the nonce to prevent replay
-        if nonce and stored_nonce and nonce == stored_nonce:
-            # Double check to prevent race condition if a new nonce was generated
-            if os.environ.get("DESKTOP_AUTH_NONCE") == nonce:
-                os.environ.pop("DESKTOP_AUTH_NONCE", None)
+        if nonce and nonce in valid_nonces:
+            # Remove this specific nonce from the active pool
+            valid_nonces.remove(nonce)
+            os.environ["DESKTOP_AUTH_NONCES"] = ",".join(valid_nonces) + "," if valid_nonces else ""
             
             session.clear()
             session["logged_in"] = True

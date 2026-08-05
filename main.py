@@ -395,16 +395,18 @@ def main():
             webview.windows[0].toggle_fullscreen()
         def close(self):
             webview.windows[0].close() if hasattr(webview.windows[0], 'close') else webview.windows[0].destroy()
+        def get_auth_nonce(self):
+            import secrets
+            nonce = secrets.token_urlsafe(32)
+            current = os.environ.get("DESKTOP_AUTH_NONCES", "")
+            os.environ["DESKTOP_AUTH_NONCES"] = f"{current}{nonce},"
+            return nonce
 
     api = Api()
     
-    import secrets
-    if "DESKTOP_AUTH_TOKEN" not in os.environ:
-        os.environ["DESKTOP_AUTH_TOKEN"] = secrets.token_urlsafe(32)
-        
     webview.create_window(
         title     = "AI Recruitment System",
-        url       = f"http://127.0.0.1:{DESKTOP_PORT}/desktop-login?token={os.environ['DESKTOP_AUTH_TOKEN']}",
+        url       = f"http://127.0.0.1:{DESKTOP_PORT}/desktop-bootstrap",
         width     = 1280,
         height    = 800,
         min_size  = (1024, 700),
