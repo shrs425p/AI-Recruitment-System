@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 import json
 import re
@@ -28,14 +29,8 @@ def register_reports_routes(app):
             try:
                 with open(rf, encoding="utf-8") as f:
                     rdata = json.load(f)
-                    reports_data.append({
-                        "filename":       rf.name,
-                        "candidate_name": rdata.get("candidate_name", "Unknown"),
-                        "job_title":      rdata.get("job_title", ""),
-                        "combined_score": rdata.get("scores", {}).get("combined_score", 0),
-                        "verdict":        rdata.get("ai_report", {}).get("hire_recommendation", "N/A"),
-                        "risk":           rdata.get("ai_report", {}).get("risk_level", "N/A"),
-                    })
+                    rdata["filename"] = rf.name  # Inject filename for reference
+                    reports_data.append(rdata)
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)
 
