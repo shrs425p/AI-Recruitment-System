@@ -1,73 +1,91 @@
-# Security & Code Audit Report
+# Security & Production-Readiness Audit
 
-## Executive Summary
-- **Scope:** Repository scan, test run, dependency review (quick), and hardcode detection.
+## Summary
+- **Scope:** repo scan (source only), full test run, dependency review, hardcode detection. Focus: produce a production-grade hardening checklist while keeping the project usable for local/dev work.
 - **Date:** 2026-08-05
-- **Findings:** All tests pass. Several potential hardcoded secrets/defaults found (config fallbacks, test secrets, AI API key usage). Dependencies reviewed at a high level (see `requirements.txt`).
+- **Status:** Tests pass (30/30). Multiple hardcoded/default credentials and configuration issues found. See Findings and Remediation.
 
-## Tests
-- **Status:** All tests passed (30/30).
-- **Command used:** `venv\\Scripts\\python -m pytest -q`
+## Quick Findings (high priority)
+- `HR_PASSWORD` defaults in [config/config.py](config/config.py#L1) and similar fallbacks in [main.py](main.py#L1) — move secrets to env or secret manager.
+- AI provider keys referenced in [app/utils.py](app/utils.py#L1) and possibly `src/` modules — ensure they are not committed and are loaded from secure config.
+- Tests contain hardcoded secrets (e.g., `app.secret_key = "test-secret"`) in [tests/test_auto_pipeline.py](tests/test_auto_pipeline.py#L1) and [tests/test_auth.py](tests/test_auth.py#L1) — use fixtures or env overrides.
+- `scan_hardcodes.py` reports numerous matches across `src/` (report stored locally) — review matches and triage false positives.
+- `requirements.txt` contains broad ranges; pin critical production packages and run SCA (software composition analysis).
 
-## High-priority Findings
-- **`config/config.py` and `main.py`:** contain `HR_PASSWORD` default entries and empty fallback values — move to environment variables. See [config/config.py](config/config.py) and [main.py](main.py).
-- **AI provider keys:** `app/utils.py` references an Anthropic API key variable; ensure no key is committed and use env vars or a secret store. See [app/utils.py](app/utils.py).
-- **Test secrets and hardcoded keys:** tests include `app.secret_key = "test-secret"` and other test-only hardcoded credentials. Replace with fixture-driven ephemeral secrets or environment overrides. See `tests/` (e.g., [tests/test_auto_pipeline.py](tests/test_auto_pipeline.py), [tests/test_auth.py](tests/test_auth.py)).
-- **Hardcode scanner output:** `scan_hardcodes.py` executed and reported multiple string matches across `src/` and `src`-based scripts (report exists locally). See [scan_hardcodes.py](scan_hardcodes.py).
+## Production-Grade Remediation Checklist (prioritized)
+1. Secrets & Configuration
+   - Centralize configuration using environment variables with a strict loader (e.g., `python-dotenv` for local dev, or a secrets manager integration for real deployments).
+   - Remove all hardcoded credentials from source and tests. Rotate any secrets accidentally committed.
+   - Add a `config.example.env` documenting required env vars (no values).
 
-## Dependency Notes
-- **File reviewed:** [requirements.txt](requirements.txt). Key packages: `Flask`, `pytesseract`, `ollama`, `mediapipe`, `google-api-python-client`, `cryptography`, `vosk`.
-- **Recommendation:** Run `pip-audit` or `safety` to check for known CVEs and pin critical versions where necessary.
+2. Secrets Detection & Git Hygiene
+   - Add `pre-commit` with `detect-secrets` and `pre-commit-hooks` to block commits containing secrets.
+   - Add `git-secrets` or `truffleHog` to CI as an additional gate.
+   - Ensure `.gitignore` excludes `venv/`, `hardcode_results.json`, and other local artifacts. Current `.gitignore` references `hardcode_results.json`.
 
-## Medium/Low Findings
-- Many `TODO`/`FIXME` occurrences were found (including in vendor/venv files). Exclude `venv/` and other third-party folders when running future scans to reduce noise.
+3. Dependency Security
+   - Pin production-critical dependency versions in `requirements.txt` or add a `requirements.lock`/`constraints.txt`.
+   - Add `pip-audit` or `safety` to CI; run locally now:
 
-## Immediate Remediation Steps (priority order)
-1. **Remove secrets from code & tests**
-   - Replace hardcoded values with environment variables (read from `os.environ`) or a configured secrets provider.
-   - For tests, use fixtures to inject ephemeral secrets or set `os.environ` in test setup.
-
-2. **Add pre-commit checks**
-   - Install and configure `pre-commit` with hooks: `detect-secrets`, `ruff` or `flake8`, `black` (optional).
-
-3. **Add automated dependency scanning**
-   - Run `pip-audit` in CI and locally. Example:
-
-```
+```powershell
 venv\\Scripts\\python -m pip install pip-audit
 venv\\Scripts\\pip-audit
 ```
 
-4. **Rotate any exposed/committed secrets**
-   - If secrets are found in git history, rotate them immediately and consider using `git filter-repo` to remove sensitive history.
+4. CI / Automation
+   - Add a CI workflow (GitHub Actions or equivalent) that runs:
+     - `pytest -q`
+     - `pip-audit` (fail on high/critical findings)
+     - `pre-commit` hooks or `detect-secrets` scan
+   - Optionally run SAST (e.g., `semgrep`) and DAST for web endpoints.
 
-5. **Add CI checks**
-   - Add a pipeline step to run tests, `pip-audit`, and `detect-secrets` on push/PR.
+5. Runtime & App Hardening
+   - Add input validation and strict file upload handling (size limits, type checks, scan uploaded resumes for malicious content).
+   - Sanitize candidate data and minimize PII retention. Encrypt sensitive data at rest (AES-256) and in transit (HTTPS/TLS). Document retention policy.
+   - Add rate-limiting (existing `rate_limiter.py`) and ensure it is enabled for public endpoints.
+   - Secure session management: set `SESSION_COOKIE_SECURE`, `SameSite`, and use strong secrets for Flask `SECRET_KEY`.
 
-## Recommended Commands & Small Examples
-- Replace hardcoded config pattern (example):
+6. ML / AI Safety
+   - Treat LLM inputs/outputs as untrusted. Add prompt validation and sanitization, and log prompts (redacting PII) for auditability.
+   - Limit context sent to external models; enforce rate-limits and provider quotas.
+   - Add a model-usage policy and a safety review for prompts that process resumes/interviews (privacy + bias considerations).
 
-```
-# before (example)
-HR_PASSWORD = ''
+7. Observability & Incident Response
+   - Add structured logging (JSON) and a configurable log level. Send to file and/or a logging backend in staging.
+   - Add health checks and readiness probes (see `app/routes/health.py`).
+   - Add basic monitoring/alerting for high error rates, high latency, or abnormal model usage.
 
-# after (example)
-import os
-HR_PASSWORD = os.getenv('HR_PASSWORD', '')
-```
+8. Testing & Quality
+   - Keep or expand unit tests and add integration tests for critical flows (auth, upload, ranking, scheduling).
+   - Add fuzzing or property-based tests for parsing resume content.
 
-- Example `pre-commit` install snippet:
+## Concrete, Minimal Changes I Can Apply Now (pick by letter)
+- A) Replace test hardcoded secrets with fixtures/env usage and re-run tests. (safe, small patch)
+- B) Run `pip-audit` and append a vulnerability section to this report. (quick scan)
+- C) Add `pre-commit` config and a basic GitHub Actions `ci.yml` that runs tests + `pip-audit` + `detect-secrets`. (medium change)
+- D) Create `config.example.env`, add guidance in `README.md`, and update `config/config.py` to load from `os.getenv`. (small change)
 
-```
-pip install pre-commit detect-secrets
-pre-commit install
-```
+## Short-Term Priorities (first 48–72 hours)
+1. Replace secrets in tests and add `config.example.env` (A + D). Verify tests pass.
+2. Add `pre-commit` locally and run `detect-secrets` to catch any remaining issues.
+3. Run `pip-audit` and fix/upgrade any high/critical CVEs.
 
-## Next Steps I can take (choose one)
-- A) Automatically patch simple test hardcodes (replace `app.secret_key` test usage with fixture/env). 
-- B) Run `pip-audit` now and append a vulnerability list to this report.
-- C) Add a `pre-commit` configuration and a starter `.github/workflows/ci.yml` with secret-scan and `pip-audit` steps.
-- D) Generate a remediation PR with changes applied and tests re-run.
+## Long-Term / Optional (production-ready)
+- Containerize with a small `Dockerfile`, add multi-stage build and non-root user.
+- Add an infrastructure-as-code blueprint (Terraform) and a deployment checklist (TLS certs, secret rotation, RBAC).
+- Add SAST (Semgrep), DAST, and a secure release checklist (vulnerability triage, third-party license checks).
+
+## Findings (files of interest)
+- `config/config.py` — defaults and config loading. See [config/config.py](config/config.py#L1).
+- `main.py` — app entrypoint and default fallbacks. See [main.py](main.py#L1).
+- `app/utils.py` — AI provider usage. See [app/utils.py](app/utils.py#L1).
+- `tests/` — contains a few hardcoded test secrets. See [tests/test_auto_pipeline.py](tests/test_auto_pipeline.py#L1) and [tests/test_auth.py](tests/test_auth.py#L1).
+- `scan_hardcodes.py` — scanner used; keep and refine its regexes. See [scan_hardcodes.py](scan_hardcodes.py#L1).
+
+## Next steps — I can run these now if you say which:
+1) Run `pip-audit` and append results to this file. (recommended next step)
+2) Apply safe code patches: replace test secrets and add `config.example.env` + update `config/config.py` to use env vars.
+3) Add `pre-commit` and a starter CI workflow.
 
 ---
-Report generated by repository audit actions on 2026-08-05.
+Report created/updated 2026-08-05. Ask me to run any of the concrete steps above and I'll proceed.

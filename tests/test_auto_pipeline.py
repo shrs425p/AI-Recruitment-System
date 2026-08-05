@@ -23,7 +23,7 @@ def test_auto_pipeline_starts_background_job(monkeypatch):
     DummyThread.started = False
 
     app = Flask(__name__)
-    app.secret_key = "test-secret"
+    app.secret_key = "mock_test_key_for_flask"
     dashboard_routes.register_dashboard_routes(app)
 
     response = app.test_client().post("/api/run-auto-pipeline")

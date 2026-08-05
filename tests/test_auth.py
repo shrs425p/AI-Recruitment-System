@@ -9,7 +9,7 @@ from app.routes.auth import register_auth_routes
 
 def _app():
     app = Flask(__name__, template_folder=str(APP_RESOURCE_DIR / "app" / "templates"))
-    app.secret_key = "test-secret"
+    app.secret_key = "mock_test_key_for_flask"
     app.add_url_rule("/dashboard", "dashboard", lambda: "dashboard")
     register_auth_routes(app)
     return app
