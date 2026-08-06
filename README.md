@@ -47,20 +47,31 @@ flowchart TD
 
 ## Application Architecture
 
-The system operates as a hybrid desktop software combining a Flask application backend with a pywebview desktop frame.
+The system operates using a highly secure **Dual-Server Architecture** running from a single backend core:
+
+1. **HR Desktop Server (Port 5001 - Internal)**: A loopback-only server that powers the secure `pywebview` Desktop GUI.
+2. **Candidate Web Server (Port 5000 - External)**: A public-facing server that handles remote candidate interviews and webcam streams.
+
+To protect HR data, the system employs **Ghost Mode Security**: if any unauthorized web browser attempts to access an HR route on either port, the server returns a completely blank 404 response, rendering the system invisible to internal network scanners.
 
 ```mermaid
 graph TD
-    Client["Desktop Client<br/>pywebview GUI Frame"] --> FlaskCore["Backend Controller<br/>Flask Application Core"]
+    subgraph ClientLayer["Client Interfaces"]
+        Desktop["Desktop Client<br/>(pywebview on Port 5001)"]
+        Browser["Candidate Browser<br/>(Web on Port 5000)"]
+    end
+
+    Desktop -->|Secure Nonce Auth| FlaskCore["Backend Controller<br/>Flask Application Core"]
+    Browser -->|Token Auth| FlaskCore
 
     subgraph SecurityLayer["Security Subsystem"]
-        AuthGuard["Auth & Session Guard<br/>(Token TTL & Role Access)"]
+        AuthGuard["Ghost Mode Guard<br/>(404s Unauthorized Web Access)"]
         RateLimiter["Rate Limiting Middleware<br/>(Request Flood Defense)"]
     end
 
     subgraph AIRoutingLayer["AI Provider Router"]
         PrivacyEngine["Local Privacy Engine<br/>(Zero-Egress Ollama)"]
-        CloudEngine["Cloud Provider APIs<br/>(OpenAI, Claude, Gemini, Groq)"]
+        CloudEngine["Cloud Provider APIs<br/>(OpenAI, Claude, Gemini, NVIDIA)"]
     end
 
     subgraph ServiceLayer["Core Workflows & Controllers"]
