@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* ── TERMINAL CONSOLE STYLE ── */
+    .terminal-container {
+        display: flex;
+        flex-direction: column;
+        background: #141218;
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        box-shadow: var(--elevation-1);
+        margin-top: 16px;
+    }
+
+    .terminal-header {
+        background: var(--md-sys-color-surface-container);
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        user-select: none;
+    }
+
+    .terminal-dots {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .terminal-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+    }
+
+    .terminal-dot-red { background: #ff5f56; }
+    .terminal-dot-yellow { background: #ffbd2e; }
+    .terminal-dot-green { background: #27c93f; }
+
+    .terminal-title {
+        font-family: var(--font-sans);
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--md-sys-color-on-surface-variant);
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .terminal-status-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--green);
+        border-radius: 50%;
+        animation: status-pulse 1.6s infinite;
+    }
+
+    @keyframes status-pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 1; }
+        100% { opacity: 0.3; }
+    }
+
+    .terminal-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .terminal-btn {
+        background: var(--md-sys-color-surface-container-high);
+        color: var(--md-sys-color-on-surface-variant);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        padding: 5px 12px;
+        border-radius: var(--radius-pill);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .terminal-btn:hover {
+        background: var(--md-sys-color-primary-container);
+        color: var(--md-sys-color-on-primary-container);
+        border-color: var(--md-sys-color-primary);
+    }
+
+    .terminal-body {
+        padding: 20px;
+        max-height: 480px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--md-sys-color-outline-variant) transparent;
+    }
+
+    .terminal-body::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .terminal-body::-webkit-scrollbar-thumb {
+        background: var(--md-sys-color-outline-variant);
+        border-radius: 99px;
+    }
+
+    .terminal-pre {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: #e6e1e5;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .log-line {
+        margin-bottom: 2px;
+        line-height: 1.5;
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-step">System</div>
+    <h1 class="page-title">Real-time Logs</h1>
+    <p class="page-desc">Backend server operations and engine outputs streamed live in real-time.</p>
+</div>
+
+<div class="terminal-container">
+    <div class="terminal-header">
+        <div class="terminal-dots">
+            <span class="terminal-dot terminal-dot-red"></span>
+            <span class="terminal-dot terminal-dot-yellow"></span>
+            <span class="terminal-dot terminal-dot-green"></span>
+        </div>
+        <div class="terminal-title">
+            <span class="terminal-status-dot"></span>
+            Streaming Live Backend Console
+        </div>
+        <div class="terminal-actions">
+            <button onclick="clearLogs()" class="terminal-btn" title="Clear console buffer">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Clear
+            </button>
+            <button onclick="downloadLogs()" class="terminal-btn" title="Download text logs">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download
+            </button>
+        </div>
+    </div>
+    <div class="terminal-body" id="terminalViewport">
+        <pre class="terminal-pre" id="logContainer"></pre>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const logEl = document.getElementById('logContainer');
+    const viewport = document.getElementById('terminalViewport');
+    
+    // Helper to color code and format server log lines dynamically
+    function formatLogLine(rawText) {
+        if (!rawText) return '';
+        
+        // Escape HTML
+        let escaped = rawText
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        
+        // Highlight log levels
+        escaped = escaped.replace(/\[INFO\]/g, '<span style="color: var(--green); font-weight: 700;">[INFO]</span>');
+        escaped = escaped.replace(/\[WARNING\]/g, '<span style="color: var(--amber); font-weight: 700;">[WARNING]</span>');
+        escaped = escaped.replace(/\[WARN\]/g, '<span style="color: var(--amber); font-weight: 700;">[WARN]</span>');
+        escaped = escaped.replace(/\[ERROR\]/g, '<span style="color: var(--red); font-weight: 700;">[ERROR]</span>');
+        escaped = escaped.replace(/\[ERR\]/g, '<span style="color: var(--red); font-weight: 700;">[ERR]</span>');
+        
+        // Highlight system components
+        escaped = escaped.replace(/\[DB\]/g, '<span style="color: var(--blue); font-weight: 700;">[DB]</span>');
+        escaped = escaped.replace(/\[SQL\]/g, '<span style="color: var(--blue); font-weight: 700;">[SQL]</span>');
+        escaped = escaped.replace(/\[AI\]/g, '<span style="color: var(--md-sys-color-primary); font-weight: 700;">[AI]</span>');
+        escaped = escaped.replace(/\[NLP\]/g, '<span style="color: var(--md-sys-color-primary); font-weight: 700;">[NLP]</span>');
+        escaped = escaped.replace(/\[RANK\]/g, '<span style="color: var(--amber); font-weight: 700;">[RANK]</span>');
+        
+        return `<div class="log-line">${escaped}</div>`;
+    }
+
+    const evtSource = new EventSource('/stream-logs');
+    evtSource.onmessage = function(e) {
+        if (e.data && e.data.trim() !== '') {
+            const formatted = formatLogLine(e.data);
+            logEl.innerHTML += formatted;
+            viewport.scrollTop = viewport.scrollHeight;
+        }
+    };
+    
+    evtSource.onerror = function() {
+        logEl.innerHTML += `<div class="log-line" style="color: var(--red); font-weight:700; margin-top:8px;">[Connection terminated by server]</div>`;
+        evtSource.close();
+    };
+
+    function clearLogs() {
+        logEl.innerHTML = '';
+    }
+
+    function downloadLogs() {
+        const text = logEl.innerText;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'recruit_pipeline_server_logs.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+{% endblock %}

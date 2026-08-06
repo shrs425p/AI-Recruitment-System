@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* ── STUNNING MATERIAL 3 ABOUT PAGE OVERRIDES ── */
+    .about-viewport {
+        max-width: 1000px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        padding-bottom: 40px;
+    }
+
+    .about-card {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+    }
+
+    /* Overhaul Headings */
+    .about-card h2 {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--md-sys-color-on-surface);
+        letter-spacing: -0.5px;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1.5px solid var(--md-sys-color-outline-variant);
+        padding-bottom: 12px;
+    }
+
+    .about-card h3 {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        letter-spacing: -0.2px;
+        margin-top: 16px;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: uppercase;
+        font-size: 11.5px;
+        letter-spacing: 0.8px;
+    }
+
+    /* Paragraph typography */
+    .about-card p {
+        font-size: 13.5px;
+        color: var(--md-sys-color-on-surface-variant);
+        line-height: 1.6;
+        margin-bottom: 8px;
+    }
+
+    /* Overhaul lists into a high-fidelity card grid */
+    .about-card ol, .about-card ul {
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+        padding: 0;
+        margin: 12px 0 24px 0;
+        counter-reset: about-counter;
+    }
+
+    .about-card ol li, .about-card ul li {
+        background: var(--md-sys-color-surface-container-low);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        border-radius: var(--radius-md);
+        padding: 18px;
+        font-size: 12.5px;
+        color: var(--md-sys-color-on-surface);
+        line-height: 1.55;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.22s cubic-bezier(0.2, 0, 0, 1);
+        box-shadow: var(--elevation-1);
+    }
+
+    .about-card ol li:hover, .about-card ul li:hover {
+        background: var(--md-sys-color-surface-container);
+        border-color: var(--md-sys-color-primary);
+        transform: translateY(-2px);
+    }
+
+    /* Styled sequential number tags for Workflow and Key features */
+    .about-card ol li::before {
+        counter-increment: about-counter;
+        content: "0" counter(about-counter);
+        font-family: var(--font-mono);
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        background: var(--md-sys-color-primary-container);
+        width: fit-content;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+    }
+
+    /* Styled checkmark badges for Unbiased Fairness lists */
+    .about-card ul li {
+        border-left: 3px solid var(--green);
+    }
+
+    .about-card ul li::before {
+        content: "✓ Bias Protection Audit";
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--green);
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        background: var(--green-soft);
+        width: fit-content;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+    }
+
+    /* Strong terms color overrides */
+    .about-card strong {
+        color: var(--md-sys-color-on-surface);
+        font-weight: 700;
+    }
+</style>
+
+<div class="about-viewport">
+    <div class="page-header">
+        <div class="page-step">Information</div>
+        <h1 class="page-title">About System</h1>
+        <p class="page-desc">Architecture overview, process flow, and bias mitigation protocols.</p>
+    </div>
+
+    <div class="card about-card">
+        {{ about_html | safe }}
+    </div>
+</div>
+
+{% endblock %}

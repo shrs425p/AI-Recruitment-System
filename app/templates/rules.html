@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* small overrides for gallery layout */
+    .gallery-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: flex-start;
+        margin-bottom: 24px;
+    }
+
+    .gallery-card {
+        flex: 1;
+        min-width: 160px;
+        max-width: 220px;
+        text-align: center;
+        background: var(--md-sys-color-surface);
+        padding: 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--md-sys-color-outline-variant);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .gallery-card img {
+        width: 100%;
+        height: auto;
+        max-height: 110px;
+        object-fit: contain;
+        border-radius: var(--radius-xs);
+    }
+
+    .dos-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--green);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .donts-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--red);
+        margin-top: 16px;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .page-desc {
+        margin-bottom: 24px;
+    }
+</style>
+
+<div class="page-header">
+    <div class="page-step">Interview Guidelines</div>
+    <h1 class="page-title">Dos and Don'ts</h1>
+    <p class="page-desc">Follow these rules to ensure a smooth and verified evaluation session.</p>
+</div>
+
+<div class="card" style="padding: 28px;">
+    <div class="dos-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Dos — Required Practices
+    </div>
+    <div class="gallery-row">
+        <div class="gallery-card">
+            <img src="/static/img/Look At Screen.png" alt="Look At Screen" onerror="this.style.display='none'">
+            <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">Look at screen</div>
+        </div>
+        <div class="gallery-card">
+            <img src="/static/img/Don,t Look Away.png" alt="Don't Look Away" onerror="this.style.display='none'">
+            <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">Remain focused</div>
+        </div>
+    </div>
+
+    <div class="donts-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        Don'ts — Strictly Prohibited
+    </div>
+    <div class="gallery-row" style="margin-bottom: 0;">
+        <div class="gallery-card">
+            <img src="/static/img/No Copy Paste.png" alt="No Copy Paste" onerror="this.style.display='none'">
+            <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No copy-paste</div>
+        </div>
+        <div class="gallery-card">
+            <img src="/static/img/No Screenshot.png" alt="No Screenshot" onerror="this.style.display='none'">
+            <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No screenshots</div>
+        </div>
+        <div class="gallery-card">
+            <img src="/static/img/No Tab Switching.png" alt="No Tab Switching" onerror="this.style.display='none'">
+            <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No tab switching</div>
+        </div>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: center; margin-top: 32px; margin-bottom: 12px;">
+    <a href="/interview" class="btn btn-primary" style="font-size: 13.5px; padding: 12px 32px;">
+        I Understand — Proceed
+    </a>
+</div>
+
+{% endblock %}

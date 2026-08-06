@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-step">Step 04</div>
+    <h1 class="page-title">Interview Scheduling</h1>
+    <p class="page-desc">Schedule interviews for the top 10 ranked candidates. Import free slots from Google Calendar or
+        enter manually.</p>
+</div>
+
+{% if not has_ranking %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">No ranking found. Please run candidate ranking first.</div>
+        <a href="/ranking" class="btn btn-primary" style="margin-top:16px;">Go to Ranking →</a>
+    </div>
+</div>
+{% else %}
+
+<!-- Google Calendar Status Banner -->
+<div class="card gcal-card" id="gcalCard">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div class="gcal-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            </div>
+            <div>
+                <div style="font-size:14px; font-weight:600; color:var(--black);">Google Calendar</div>
+                <div id="gcalStatusText" style="font-size:12px; color:var(--gray-400);">
+                    {% if cal_status.authenticated %}
+                    Connected — {{ cal_status.calendar_name }}
+                    {% elif cal_status.api_not_enabled %}
+                    ⚠️ Calendar API not enabled in Google Cloud Console —
+                    <a href="{{ cal_status.enable_url }}" target="_blank"
+                        style="color:#1a73e8; text-decoration:underline; font-weight:600;">
+                        Click here to enable it →
+                    </a>
+                    {% elif cal_status.has_credentials %}
+                    credentials.json found — click Connect to authenticate
+                    {% else %}
+                    Not set up — see instructions below
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div id="gcalBtnArea" style="display:flex; gap:8px; flex-wrap:wrap;">
+            {% if cal_status.authenticated %}
+            <button class="btn btn-secondary" style="font-size:12px;" onclick="importFromCalendar()">
+                📥 Import Free Slots
+            </button>
+            {% else %}
+            <button class="btn btn-primary" style="font-size:12px;" onclick="connectCalendar()">
+                Connect Google Calendar
+            </button>
+            {% endif %}
+        </div>
+        <div id="gcalBadge" style="display:flex; align-items:center;">
+            {% if cal_status.authenticated %}
+            <span class="badge badge-green" style="align-self:center;">✓ Connected</span>
+            {% else %}
+            <span class="badge badge-amber" style="align-self:center;">Not connected</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not cal_status.authenticated %}
+    <div class="gcal-setup" id="gcalSetup"
+        style="margin-top:14px; padding-top:14px; border-top:1px solid var(--gray-100);">
+        <div style="font-size:12px; font-weight:600; color:var(--gray-800); margin-bottom:8px;">Setup Instructions
+            (one-time)</div>
+        <div style="font-size:12px; color:var(--gray-600); line-height:2;">
+            1. Go to <a href="https://console.cloud.google.com" target="_blank"
+                style="color:var(--blue);">console.cloud.google.com</a><br>
+            2. Create a project → Enable <strong>Google Calendar API</strong><br>
+            3. APIs &amp; Services → Credentials → <strong>Create OAuth2 Client ID</strong> → Desktop App<br>
+            4. Download JSON → rename to <strong>credentials.json</strong> → place in project folder<br>
+            5. Click <strong>Connect Google Calendar</strong> above → browser will open for Google login<br>
+            6. After login, token.json is saved — you won't need to log in again
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="importProgress" style="display:none; margin-top:12px;">
+        <div class="loading-row"><span class="spinner"></span><span>Importing free slots from Google Calendar...</span>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Left: Form -->
+    <div>
+        <div class="card">
+            <div class="card-title">Interview Details</div>
+            <div class="card-desc">Enter job title and hiring manager name.</div>
+
+            <div class="form-group">
+                <label class="form-label">Job Title</label>
+                <input type="text" class="form-input" id="jobTitle" placeholder="e.g. Senior Financial Accountant">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Hiring Manager Name</label>
+                <input type="text" class="form-input" id="hrName" placeholder="e.g. Shreyas Pawar">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Hiring Manager Email <span
+                        style="color:var(--gray-400); font-weight:400;">(for Google Calendar invites)</span></label>
+                <input type="email" class="form-input" id="hrEmail" placeholder="e.g. hr@company.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Candidates to Schedule</label>
+                <input type="number" class="form-input" id="topN" min="1" max="50" value="10">
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <div class="card-title">Available Time Slots</div>
+            <div class="card-desc">
+                Add slots manually or import from Google Calendar above.
+                Format: YYYY-MM-DD HH:MM
+            </div>
+
+            <div id="slotsContainer">
+                <div class="slot-input-row">
+                    <input type="text" class="form-input" placeholder="2026-03-01 10:00">
+                    <button class="btn-remove" onclick="removeSlot(this)">×</button>
+                </div>
+                <div class="slot-input-row">
+                    <input type="text" class="form-input" placeholder="2026-03-01 14:00">
+                    <button class="btn-remove" onclick="removeSlot(this)">×</button>
+                </div>
+                <div class="slot-input-row">
+                    <input type="text" class="form-input" placeholder="2026-03-02 10:00">
+                    <button class="btn-remove" onclick="removeSlot(this)">×</button>
+                </div>
+            </div>
+
+            <button class="btn btn-secondary" style="margin-top:10px; width:100%;" onclick="addSlot()">+ Add
+                Slot</button>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:16px; width:100%;" id="scheduleBtn" onclick="runScheduling()">
+            Schedule Top 10 Candidates
+        </button>
+
+        <!-- Create Google Calendar Events button (shown after scheduling) -->
+        <div id="gcalExportWrap" style="display:none; margin-top:10px;"
+            data-has-schedule="{{ 'true' if schedule else 'false' }}">
+            <button class="btn btn-secondary" style="width:100%;" onclick="createCalendarEvents()">
+                📅 Create Google Calendar Events
+            </button>
+            <div id="gcalExportProgress" style="display:none; margin-top:8px;">
+                <div class="loading-row"><span class="spinner"></span><span>Creating calendar events...</span></div>
+            </div>
+            <div id="gcalExportResult" style="margin-top:8px; font-size:12px; color:var(--green);"></div>
+        </div>
+
+        <!-- Send Email Invitations button (shown after scheduling) -->
+        <div id="emailExportWrap" style="display:none; margin-top:10px;"
+            data-has-schedule="{{ 'true' if schedule else 'false' }}">
+            <button class="btn btn-secondary" style="width:100%;" id="sendEmailBtn" onclick="sendEmailInvites()">
+                ✉ Send Email Invitations
+            </button>
+            <div id="emailProgress" style="display:none; margin-top:8px;">
+                <div class="loading-row"><span class="spinner"></span><span>Sending invitation emails...</span></div>
+            </div>
+            <div id="emailResult" style="margin-top:8px; font-size:12px;"></div>
+        </div>
+    </div>
+
+    <!-- Right: Results -->
+    <div>
+        {% if schedule %}
+        <div class="card" id="schedulePanel">
+            <div class="card-title">Current Schedule</div>
+            <div class="card-desc">{{ schedule.job_title }} — {{ schedule.confirmed }} confirmed, {{ schedule.skipped }}
+                skipped</div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;" id="scheduleList">
+                {% for entry in schedule.schedule %}
+                <div
+                    style="padding:12px 14px; border:1px solid var(--gray-100); border-radius:var(--radius); background:var(--white);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div>
+                            <span style="font-weight:600; font-size:13px;">#{{ entry.rank }} {{ entry.candidate_name
+                                }}</span>
+                            <span style="font-size:11px; color:var(--gray-400); margin-left:6px;">{{ entry.score
+                                }}/100</span>
+                        </div>
+                        <span
+                            class="badge {% if entry.status == 'CONFIRMED' %}badge-green{% elif entry.status == 'SKIPPED' %}badge-gray{% else %}badge-amber{% endif %}">
+                            {{ entry.status }}
+                        </span>
+                    </div>
+                    {% if entry.offered_slots %}
+                    <div class="slot-options" id="slots-{{ loop.index }}">
+                        {% for slot in entry.offered_slots %}
+                        <div class="slot-option {% if slot == entry.selected_slot %}selected{% endif %}"
+                            onclick="selectSlot(this, '{{ entry.candidate_name }}', '{{ slot }}', 'slots-{{ loop.index }}')">
+                            {{ slot }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="card" id="scheduleEmpty">
+            <div class="empty-state">
+                <div class="empty-icon">📅</div>
+                <div class="empty-text">No schedule yet. Fill in the form and click Schedule.</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+<style>
+    .gcal-card {
+        margin-bottom: 20px;
+        border-color: var(--blue-soft) !important;
+        background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%) !important;
+    }
+
+    .gcal-icon {
+        width: 44px;
+        height: 44px;
+        background: var(--blue-soft);
+        color: var(--blue);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .gcal-setup a {
+        text-decoration: underline;
+        color: var(--accent);
+    }
+</style>
+
+<div style="margin-top:24px; display:flex; justify-content:space-between;">
+    <a href="/ranking" class="btn btn-secondary">← Ranking</a>
+    <a href="/interview" class="btn btn-secondary">Next: Interview Bot →</a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ─────────────────────────────────────────────
+    // SLOT MANAGEMENT
+    // ─────────────────────────────────────────────
+    function addSlot() {
+        const container = document.getElementById('slotsContainer');
+        const row = document.createElement('div');
+        row.className = 'slot-input-row';
+        row.innerHTML = `<input type="text" class="form-input" placeholder="YYYY-MM-DD HH:MM">
+                     <button class="btn-remove" onclick="removeSlot(this)">×</button>`;
+        container.appendChild(row);
+    }
+
+    function removeSlot(btn) {
+        const rows = document.querySelectorAll('.slot-input-row');
+        if (rows.length > 1) btn.parentElement.remove();
+    }
+
+    function getSlots() {
+        return [...document.querySelectorAll('.slot-input-row input')]
+            .map(i => i.value.trim()).filter(Boolean);
+    }
+
+    function populateSlots(slots) {
+        const container = document.getElementById('slotsContainer');
+        container.innerHTML = '';
+        slots.slice(0, 20).forEach(slot => {
+            const row = document.createElement('div');
+            row.className = 'slot-input-row';
+            row.innerHTML = `<input type="text" class="form-input" value="${slot}">
+                         <button class="btn-remove" onclick="removeSlot(this)">×</button>`;
+            container.appendChild(row);
+        });
+        while (document.querySelectorAll('.slot-input-row').length < 3) addSlot();
+    }
+
+    // ─────────────────────────────────────────────
+    // GOOGLE CALENDAR — REAL-TIME STATUS POLLING
+    // ─────────────────────────────────────────────
+    let _calPollTimer = null;
+
+    function _applyCalStatus(data) {
+        const statusText = document.getElementById('gcalStatusText');
+        const btnArea = document.getElementById('gcalBtnArea');
+        const badgeArea = document.getElementById('gcalBadge');
+        if (!statusText) return;
+
+        if (data.authenticated) {
+            statusText.textContent = `Connected — ${data.calendar_name || 'Google Calendar'}`;
+            statusText.style.color = 'var(--green, #1e8a44)';
+            if (btnArea) btnArea.innerHTML = `
+            <button class="btn btn-secondary" style="font-size:12px;" onclick="importFromCalendar()">
+                📥 Import Free Slots
+            </button>`;
+            if (badgeArea) badgeArea.innerHTML = `<span class="badge badge-green" style="align-self:center;">✓ Connected</span>`;
+            _stopCalPoll();
+        } else if (data.api_not_enabled) {
+            statusText.innerHTML = `⚠️ Calendar API not enabled —
+            <a href="${data.enable_url}" target="_blank" style="color:#1a73e8;text-decoration:underline;font-weight:600;">
+                Enable it here →
+            </a>`;
+            statusText.style.color = '#c04a00';
+            if (badgeArea) badgeArea.innerHTML = `<span class="badge badge-amber" style="align-self:center;">API not enabled</span>`;
+            if (btnArea) btnArea.innerHTML = `<button class="btn btn-primary" style="font-size:12px;" onclick="connectCalendar()">Connect Google Calendar</button>`;
+        } else {
+            statusText.textContent = data.error || 'Not connected';
+            statusText.style.color = 'var(--gray-400)';
+            if (badgeArea) badgeArea.innerHTML = `<span class="badge badge-amber" style="align-self:center;">Not connected</span>`;
+            if (btnArea) btnArea.innerHTML = `<button class="btn btn-primary" style="font-size:12px;" onclick="connectCalendar()">Connect Google Calendar</button>`;
+        }
+    }
+
+    async function _pollCalStatus() {
+        try {
+            const res = await fetch('/api/calendar/status');
+            const data = await res.json();
+            _applyCalStatus(data);
+        } catch (e) { /* network blip — keep polling */ }
+    }
+
+    function _startCalPoll(ms = 5000) {
+        _stopCalPoll();
+        _pollCalStatus();
+        _calPollTimer = setInterval(_pollCalStatus, ms);
+    }
+
+    function _stopCalPoll() {
+        if (_calPollTimer) { clearInterval(_calPollTimer); _calPollTimer = null; }
+    }
+
+    async function connectCalendar() {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = '⏳ Opening browser...';
+
+        const res = await fetch('/api/calendar/auth', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast('Google Calendar connected! Checking status...', 'success');
+            _startCalPoll(2000);  // poll faster until connected
+        } else {
+            showToast(`Failed: ${data.error}`, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Connect Google Calendar';
+        }
+    }
+
+    async function importFromCalendar() {
+        document.getElementById('importProgress').style.display = 'block';
+        const res = await fetch('/api/calendar/free-slots?days=14');
+        const data = await res.json();
+        document.getElementById('importProgress').style.display = 'none';
+
+        if (!data.success) { showToast(`Import failed: ${data.error}`, 'error'); return; }
+        if (!data.slots || !data.slots.length) { showToast('No free slots found in next 14 days', 'error'); return; }
+
+        populateSlots(data.slots);
+        showToast(`Imported ${data.slots.length} free slots from ${data.calendar_name}`, 'success');
+    }
+
+    async function createCalendarEvents() {
+        const jobTitle = document.getElementById('jobTitle').value.trim() || 'Open Position';
+        const hrName = document.getElementById('hrName').value.trim() || 'Hiring Manager';
+        const hrEmail = document.getElementById('hrEmail').value.trim() || '';
+
+        document.getElementById('gcalExportProgress').style.display = 'block';
+        document.getElementById('gcalExportResult').textContent = '';
+
+        const res = await fetch('/api/calendar/create-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ job_title: jobTitle, hr_name: hrName, hr_email: hrEmail })
+        });
+        const data = await res.json();
+        document.getElementById('gcalExportProgress').style.display = 'none';
+
+        if (data.error) { showToast(data.error, 'error'); return; }
+        const msg = `✓ Created ${data.created?.length || 0} events, ${data.failed?.length || 0} failed`;
+        document.getElementById('gcalExportResult').textContent = msg;
+        showToast(msg, 'success');
+    }
+
+    // ─────────────────────────────────────────────
+    // SCHEDULING — IN-PLACE RENDER (no page reload)
+    // ─────────────────────────────────────────────
+    function _renderSchedule(scheduled) {
+        const list = document.getElementById('scheduleList');
+        if (!list) return;
+
+        list.innerHTML = scheduled.map((entry, idx) => {
+            const badgeClass = entry.status === 'CONFIRMED' ? 'badge-green'
+                : entry.status === 'SKIPPED' ? 'badge-gray'
+                    : 'badge-amber';
+            const slotsHtml = (entry.offered_slots || []).map(slot => `
+            <div class="slot-option ${slot === entry.selected_slot ? 'selected' : ''}"
+                 onclick="selectSlot(this,'${entry.candidate_name}','${slot}','dyn-slots-${idx}')">
+                ${slot}
+            </div>`).join('');
+
+            return `
+        <div style="padding:12px 14px;border:1px solid var(--gray-100);border-radius:var(--radius);background:var(--white);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <span style="font-weight:600;font-size:13px;">#${entry.rank} ${entry.candidate_name}</span>
+                    <span style="font-size:11px;color:var(--gray-400);margin-left:6px;">${entry.score}/100</span>
+                </div>
+                <span class="badge ${badgeClass}">${entry.status}</span>
+            </div>
+            ${slotsHtml ? `<div class="slot-options" id="dyn-slots-${idx}">${slotsHtml}</div>` : ''}
+        </div>`;
+        }).join('');
+
+        // Reveal the schedule panel if it was hidden (first-time scheduling)
+        const panel = document.getElementById('schedulePanel');
+        if (panel) { panel.style.display = 'block'; }
+        const empty = document.getElementById('scheduleEmpty');
+        if (empty) { empty.style.display = 'none'; }
+    }
+
+    async function runScheduling() {
+        const jobTitle = document.getElementById('jobTitle').value.trim();
+        const hrName = document.getElementById('hrName').value.trim();
+        const hrEmail = document.getElementById('hrEmail').value.trim();
+        const topN = parseInt(document.getElementById('topN').value || '10', 10);
+        const slots = getSlots();
+
+        if (!jobTitle) { showToast('Enter a job title', 'error'); return; }
+        if (slots.length < 3) { showToast('Enter at least 3 slots', 'error'); return; }
+
+        const btn = document.getElementById('scheduleBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Scheduling...';
+
+        const res = await fetch('/api/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ job_title: jobTitle, hr_name: hrName, hr_email: hrEmail, top_n: topN, slots })
+        });
+        const data = await res.json();
+
+        btn.disabled = false;
+        btn.textContent = 'Schedule Top 10 Candidates';
+
+        if (data.error) { showToast(data.error, 'error'); return; }
+
+        const rejected = (data.rejected_slots || []).length;
+        showToast(`Scheduled ${data.scheduled.length} candidates${rejected ? `; ignored ${rejected} invalid slot(s)` : ''}.`, 'success');
+
+        // Render results live — no page reload
+        _renderSchedule(data.scheduled);
+        document.getElementById('gcalExportWrap').style.display = 'block';
+        document.getElementById('emailExportWrap').style.display = 'block';
+    }
+
+    async function selectSlot(el, candidateName, slot, containerId) {
+        document.querySelectorAll(`#${containerId} .slot-option`).forEach(s => s.classList.remove('selected'));
+        el.classList.add('selected');
+        await fetch('/api/update-slot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidate_name: candidateName, selected_slot: slot })
+        });
+        showToast('Slot updated', 'success');
+    }
+
+    // ─────────────────────────────────────────────
+    // SEND EMAIL INVITATIONS
+    // ─────────────────────────────────────────────
+    async function sendEmailInvites() {
+        const btn = document.getElementById('sendEmailBtn');
+        const progress = document.getElementById('emailProgress');
+        const result = document.getElementById('emailResult');
+
+        btn.disabled = true;
+        progress.style.display = 'block';
+        result.textContent = '';
+
+        try {
+            const res = await fetch('/api/send-emails', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            progress.style.display = 'none';
+            btn.disabled = false;
+
+            if (data.error && !data.success) {
+                result.style.color = 'var(--red, #dc2626)';
+                result.textContent = data.error;
+                showToast(data.error, 'error');
+                return;
+            }
+
+            const msg = `Sent: ${data.sent}, Failed: ${data.failed}`;
+            result.style.color = data.failed > 0 ? 'var(--amber, #d97706)' : 'var(--green, #16a34a)';
+            result.textContent = msg;
+            if (data.errors && data.errors.length) {
+                result.textContent += ' — ' + data.errors.join('; ');
+            }
+            showToast(msg, data.failed > 0 ? 'warning' : 'success');
+        } catch (e) {
+            progress.style.display = 'none';
+            btn.disabled = false;
+            result.style.color = 'var(--red, #dc2626)';
+            result.textContent = 'Network error: ' + e.message;
+            showToast('Failed to send emails', 'error');
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // INIT
+    // ─────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        // Show export buttons if schedule was loaded from server on page open
+        const wrap = document.getElementById('gcalExportWrap');
+        if (wrap && wrap.dataset.hasSchedule === 'true') {
+            wrap.style.display = 'block';
+        }
+        const emailWrap = document.getElementById('emailExportWrap');
+        if (emailWrap && emailWrap.dataset.hasSchedule === 'true') {
+            emailWrap.style.display = 'block';
+        }
+
+        // Start polling calendar status every 5s
+        _startCalPoll(5000);
+
+        // Pause polling when tab is hidden, resume on focus
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) _stopCalPoll();
+            else _startCalPoll(5000);
+        });
+    });
+</script>
+{% endblock %}

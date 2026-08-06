@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "ai-recruitment-system"
+version = "1.0.0"
+description = "Offline-first AI-powered recruitment pipeline — resume parsing, NLP extraction, candidate ranking, interview scheduling, and proctoring."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Shreyas Pawar", email = "pawarshreyas425@gmail.com" },
+]
+keywords = ["recruitment", "ai", "nlp", "resume-parsing", "flask", "offline", "pywebview"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage       = "https://github.com/shrs425p/AI-Recruitment-System"
+Repository     = "https://github.com/shrs425p/AI-Recruitment-System"
+Documentation  = "https://github.com/shrs425p/AI-Recruitment-System/tree/main/docs"
+"Bug Tracker"  = "https://github.com/shrs425p/AI-Recruitment-System/issues"
+Changelog      = "https://github.com/shrs425p/AI-Recruitment-System/blob/main/CHANGELOG.md"
+
+# ── Ruff (linter + formatter) ─────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py310"
+line-length    = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E402",  # modules with runtime setup before imports are intentionally supported
+    "E501",  # line-length — handled by formatter
+    "B008",  # do not perform function calls in default arguments (Flask patterns)
+    "B904",  # raise from — too strict for Flask error handlers
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "src", "config"]
+
+[tool.ruff.lint.per-file-ignores]
+"main.py" = ["E402"]
+"config/__init__.py" = ["F403"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ── pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths    = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --timeout=60"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["app", "src"]
+omit   = ["*/tests/*", "*/venv/*", "*/build/*", "*/notebooks/*"]
+
+[tool.coverage.report]
+show_missing   = true
+skip_covered   = false
+fail_under     = 30
+exclude_lines  = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+# ── mypy ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+mypy_path = ["."]
+exclude = [
+    "^venv",
+    "^\\.venv",
+    "^build",
+    "^dist",
+]
+ignore_missing_imports = true
+follow_imports = "normal"
+explicit_package_bases = true
