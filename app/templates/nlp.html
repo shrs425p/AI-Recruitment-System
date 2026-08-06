@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-step">Step 02</div>
+    <h1 class="page-title">NLP Extraction</h1>
+    <p class="page-desc">AI reads each resume and extracts structured data — name, skills, experience, education, domain
+        and more.</p>
+</div>
+
+<div class="stats-row">
+    <div class="stat-chip">
+        <div class="stat-value" id="txtTotal" data-stat="txt_count">{{ txt_count }}</div>
+        <div class="stat-label">TXT Files Ready</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value" id="nlpCount" data-stat="nlp_count">{{ nlp_count }}</div>
+        <div class="stat-label">Already Extracted</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value" id="pendingCount" data-stat="pending_nlp">{{ txt_count - nlp_count }}</div>
+        <div class="stat-label">Pending</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Run NLP Extraction</div>
+    <div class="card-desc">
+        AI extracts structured data from each resume text file. Already-processed files are skipped automatically.
+        This may take a few minutes depending on the number of resumes.
+    </div>
+
+    <button class="btn btn-primary" id="nlpBtn" onclick="runNLP()" {% if txt_count==0 %}disabled{% endif %}>
+        {% if txt_count == 0 %}
+        No TXT files found — go to Upload first
+        {% else %}
+        Run NLP Extraction
+        {% endif %}
+    </button>
+
+    <!-- Live progress bar -->
+    <div id="nlpProgressWrap" style="display:none; margin-top:16px;">
+        <div
+            style="display:flex; justify-content:space-between; font-size:12px; color:var(--gray-600); margin-bottom:6px;">
+            <span id="nlpProgressText">Starting…</span>
+            <span id="nlpProgressPct">0%</span>
+        </div>
+        <div style="background:var(--gray-100); border-radius:99px; height:8px; overflow:hidden;">
+            <div id="nlpProgressBar"
+                style="height:100%; background:var(--gray-600); border-radius:99px; width:0%; transition:width 0.4s ease;">
+            </div>
+        </div>
+    </div>
+
+    <div class="log-box" id="nlpLog" style="margin-top:16px; display:none;"></div>
+</div>
+
+<div class="card">
+    <div class="card-title">What gets extracted?</div>
+    <div class="card-desc">For every resume the AI identifies and structures:</div>
+
+    <div class="grid-2" style="margin-top:8px;">
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:13px; color:var(--gray-600);">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Name, email, phone, location
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Industry domain auto-detection
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Total years of experience
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Technical skills &amp; tools
+            </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:13px; color:var(--gray-600);">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Education &amp; certifications
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Work experience timeline
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Projects &amp; achievements
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Candidate strength summary
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-top:24px; display:flex; justify-content:space-between;">
+    <a href="/upload" class="btn btn-secondary">← Upload</a>
+    <a href="/ranking" class="btn btn-secondary">Next: Ranking →</a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Live progress polling ──
+    let _nlpTimer = null;
+    let _nlpTotal = 0;
+    let _nlpStart = 0;   // nlp_count at time of button click
+
+    function _startNlpPoll() {
+        _nlpTotal = parseInt(document.getElementById('txtTotal').textContent) || 0;
+        _nlpStart = parseInt(document.getElementById('nlpCount').textContent) || 0;
+        const toProcess = _nlpTotal - _nlpStart;
+
+        _nlpTimer = setInterval(async () => {
+            try {
+                const res = await fetch('/api/stats');
+                const s = await res.json();
+                const done = s.nlp_count;
+                const newDone = done - _nlpStart;
+                const pct = toProcess > 0 ? Math.round((newDone / toProcess) * 100) : 0;
+
+                document.getElementById('nlpCount').textContent = done;
+                document.getElementById('pendingCount').textContent = Math.max(0, _nlpTotal - done);
+                document.getElementById('nlpProgressText').textContent =
+                    `Processing… ${done} / ${_nlpTotal} files`;
+                document.getElementById('nlpProgressPct').textContent = pct + '%';
+                document.getElementById('nlpProgressBar').style.width = Math.min(pct, 99) + '%';
+            } catch (e) { }
+        }, 800);
+    }
+
+    function _stopNlpPoll() {
+        if (_nlpTimer) { clearInterval(_nlpTimer); _nlpTimer = null; }
+    }
+
+    async function runNLP() {
+        const btn = document.getElementById('nlpBtn');
+        const log = document.getElementById('nlpLog');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Running...';
+        log.style.display = 'block';
+        log.innerHTML = '<span class="log-line">Starting NLP extraction...</span>';
+        document.getElementById('nlpProgressWrap').style.display = 'block';
+
+        _startNlpPoll();
+
+        const res = await fetch('/api/process-nlp', { method: 'POST' });
+        const data = await res.json();
+
+        _stopNlpPoll();
+
+        // Final update
+        const total = data.success.length + data.skipped.length;
+        document.getElementById('nlpCount').textContent = total;
+        document.getElementById('pendingCount').textContent = 0;
+        document.getElementById('nlpProgressText').textContent = `✓ Done — ${total} files processed`;
+        document.getElementById('nlpProgressPct').textContent = '100%';
+        document.getElementById('nlpProgressBar').style.width = '100%';
+
+        log.innerHTML = '';
+        data.success.forEach(f => log.innerHTML += `<span class="log-line success">✓ ${f}</span>`);
+        data.skipped.forEach(f => log.innerHTML += `<span class="log-line skip">— ${f} (already done)</span>`);
+        data.failed.forEach(f => {
+            log.innerHTML += `<span class="log-line error">✗ ${f.file}: ${f.error}</span>`;
+            if (f.error && (f.error.includes('HTTP 404') || f.error.includes('model') || f.error.includes('AI provider error'))) {
+                log.innerHTML += `<span class="log-line tip" style="color:var(--gray-600); margin-top:-4px; margin-bottom:8px; display:block; padding-left:16px;">💡 Tip: Go to Settings → AI Providers and select a different model. The current model might not be available or supported.</span>`;
+            }
+        });
+
+        btn.disabled = false;
+        btn.textContent = 'Run NLP Extraction';
+        showToast(`Done! ${data.success.length} extracted, ${data.skipped.length} skipped`, 'success');
+    }
+
+    // Restore running state if NLP was in progress when user navigated away
+    (async function _restoreState() {
+        try {
+            const res = await fetch('/api/task-status');
+            const tasks = await res.json();
+            if (tasks.nlp && tasks.nlp.status === 'running') {
+                const btn = document.getElementById('nlpBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span> Running...';
+                document.getElementById('nlpProgressWrap').style.display = 'block';
+                _startNlpPoll();
+                const _waitDone = setInterval(async () => {
+                    try {
+                        const r2 = await fetch('/api/task-status');
+                        const t2 = await r2.json();
+                        if (!t2.nlp || t2.nlp.status !== 'running') {
+                            clearInterval(_waitDone);
+                            _stopNlpPoll();
+                            const s = await (await fetch('/api/stats')).json();
+                            document.getElementById('nlpCount').textContent = s.nlp_count;
+                            document.getElementById('pendingCount').textContent = 0;
+                            document.getElementById('nlpProgressText').textContent = '✓ Done';
+                            document.getElementById('nlpProgressPct').textContent = '100%';
+                            document.getElementById('nlpProgressBar').style.width = '100%';
+                            btn.disabled = false;
+                            btn.textContent = 'Run NLP Extraction';
+                        }
+                    } catch(e) {}
+                }, 1500);
+            }
+        } catch(e) {}
+    })();
+</script>
+{% endblock %}

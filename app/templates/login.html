@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ 'dark' if config.THEME == 'dark' else '' }}" data-palette="{{ config.COLOR_PALETTE | default('lavender') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — AI Recruitment System</title>
+    <!-- Muted & Clean Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* ── Frameless title bar (matches base.html) ── */
+        .custom-title-bar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            background: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            font-family: var(--font-sans);
+            user-select: none;
+            -webkit-app-region: drag;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            z-index: 9999;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .custom-title-bar .title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: -0.1px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        .window-controls {
+            margin-left: auto;
+            display: flex;
+            gap: 4px;
+            -webkit-app-region: no-drag;
+        }
+        .window-btn {
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .window-btn:hover {
+            background: var(--md-sys-color-surface-container-high);
+            color: var(--md-sys-color-on-surface);
+        }
+        .window-btn.close:hover {
+            background: var(--red-soft);
+            color: var(--red);
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            font-family: var(--font-sans);
+            overflow: hidden;
+        }
+
+        .login-box {
+            background: var(--md-sys-color-surface-container-low);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--radius-lg); /* M3 Large Corner 24px */
+            padding: 40px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: var(--elevation-1);
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .login-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .login-logo .logo-mark {
+            width: 36px;
+            height: 36px;
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-surface);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+        }
+
+        .login-logo .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .login-logo .logo-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface);
+            letter-spacing: -0.2px;
+        }
+
+        .login-logo .logo-sub {
+            font-size: 10px;
+            color: var(--md-sys-color-on-surface-variant);
+            font-weight: 500;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--md-sys-color-on-surface);
+            margin: 0 0 6px;
+            letter-spacing: -0.2px;
+        }
+
+        .login-desc {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin: 0 0 24px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 6px;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 16px;
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: var(--font-sans);
+            background: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 18px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: var(--md-sys-color-primary);
+            box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
+        }
+
+        .error-msg {
+            background: var(--red-soft);
+            border: 1px solid var(--red);
+            color: var(--red);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 18px;
+            font-weight: 500;
+        }
+
+        .login-footer {
+            text-align: center;
+            font-size: 10.5px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: 24px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Frameless window controls (matches base.html) -->
+    <div class="custom-title-bar">
+        <div class="title-bar-brand" style="display: flex; align-items: center; gap: 8px;">
+            <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Icon" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
+            <span class="title">AI Recruitment System</span>
+        </div>
+        <div class="window-controls">
+            <!-- Minimize Button -->
+            <button class="window-btn" onclick="window.pywebview.api.minimize()" title="Minimize">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <!-- Maximize Button -->
+            <button class="window-btn" onclick="window.pywebview.api.maximize()" title="Maximize">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+            </button>
+            <!-- Close Button -->
+            <button class="window-btn close" onclick="window.pywebview.api.close()" title="Close">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="login-box">
+        <div class="login-logo">
+            <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Logo" class="logo-img" style="width: 36px; height: 36px; border-radius: 10px; object-fit: contain;">
+            <div class="logo-text">
+                <span class="logo-title">AI Recruitment</span>
+                <span class="logo-sub">System</span>
+            </div>
+        </div>
+
+        <h2>HR Login</h2>
+        <p class="login-desc">Sign in to access the recruitment dashboard.</p>
+
+        {% if error %}
+        <div class="error-msg">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/login" autocomplete="off">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" placeholder="Username" autofocus autocomplete="off" autocapitalize="none" spellcheck="false">
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Password" autocomplete="new-password">
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+        </form>
+
+        <div class="login-footer">Active Recruitment Environment</div>
+    </div>
+</body>
+</html>
