@@ -13,6 +13,7 @@ openai
 pywebview>=5.0
 Flask>=3.0
 waitress>=3.0
+PyJWT>=2.8
 
 # Calendar
 icalendar>=5.0

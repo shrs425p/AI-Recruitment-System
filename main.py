@@ -372,8 +372,24 @@ def run_flask_http_local():
     waitress_serve(app, host="127.0.0.1", port=DESKTOP_PORT, threads=8, ident="ARS")
 
 def main():
-    from app.database import init_db
+    from app.database import init_db, upsert_hr_admin
     init_db()
+
+    # -- Seed built-in admin user from config into hr_users table -------------
+    # Uses werkzeug's same hash format already used for login verification.
+    try:
+        import config as _cfg
+        from werkzeug.security import generate_password_hash
+        _admin_user = getattr(_cfg, "HR_USERNAME", "admin")
+        _admin_hash = getattr(_cfg, "HR_PASSWORD_HASH", "") or generate_password_hash(
+            getattr(_cfg, "HR_PASSWORD", ""), method="pbkdf2:sha256"
+        )
+        upsert_hr_admin(username=_admin_user, password_hash=_admin_hash, role="admin")
+    except Exception as _seed_err:
+        import logging as _log
+        _log.getLogger(__name__).error("[AUTH] Admin user seed FAILED: %s", _seed_err, exc_info=True)
+        raise RuntimeError(f"[AUTH] Cannot start: admin user seed failed — {_seed_err}") from _seed_err
+
 
     global CANDIDATE_PORT, DESKTOP_PORT
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")

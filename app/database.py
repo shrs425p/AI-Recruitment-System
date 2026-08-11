@@ -101,14 +101,65 @@ def init_db():
             created_at  TEXT DEFAULT (datetime('now'))
         );
 
+        -- ── Auth: HR users ──────────────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS hr_users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'hr',
+            created_at    TEXT DEFAULT (datetime('now'))
+        );
+
+        -- ── Auth: Server-side JWT session records ────────────────────────────
+        CREATE TABLE IF NOT EXISTS hr_sessions (
+            jti        TEXT PRIMARY KEY,
+            user_id    INTEGER NOT NULL,
+            username   TEXT NOT NULL,
+            role       TEXT NOT NULL,
+            issued_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            expires_at TEXT NOT NULL,
+            revoked    INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE INDEX IF NOT EXISTS idx_candidates_run_id ON candidates(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_run_id ON schedules(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status);
         CREATE INDEX IF NOT EXISTS idx_interview_tokens_token ON interview_tokens(token);
+        CREATE INDEX IF NOT EXISTS idx_hr_sessions_user ON hr_sessions(user_id);
     """)
     conn.commit()
+
+    # ── Migration: rebuild hr_sessions without FK if old schema present ───────
+    # The first deployment created hr_sessions with REFERENCES hr_users(id).
+    # SQLite cannot ALTER TABLE to drop constraints, so we recreate the table.
+    tbl_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='hr_sessions'"
+    ).fetchone()
+    if tbl_sql and "REFERENCES" in (tbl_sql[0] or ""):
+        conn.executescript("""
+            PRAGMA foreign_keys = OFF;
+            BEGIN;
+            ALTER TABLE hr_sessions RENAME TO _hr_sessions_old;
+            CREATE TABLE hr_sessions (
+                jti        TEXT PRIMARY KEY,
+                user_id    INTEGER NOT NULL,
+                username   TEXT NOT NULL,
+                role       TEXT NOT NULL,
+                issued_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                expires_at TEXT NOT NULL,
+                revoked    INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO hr_sessions SELECT jti, user_id, username, role,
+                issued_at, expires_at, revoked FROM _hr_sessions_old;
+            DROP TABLE _hr_sessions_old;
+            COMMIT;
+            PRAGMA foreign_keys = ON;
+        """)
+        print("[DB] Migration: hr_sessions FK constraint removed.")
+
     conn.close()
     print("[DB] Database initialised:", DB_PATH)
+
 
 # ─── Pipeline run helpers ───
 
@@ -396,3 +447,70 @@ def delete_job_template(template_id: int) -> bool:
     with db_session() as conn:
         conn.execute("DELETE FROM job_templates WHERE id=?", (template_id,))
         return True
+
+
+# ─── Auth: HR Users ───────────────────────────────────────────────────────────
+
+def get_user_by_username(username: str) -> dict | None:
+    """Return hr_users row as dict, or None if not found."""
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM hr_users WHERE username=?", (username,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def upsert_hr_admin(username: str, password_hash: str, role: str = "admin") -> int:
+    """Insert or update the built-in admin user. Returns user id."""
+    with db_session() as conn:
+        existing = conn.execute(
+            "SELECT id FROM hr_users WHERE username=?", (username,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE hr_users SET password_hash=?, role=? WHERE username=?",
+                (password_hash, role, username),
+            )
+            return existing["id"]
+        cur = conn.execute(
+            "INSERT INTO hr_users (username, password_hash, role) VALUES (?,?,?)",
+            (username, password_hash, role),
+        )
+        return cur.lastrowid
+
+
+# ─── Auth: HR Sessions (JWT jti tracking) ────────────────────────────────────
+
+def create_session_record(jti: str, user_id: int, username: str, role: str, expires_at: str) -> None:
+    """Persist a JWT session record. Called immediately after token issuance."""
+    with db_session() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO hr_sessions
+               (jti, user_id, username, role, expires_at)
+               VALUES (?,?,?,?,?)""",
+            (jti, user_id, username, role, expires_at),
+        )
+
+
+def get_session_record(jti: str) -> dict | None:
+    """Return a session record by JWT id claim, or None."""
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT * FROM hr_sessions WHERE jti=?", (jti,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def revoke_session(jti: str) -> None:
+    """Mark a JWT session as revoked (used on logout)."""
+    with db_session() as conn:
+        conn.execute("UPDATE hr_sessions SET revoked=1 WHERE jti=?", (jti,))
+
+
+def purge_expired_sessions() -> int:
+    """Delete sessions that have already expired. Returns number of rows deleted."""
+    with db_session() as conn:
+        cur = conn.execute(
+            "DELETE FROM hr_sessions WHERE expires_at < datetime('now')"
+        )
+        return cur.rowcount
