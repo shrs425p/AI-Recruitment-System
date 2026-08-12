@@ -128,8 +128,8 @@ sys.excepthook = _handle_unhandled_exception
 
 # Create the flask app
 from app import create_app
-from src.common import APP_DATA_DIR
 from app.core import add_log_line, log_queue
+from src.common import APP_DATA_DIR
 
 app = create_app()
 
@@ -378,8 +378,9 @@ def main():
     # -- Seed built-in admin user from config into hr_users table -------------
     # Uses werkzeug's same hash format already used for login verification.
     try:
-        import config as _cfg
         from werkzeug.security import generate_password_hash
+
+        import config as _cfg
         _admin_user = getattr(_cfg, "HR_USERNAME", "admin")
         _admin_hash = getattr(_cfg, "HR_PASSWORD_HASH", "") or generate_password_hash(
             getattr(_cfg, "HR_PASSWORD", ""), method="pbkdf2:sha256"
@@ -395,7 +396,7 @@ def main():
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")
     CANDIDATE_PORT = _pick_port(candidate_host, _env_port("ARS_CANDIDATE_PORT", 5000))
     DESKTOP_PORT = _pick_port("127.0.0.1", _env_port("ARS_DESKTOP_PORT", 5001))
-    
+
     app.config["CANDIDATE_PORT"] = CANDIDATE_PORT
     app.config["DESKTOP_PORT"] = DESKTOP_PORT
 
@@ -425,7 +426,7 @@ def main():
             return nonce
 
     api = Api()
-    
+
     webview.create_window(
         title     = "AI Recruitment System",
         url       = f"http://127.0.0.1:{DESKTOP_PORT}/desktop-bootstrap",

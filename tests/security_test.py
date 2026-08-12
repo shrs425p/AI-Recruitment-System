@@ -15,10 +15,11 @@ Tests:
 11. Session fixation: session.clear() happens before granting access
 """
 
-import time
-import requests
-import sys
 import secrets
+import sys
+import time
+
+import requests
 
 BASE     = "http://127.0.0.1:5001"
 PASS     = "[PASS]"

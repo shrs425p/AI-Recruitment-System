@@ -1,8 +1,7 @@
 ﻿import hmac
 import logging
-import threading
 
-from flask import current_app, jsonify, redirect, render_template, request, session, url_for
+from flask import jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 import config

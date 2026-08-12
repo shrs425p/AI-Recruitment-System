@@ -2,7 +2,7 @@
 import logging
 from functools import wraps
 
-from flask import g, jsonify, redirect, request, session, url_for
+from flask import g, jsonify, request, session
 
 logger = logging.getLogger(__name__)
 
