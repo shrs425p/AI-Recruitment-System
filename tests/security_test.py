@@ -56,8 +56,8 @@ hr_routes = [
 ]
 for route in hr_routes:
     r = get(route)
-    blocked = r.status_code in (401, 403, 302, 404)
-    check(f"GET {route} -> {r.status_code} (expected 401/302/403/404)", blocked)
+    blocked = r.status_code in (401, 403, 302)
+    check(f"GET {route} -> {r.status_code} (expected 401/302/403)", blocked)
 
 # ── 2. HR API routes return 401, not redirect ────────────────────────────────
 print("\n[ Block 2 ] HR API endpoints must return 401 JSON, not HTML redirect\n")
@@ -70,9 +70,9 @@ hr_api_routes = [
 ]
 for route in hr_api_routes:
     r = get(route, headers={"Accept": "application/json"})
-    is_401_or_404  = r.status_code in (401, 404)
+    is_401  = r.status_code == 401
     is_json = "application/json" in r.headers.get("Content-Type", "")
-    check(f"GET {route} -> 401/404 JSON", is_401_or_404 and is_json,
+    check(f"GET {route} -> 401 JSON", is_401 and is_json,
           f"status={r.status_code}, content-type={r.headers.get('Content-Type','?')}")
 
 # ── 3. /api/desktop-login rejects bogus nonces ──────────────────────────────
@@ -107,8 +107,8 @@ print("\n[ Block 5 ] /desktop-bootstrap must show access-denied message to brows
 r = get("/desktop-bootstrap")
 check("/desktop-bootstrap returns 200 (page loads)", r.status_code == 200)
 check("/desktop-bootstrap contains access-denied JS timeout",
-      "Access Denied" in r.text or "electronAPI" in r.text,
-      "page must contain 'Access Denied' or electronAPI handler")
+      "Access Denied" in r.text or "pywebview" in r.text,
+      "page must contain 'Access Denied' or pywebviewready handler")
 check("/desktop-bootstrap is NOT a redirect to dashboard",
       "dashboard" not in r.headers.get("Location", ""))
 
@@ -126,7 +126,7 @@ check("GET /candidate-interview/FAKE_TOKEN -> not 401 (publicly reachable)",
 print("\n[ Block 7 ] /login must be blocked when LOGIN_ENABLED=False\n")
 
 r = get("/login")
-check("/login GET -> 403 (browser login disabled)", r.status_code in (403, 404),
+check("/login GET -> 403 (browser login disabled)", r.status_code == 403,
       f"got {r.status_code}")
 
 # ── 8. Session fixation ──────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ print("\n[ Block 8 ] Session cannot be fixed by pre-setting cookies\n")
 session_client = requests.Session()
 session_client.cookies.set("session", "eyJsb2dnZWRfaW4iOnRydWV9.fake")
 r = session_client.get(BASE + "/dashboard", allow_redirects=False, timeout=5)
-check("Tampered session cookie -> still blocked", r.status_code in (401, 403, 302, 404))
+check("Tampered session cookie -> still blocked", r.status_code in (401, 403, 302))
 
 # ── 9. Security headers present ─────────────────────────────────────────────
 print("\n[ Block 9 ] Security response headers\n")

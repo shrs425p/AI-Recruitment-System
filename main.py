@@ -7,6 +7,8 @@ import time
 import traceback
 from pathlib import Path
 
+import webview
+
 # Add directories to search paths so imports load seamlessly
 ROOT_DIR = Path(__file__).parent.resolve()
 APP_NAME = "AI Recruitment System"
@@ -405,11 +407,37 @@ def main():
 
     time.sleep(1)
 
-    print(f"ARS_DESKTOP_PORT={DESKTOP_PORT}")
-    sys.stdout.flush()
+    class Api:
+        def minimize(self):
+            webview.windows[0].minimize()
+        def maximize(self):
+            webview.windows[0].toggle_fullscreen()
+        def close(self):
+            webview.windows[0].close() if hasattr(webview.windows[0], 'close') else webview.windows[0].destroy()
+        def get_auth_nonce(self):
+            import secrets
+            nonce = secrets.token_urlsafe(32)
+            lock = app.config.get("_NONCE_LOCK")
+            pool = app.config.get("_NONCE_POOL")
+            if lock and pool is not None:
+                with lock:
+                    pool.add(nonce)
+            return nonce
+
+    api = Api()
     
-    while True:
-        time.sleep(1)
+    webview.create_window(
+        title     = "AI Recruitment System",
+        url       = f"http://127.0.0.1:{DESKTOP_PORT}/desktop-bootstrap",
+        width     = 1280,
+        height    = 800,
+        min_size  = (1024, 700),
+        resizable = True,
+        frameless = True,
+        easy_drag = True,
+        js_api=api
+    )
+    webview.start()
 
 
 if __name__ == "__main__":

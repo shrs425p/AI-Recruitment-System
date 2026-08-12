@@ -941,9 +941,17 @@
             
             let data;
             let succeeded = false;
-            const res = await fetch('/api/open-output-folder', { method: 'POST' });
-            data = await res.json();
-            succeeded = res.ok && data.success;
+            if (window.pywebview?.api?.open_output_folder) {
+                // In the desktop app, use its native bridge instead of a
+                // background Flask request, so Explorer opens in the active
+                // Windows user session.
+                data = await window.pywebview.api.open_output_folder();
+                succeeded = Boolean(data?.success);
+            } else {
+                const res = await fetch('/api/open-output-folder', { method: 'POST' });
+                data = await res.json();
+                succeeded = res.ok && data.success;
+            }
             
             if (succeeded) {
                 showToast('Opened Output Folder in File Explorer', 'success');
