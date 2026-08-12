@@ -26,6 +26,17 @@ def _get_or_resolve_user(username: str) -> tuple[int, str]:
 
 
 def register_auth_routes(app):
+    @app.route("/api/internal-nonce", methods=["GET"])
+    def internal_nonce():
+        import secrets
+        nonce = secrets.token_urlsafe(32)
+        nonce_lock = current_app.config.get("_NONCE_LOCK")
+        nonce_pool = current_app.config.get("_NONCE_POOL")
+        if nonce_lock and nonce_pool is not None:
+            with nonce_lock:
+                nonce_pool.add(nonce)
+        return jsonify({"nonce": nonce})
+
     @app.route("/desktop-bootstrap")
     def desktop_bootstrap():
         if session.get("logged_in") and session.get("desktop_session"):
@@ -42,10 +53,11 @@ def register_auth_routes(app):
             <div id="status">Initializing Secure Desktop Session...</div>
             <script>
                 var authAttempted = false;
-                window.addEventListener('pywebviewready', function() {
+                function attemptAuth() {
                     if (authAttempted) return;
+                    if (!window.electronAPI) return;
                     authAttempted = true;
-                    window.pywebview.api.get_auth_nonce().then(function(nonce) {
+                    window.electronAPI.getAuthNonce().then(function(nonce) {
                         fetch('/api/desktop-login', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
@@ -63,9 +75,23 @@ def register_auth_routes(app):
                             document.getElementById('status').innerText = 'Connection Error: ' + err;
                         });
                     });
-                });
+                }
+
+                // If electronAPI is already available, run now
+                if (window.electronAPI) {
+                    attemptAuth();
+                } else {
+                    // Poll for it
+                    var interval = setInterval(function() {
+                        if (window.electronAPI) {
+                            clearInterval(interval);
+                            attemptAuth();
+                        }
+                    }, 50);
+                }
+
                 setTimeout(function() {
-                    if (!window.pywebview && !window.loginSuccess) {
+                    if (!window.electronAPI && !window.loginSuccess) {
                         document.getElementById('status').innerText = 'Access Denied: Please use the Desktop Application.';
                     }
                 }, 3000);

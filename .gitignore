@@ -63,3 +63,4 @@ Thumbs.db
 installer_output/
 AI-Recruitment-System/
 frontend/
+node_modules/

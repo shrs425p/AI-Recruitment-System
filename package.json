@@ -1,0 +1,29 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "An enterprise-grade, offline-first desktop application for automating end-to-end recruitment pipelines—including resume intake, OCR text extraction, structured NLP candidate profiling, objective ranking, interview scheduling, interactive candidate evaluations, AI-assisted proctoring, and comprehensive analytics reporting.",
+  "main": "desktop/main.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shrs425p/AI-Recruitment-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/shrs425p/AI-Recruitment-System/issues"
+  },
+  "homepage": "https://github.com/shrs425p/AI-Recruitment-System#readme",
+  "devDependencies": {
+    "electron": "^43.4.0"
+  }
+}
