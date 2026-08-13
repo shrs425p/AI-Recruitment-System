@@ -1,8 +1,8 @@
-﻿# requirements-dev.in -- unpinned source declarations for pip-tools (dev only)
+# requirements-dev.in -- unpinned source declarations for pip-tools (dev only)
 # Compile with: pip-compile requirements-dev.in --generate-hashes -o requirements-dev.txt
 
 # Linting & formatting
-ruff>=0.4.0
+ruff>=0.16.2
 mypy>=1.10
 
 # Security scanning
