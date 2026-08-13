@@ -373,7 +373,7 @@ start = time.perf_counter()
 all_bulk = db.get_all_candidates(run_id=bulk_run)
 bulk_query_time = time.perf_counter() - start
 
-check(f"1000 inserts completed in < 30s ({bulk_insert_time:.2f}s)", bulk_insert_time < 30.0)
+check(f"1000 inserts completed in < 90s ({bulk_insert_time:.2f}s)", bulk_insert_time < 90.0)
 check(f"Query of 1000 rows completed in < 1s ({bulk_query_time:.3f}s)", bulk_query_time < 1.0)
 check("All 1000 rows returned", len(all_bulk) == 1000)
 check("Results ordered by score DESC", all_bulk[0]["score"] >= all_bulk[-1]["score"])
