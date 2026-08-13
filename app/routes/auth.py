@@ -1,10 +1,10 @@
 import hmac
-import threading
 
-from flask import current_app, jsonify, redirect, render_template, request, session, url_for
+from flask import jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 import config
+
 
 def register_auth_routes(app):
     if "desktop_bootstrap" in app.view_functions:
@@ -14,7 +14,7 @@ def register_auth_routes(app):
     def desktop_bootstrap():
         if session.get("logged_in") and session.get("desktop_session"):
             return redirect(url_for("dashboard"))
-            
+
         return """
         <!DOCTYPE html>
         <html>
@@ -29,7 +29,7 @@ def register_auth_routes(app):
                 window.addEventListener('pywebviewready', function() {
                     if (authAttempted) return;
                     authAttempted = true;
-                    
+
                     window.pywebview.api.get_auth_nonce().then(function(nonce) {
                         fetch('/api/desktop-login', {
                             method: 'POST',
@@ -63,27 +63,27 @@ def register_auth_routes(app):
     def api_desktop_login():
         if session.get("logged_in") and session.get("desktop_session"):
             return jsonify({"success": True})
-            
+
         data = request.get_json(silent=True, force=True) or {}
         nonce = data.get("nonce") if isinstance(data, dict) else None
-        
+
         nonce_lock = app.config.get("_NONCE_LOCK")
         nonce_pool = app.config.get("_NONCE_POOL")
-        
+
         is_valid = False
         if nonce and nonce_lock and nonce_pool is not None:
             with nonce_lock:
                 if nonce in nonce_pool:
                     nonce_pool.discard(nonce)
                     is_valid = True
-                
+
         if is_valid:
             session.clear()
             session["logged_in"] = True
             session["desktop_session"] = True
             session.permanent = True
             return jsonify({"success": True})
-            
+
         return jsonify({"error": "Unauthorized"}), 403
 
     @app.route("/login", methods=["GET", "POST"])

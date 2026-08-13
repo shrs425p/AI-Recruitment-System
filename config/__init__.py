@@ -70,10 +70,10 @@ def _init_db_defaults():
     if _initialized:
         return
     try:
-        from app.database import get_all_settings, save_settings_dict, init_db
+        from app.database import get_all_settings, init_db, save_settings_dict
         init_db()
         db_settings = get_all_settings()
-        
+
         # Seed defaults for any missing keys
         missing = {}
         for k, default_val in DEFAULT_SETTINGS.items():
@@ -82,10 +82,10 @@ def _init_db_defaults():
         if missing:
             save_settings_dict(missing)
             db_settings.update(missing)
-            
+
         _cache = db_settings
         _initialized = True
-    except Exception as e:
+    except Exception:
         # Fallback if DB not accessible during early setup
         _cache = dict(DEFAULT_SETTINGS)
 
