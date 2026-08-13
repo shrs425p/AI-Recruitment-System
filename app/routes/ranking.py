@@ -28,7 +28,10 @@ from src.shortlist_report import save_shortlist_report
 
 
 def register_ranking_routes(app):
+    if "ranking" in app.view_functions:
+        return
     @app.route("/ranking")
+
     @login_required
     def ranking():
         nlp_count     = len(list((OUTPUT_FOLDER / "nlp").glob("*_nlp.json")))

@@ -18,7 +18,16 @@ def get_connection():
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA busy_timeout=10000")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key          TEXT PRIMARY KEY,
+            value        TEXT NOT NULL,
+            is_encrypted INTEGER DEFAULT 0,
+            updated_at   TEXT DEFAULT (datetime('now'))
+        )
+    """)
     return conn
+
 
 @contextmanager
 def db_session():
@@ -101,6 +110,13 @@ def init_db():
             created_at  TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key          TEXT PRIMARY KEY,
+            value        TEXT NOT NULL,
+            is_encrypted INTEGER DEFAULT 0,
+            updated_at   TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_candidates_run_id ON candidates(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_run_id ON schedules(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status);
@@ -109,6 +125,89 @@ def init_db():
     conn.commit()
     conn.close()
     print("[DB] Database initialised:", DB_PATH)
+
+
+# ─── Settings Persistence Helpers ───
+
+def get_setting(key: str, default=None) -> str:
+    """Fetch a single setting from the database by key."""
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT value, is_encrypted FROM app_settings WHERE key=?", (key,)).fetchone()
+        if not row:
+            return default
+        val = row["value"]
+        if row["is_encrypted"]:
+            from src.security import decrypt_secret
+            val = decrypt_secret(val)
+        return val
+    finally:
+        conn.close()
+
+
+def set_setting(key: str, value: str, is_encrypted: bool = False):
+    """Save or update a setting in the database."""
+    conn = get_connection()
+    try:
+        str_val = str(value) if value is not None else ""
+        if is_encrypted and str_val and not str_val.startswith("ENC:"):
+            from src.security import encrypt_secret
+            str_val = encrypt_secret(str_val)
+        
+        conn.execute(
+            """INSERT INTO app_settings (key, value, is_encrypted, updated_at)
+               VALUES (?, ?, ?, datetime('now'))
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value, is_encrypted=excluded.is_encrypted, updated_at=datetime('now')""",
+            (key, str_val, 1 if is_encrypted else 0)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_all_settings() -> dict:
+    """Return all database settings as a dictionary of key-value pairs (decrypting sensitive keys)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT key, value, is_encrypted FROM app_settings").fetchall()
+        result = {}
+        for r in rows:
+            val = r["value"]
+            if r["is_encrypted"]:
+                from src.security import decrypt_secret
+                val = decrypt_secret(val)
+            result[r["key"]] = val
+        return result
+    finally:
+        conn.close()
+
+
+def save_settings_dict(settings_dict: dict):
+    """Bulk save dictionary of configuration key-values to the database."""
+    from src.security import SENSITIVE_KEYS
+    conn = get_connection()
+    try:
+        for k, v in settings_dict.items():
+            if k.startswith("_"):
+                continue
+            is_enc = k in SENSITIVE_KEYS
+            str_val = str(v) if v is not None else ""
+            if is_enc and str_val and not str_val.startswith("ENC:"):
+                from src.security import encrypt_secret
+                stored_val = encrypt_secret(str_val)
+            else:
+                stored_val = str_val
+
+            conn.execute(
+                """INSERT INTO app_settings (key, value, is_encrypted, updated_at)
+                   VALUES (?, ?, ?, datetime('now'))
+                   ON CONFLICT(key) DO UPDATE SET value=excluded.value, is_encrypted=excluded.is_encrypted, updated_at=datetime('now')""",
+                (k, stored_val, 1 if is_enc else 0)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
 
 # ─── Pipeline run helpers ───
 

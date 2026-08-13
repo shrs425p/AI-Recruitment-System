@@ -8,6 +8,7 @@ def test_api_404_returns_json():
     # Inject authenticated session so auth guard does not intercept before 404
     with client.session_transaction() as sess:
         sess["logged_in"] = True
+        sess["desktop_session"] = True
 
     response = client.get("/api/nonexistent-route")
     assert response.status_code == 404
@@ -24,7 +25,9 @@ def test_web_404_returns_response():
     # Inject authenticated session so auth guard does not intercept before 404
     with client.session_transaction() as sess:
         sess["logged_in"] = True
+        sess["desktop_session"] = True
 
     response = client.get("/nonexistent-page")
     assert response.status_code == 404
     assert b"404" in response.data or b"not found" in response.data.lower()
+

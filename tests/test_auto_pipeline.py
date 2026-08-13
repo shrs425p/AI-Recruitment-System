@@ -1,5 +1,4 @@
-from flask import Flask
-
+from app import create_app
 import app.routes.dashboard as dashboard_routes
 import config
 from app.core import pipeline_tasks
@@ -22,11 +21,15 @@ def test_auto_pipeline_starts_background_job(monkeypatch):
     pipeline_tasks.clear()
     DummyThread.started = False
 
-    app = Flask(__name__)
-    app.secret_key = "mock_test_key_for_flask"
-    dashboard_routes.register_dashboard_routes(app)
+    app = create_app()
+    client = app.test_client()
 
-    response = app.test_client().post("/api/run-auto-pipeline")
+    # Provide a fully-authenticated desktop session so login_required passes.
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["desktop_session"] = True
+
+    response = client.post("/api/run-auto-pipeline")
 
     assert response.status_code == 202
     data = response.get_json()

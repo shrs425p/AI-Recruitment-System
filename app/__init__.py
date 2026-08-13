@@ -88,4 +88,30 @@ def create_app():
     def inject_config():
         return {"cfg": config, "config": config}
 
+    # Register application routes
+    from app.routes.auth import register_auth_routes
+    from app.routes.dashboard import register_dashboard_routes
+    from app.routes.health import register_health_routes
+    from app.routes.interview import register_interview_routes
+    from app.routes.logs import register_logs_routes
+    from app.routes.nlp import register_nlp_routes
+    from app.routes.ranking import register_ranking_routes
+    from app.routes.reports import register_reports_routes
+    from app.routes.scheduling import register_scheduling_routes
+    from app.routes.settings import register_settings_routes
+    from app.routes.upload import register_upload_routes
+
+    register_auth_routes(app)
+    register_dashboard_routes(app)
+    register_health_routes(app)
+    register_upload_routes(app)
+    register_nlp_routes(app)
+    register_ranking_routes(app)
+    register_scheduling_routes(app)
+    register_interview_routes(app)
+    register_reports_routes(app)
+    register_settings_routes(app)
+    register_logs_routes(app)
+
     return app
+
