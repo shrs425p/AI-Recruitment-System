@@ -72,7 +72,8 @@ def get_providers():
             "enabled": getattr(config, 'OLLAMA_CLOUD_ENABLED', False),
             "key":     getattr(config, 'OLLAMA_CLOUD_KEY', ''),
             "model":   getattr(config, 'OLLAMA_CLOUD_MODEL', 'llama3.2:3b'),
-            "base_url": "http://localhost:11434",
+            "base_url": getattr(config, 'OLLAMA_BASE_URL', 'http://localhost:11434'),
             "rpm":     120,
         }
+
     ]

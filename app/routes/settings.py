@@ -1,7 +1,5 @@
-import logging
-
-logger = logging.getLogger(__name__)
 import json
+import logging
 from urllib.parse import urlparse
 
 from flask import jsonify, redirect, render_template, request, url_for
@@ -9,6 +7,8 @@ from werkzeug.security import generate_password_hash
 
 import config as cfg
 from app.utils import login_required
+
+logger = logging.getLogger(__name__)
 
 
 def _get_about_html() -> str:
@@ -52,6 +52,9 @@ def _get_about_html() -> str:
 
 
 def register_settings_routes(app):
+    if "settings" in app.view_functions:
+        return
+
     @app.route("/settings", methods=["GET", "POST"])
     @login_required
     def settings():
@@ -147,106 +150,3 @@ def register_settings_routes(app):
         import main
         main._save_config(cfg)
         return jsonify({"success": True, "theme": cfg.THEME})
-
-    @app.route("/api/change-palette", methods=["POST"])
-    def api_change_palette():
-        data = request.json or {}
-        palette = data.get("palette", "lavender")
-        cfg.COLOR_PALETTE = palette
-        import main
-        main._save_config(cfg)
-        return jsonify({"success": True, "palette": palette})
-
-    @app.route("/api/toggle-ai-mode", methods=["POST"])
-    def api_toggle_ai_mode():
-        cfg.APP_MODE = "cloud" if getattr(cfg, "APP_MODE", "privacy") == "privacy" else "privacy"
-        import main
-        main._save_config(cfg)
-        return jsonify({"success": True, "mode": cfg.APP_MODE})
-
-    @app.route("/api/provider-models", methods=["POST"])
-    def api_provider_models():
-        """Fetch available model IDs from a cloud provider's API."""
-        import urllib.error
-        import urllib.request
-        data     = request.json or {}
-        provider = data.get("provider", "")
-        key      = data.get("key", "").strip()
-
-        STATIC_LISTS = {
-            "anthropic": [
-                "claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5",
-                "claude-3-7-sonnet-latest", "claude-3-5-sonnet-latest",
-                "claude-3-5-haiku-latest", "claude-3-opus-latest",
-            ],
-            "gemini": [
-                "gemini-2.5-flash-preview-05-20", "gemini-2.5-pro-preview-06-05",
-                "gemini-2.0-flash", "gemini-2.0-flash-lite",
-                "gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro",
-            ],
-        }
-
-        if provider in STATIC_LISTS:
-            return jsonify({"success": True, "models": STATIC_LISTS[provider], "source": "static"})
-
-        # OpenAI-compatible /models endpoints
-        ENDPOINTS = {
-            "nvidia":      ("https://integrate.api.nvidia.com/v1/models",       "Bearer"),
-            "openai":      ("https://api.openai.com/v1/models",                 "Bearer"),
-            "groq":        ("https://api.groq.com/openai/v1/models",            "Bearer"),
-            "openrouter":  ("https://openrouter.ai/api/v1/models",              "Bearer"),
-            "github":      ("https://models.inference.ai.azure.com/models",     "Bearer"),
-            "ollama_cloud":("http://localhost:11434/api/tags",                   "None"),
-        }
-
-        if provider not in ENDPOINTS:
-            return jsonify({"success": False, "error": f"Unknown provider: {provider}"}), 400
-
-        url, auth_scheme = ENDPOINTS[provider]
-        parsed_url = urlparse(url)
-        if parsed_url.scheme not in {"https", "http"}:
-            return jsonify({"success": False, "error": "Unsupported provider endpoint scheme."}), 400
-        if parsed_url.scheme == "http" and parsed_url.hostname not in {"localhost", "127.0.0.1"}:
-            return jsonify({"success": False, "error": "Plain HTTP is only allowed for local Ollama."}), 400
-
-        headers = {"Content-Type": "application/json"}
-        if auth_scheme == "Bearer" and key:
-            headers["Authorization"] = f"Bearer {key}"
-
-        try:
-            req = urllib.request.Request(url, headers=headers, method="GET")
-            # ENDPOINTS is a fixed allowlist and _validate_endpoint checks the scheme.
-            with urllib.request.urlopen(req, timeout=15) as r:  # nosec B310
-                raw = json.loads(r.read())
-
-            # Ollama tags format
-            if provider == "ollama_cloud":
-                models = sorted(m["name"] for m in raw.get("models", []))
-            # OpenRouter returns data[*].id
-            elif "data" in raw:
-                models = sorted(m["id"] for m in raw["data"] if m.get("id"))
-            # Fallback
-            else:
-                models = sorted(str(m) for m in raw.get("models", []))
-
-            return jsonify({"success": True, "models": models, "source": "api", "count": len(models)})
-
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode()[:200]
-            except Exception as e:
-                logger.warning('Caught exception: %s', e, exc_info=True)
-            return jsonify({"success": False, "error": f"HTTP {e.code}: {body}"}), 400
-        except Exception as ex:
-            return jsonify({"success": False, "error": str(ex)}), 500
-
-    @app.route("/api/test-smtp", methods=["POST"])
-    @login_required
-    def api_test_smtp():
-        from src.email_sender import test_smtp_connection
-        success, err = test_smtp_connection()
-        if success:
-            return jsonify({"success": True})
-        else:
-            return jsonify({"success": False, "error": err})

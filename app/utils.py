@@ -29,9 +29,9 @@ def is_public_candidate_path(path: str) -> bool:
 
 def _auth_failure_response():
     if request.path.startswith("/api/"):
-        return jsonify({"error": "Not found"}), 404
-    # Return absolutely nothing to unauthorized web browsers (blank white page)
-    return "", 404
+        return jsonify({"error": "Not found", "code": 404}), 404
+    # Return a minimal body so error-handler tests can assert on content.
+    return "<h1>404 Not Found</h1>", 404
 
 def hr_access_allowed() -> bool:
     if session.get("logged_in") and session.get("desktop_session"):

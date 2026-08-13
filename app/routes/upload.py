@@ -22,7 +22,10 @@ def _available_filename(folder: Path, filename: str) -> str:
 
 
 def register_upload_routes(app):
+    if "upload" in app.view_functions:
+        return
     @app.route("/upload")
+
     @login_required
     def upload():
         txt_count = len(list((OUTPUT_FOLDER / "txt").glob("*.txt")))

@@ -205,6 +205,11 @@ def register_interview_routes(app):
             q_type=INTERVIEW_PLAN[0][0],
             transcript=""
         )
+        # Store server-issued question so the answer handler can use it
+        # rather than trusting the client-supplied question text.
+        interview_session[session_id]["pending_question"] = first_q
+        interview_session[session_id]["pending_topic"]    = INTERVIEW_PLAN[0][1]
+        interview_session[session_id]["pending_q_type"]   = INTERVIEW_PLAN[0][0]
 
         return jsonify({
             "success":    True,
@@ -218,9 +223,6 @@ def register_interview_routes(app):
     def api_candidate_interview_answer():
         data           = request.json
         answer         = data.get("answer", "").strip()
-        question       = data.get("question", "").strip()
-        topic          = data.get("topic", "Coding").strip()
-        q_type         = data.get("type", "TECHNICAL").strip()
         q_num          = int(data.get("question_num", 1))
         time_taken     = int(data.get("time_taken", 30))
 
@@ -230,6 +232,11 @@ def register_interview_routes(app):
         expected_q_num = len(session_data["responses"]) + 1
         if q_num != expected_q_num:
             return jsonify({"error": f"Expected question {expected_q_num}, got {q_num}"}), 409
+
+        # Use server-issued question/topic/type — never trust client-supplied values.
+        question = session_data.get("pending_question", "")
+        topic    = session_data.get("pending_topic", "General")
+        q_type   = session_data.get("pending_q_type", "TECHNICAL")
 
         evaluation = evaluate_answer(
             question=question,
@@ -276,6 +283,11 @@ def register_interview_routes(app):
             q_type=next_q_type,
             transcript=t_str
         )
+
+        # Store the next server-issued question in session state.
+        session_data["pending_question"] = next_q
+        session_data["pending_topic"]    = next_topic
+        session_data["pending_q_type"]   = next_q_type
 
         return jsonify({
             "success":    True,

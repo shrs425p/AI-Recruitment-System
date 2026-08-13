@@ -33,12 +33,14 @@ def test_job_template_api_endpoints(tmp_path, monkeypatch):
     init_db()
 
     app = create_app()
-    ranking_routes.register_ranking_routes(app)
     client = app.test_client()
+
 
     # Inject authenticated session so HR routes are accessible
     with client.session_transaction() as sess:
         sess["logged_in"] = True
+        sess["desktop_session"] = True
+
 
     # POST create template
     resp = client.post(
@@ -68,12 +70,13 @@ def test_view_resume_security(tmp_path, monkeypatch):
     monkeypatch.setattr(upload_routes, "RESUMES_FOLDER", resumes_dir)
 
     app = create_app()
-    upload_routes.register_upload_routes(app)
     client = app.test_client()
 
     # Inject authenticated session so HR routes are accessible
     with client.session_transaction() as sess:
         sess["logged_in"] = True
+        sess["desktop_session"] = True
+
 
     # Valid request
     valid_resp = client.get("/api/view-resume/sample.pdf")
@@ -93,8 +96,11 @@ def test_upload_rejects_unsupported_files_and_preserves_duplicates(tmp_path, mon
     monkeypatch.setattr(upload_routes, "RESUMES_FOLDER", resumes_dir)
 
     app = create_app()
-    upload_routes.register_upload_routes(app)
     client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["desktop_session"] = True
+
 
     response = client.post(
         "/api/upload",
@@ -153,8 +159,12 @@ def test_email_template_customization(monkeypatch):
     assert success is True
 
 
-def test_save_config_creates_parent_directories():
+def test_save_config_persists_to_database():
     import config
     import main
+    from app.database import get_setting
+    config.THEME = "dark"
     main._save_config(config)
-    assert (main.APP_DATA_DIR / "config.py").exists()
+    assert get_setting("THEME") == "dark"
+    assert not (main.APP_DATA_DIR / "config.py").exists()
+

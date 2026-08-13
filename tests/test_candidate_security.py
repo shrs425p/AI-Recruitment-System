@@ -35,9 +35,11 @@ def _app(monkeypatch):
     interview_routes.interview_session.clear()
     interview_routes.active_token_sessions.clear()
 
+    # create_app() already registers all blueprints/routes including interview.
+    # Do NOT call register_interview_routes again — it would duplicate endpoints.
     app = create_app()
-    interview_routes.register_interview_routes(app)
     return app
+
 
 
 def test_candidate_answer_requires_session_key(monkeypatch):
