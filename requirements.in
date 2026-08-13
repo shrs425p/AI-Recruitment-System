@@ -1,3 +1,7 @@
+# requirements.in -- unpinned source declarations for pip-tools
+# Compile with: pip-compile requirements.in --generate-hashes -o requirements.txt
+# Upgrade all:  pip-compile --upgrade requirements.in --generate-hashes -o requirements.txt
+
 # Core PDF / OCR
 pytesseract>=0.3.10
 Pillow>=10.0
@@ -30,18 +34,16 @@ SpeechRecognition>=3.10
 google-api-python-client>=2.100
 google-auth-httplib2>=0.2
 google-auth-oauthlib>=1.1
+
 # Cryptography & Security
 cryptography>=42.0
 pyopenssl>=24.0
-pywin32>=306            # Windows DPAPI -- PII encryption key storage
-sentry-sdk>=2.0         # Error reporting (opt-in; set SENTRY_DSN in config.py)
-python-dotenv>=1.0.0    # Load secrets from .env
+pywin32>=306
+sentry-sdk>=2.0
+python-dotenv>=1.0.0
 
 # PDF export
 fpdf2>=2.7
 
-# Offline open-source speech recognition (Apache 2.0, no API key)
-# After pip install, run:   python scripts/setup_vosk.py
-#   This downloads vosk-model-small-en-in-0.4 (36 MB, Indian English, Apache 2.0)
-#   For higher accuracy:    python scripts/setup_vosk.py --large  (1 GB model)
+# Speech recognition (offline)
 vosk>=0.3

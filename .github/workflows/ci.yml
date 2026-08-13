@@ -30,14 +30,47 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Lint
+      - name: Lint (ruff)
         run: python -m ruff check .
+
+      - name: Type check (mypy)
+        run: python -m mypy app src --ignore-missing-imports
+        continue-on-error: true
+
+      - name: Security lint (bandit)
+        run: python -m bandit -r app src -ll -f json -o bandit-report.json
+        continue-on-error: true
+
+      - name: Upload bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+      - name: Dependency vulnerability scan (pip-audit)
+        run: python -m pip_audit --format=json -o pip-audit.json
+        continue-on-error: true
+
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit.json
 
       - name: Compile application code
         run: python -m compileall -q main.py app src tests
 
-      - name: Run tests
-        run: python -m pytest tests --timeout=60
+      - name: Run tests with coverage
+        run: python -m pytest tests --timeout=60 --cov=app --cov=src --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
       - name: Run environment pre-flight
         run: python scripts/verify_environment.py

@@ -160,6 +160,10 @@ def init_db():
     conn.close()
     print("[DB] Database initialised:", DB_PATH)
 
+    # Ensure GDPR tables and consent columns exist
+    from app.gdpr import ensure_gdpr_schema
+    ensure_gdpr_schema()
+
 
 # ─── Pipeline run helpers ───
 

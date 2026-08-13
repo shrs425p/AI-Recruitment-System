@@ -252,8 +252,19 @@ def _save_config(cfg):
         "ANTHROPIC_ENABLED": "\n# Enabled Providers\n",
     }
 
+    SECRET_KEYS = {
+        "ANTHROPIC_KEY", "GEMINI_KEY", "GROQ_KEY", "OPENAI_KEY", "NVIDIA_KEY",
+        "OPENROUTER_KEY", "GITHUB_KEY", "OLLAMA_CLOUD_KEY", "FLASK_SECRET_KEY", "SMTP_PASSWORD"
+    }
+
     lines = ['"""\nconfig.py - Central Configuration for AI Recruitment System\n'
-             'All settings are written here automatically when saved via the Settings UI.\n"""\n']
+             'All settings are written here automatically when saved via the Settings UI.\n"""\n'
+             'import os\n'
+             'try:\n'
+             '    from dotenv import load_dotenv\n'
+             '    load_dotenv()\n'
+             'except ImportError:\n'
+             '    pass\n']
 
     for key, typ in KEYS:
         val = getattr(cfg, key, None)
@@ -268,12 +279,19 @@ def _save_config(cfg):
         if val is None:
             val = "" if typ is str else (False if typ is bool else 0)
 
+        if key in SECRET_KEYS:
+            os.environ[key] = str(val)
+
         if key in SECTION_COMMENTS:
             lines.append(SECTION_COMMENTS[key])
         tname = "bool" if typ is bool else ("int" if typ is int else "str")
-        lines.append(f"{key}: {tname} = {_q(val)}\n")
+        if key in SECRET_KEYS:
+            lines.append(f'{key}: str = os.environ.get("{key}", "")\n')
+        else:
+            lines.append(f"{key}: {tname} = {_q(val)}\n")
 
     content = "".join(lines)
+
 
     data_config = APP_DATA_DIR / "config.py"
     data_config.parent.mkdir(parents=True, exist_ok=True)

@@ -7,13 +7,18 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+
 from flask import jsonify, redirect, render_template, url_for
 
 from app.core import OUTPUT_FOLDER, RESUMES_FOLDER, _save_tasks, pipeline_tasks
 from app.database import create_interview_token, create_run, finish_run, upsert_candidate
 from app.database import save_schedule as db_save_schedule
 from app.folder_opener import open_folder
-from app.utils import login_required
+from app.gdpr import delete_candidate_data, purge_old_data
+from app.utils import admin_required, login_required
+
 from src.nlp_extractor import process_file_async
 
 # Imports for auto-pipeline
@@ -480,3 +485,34 @@ def register_dashboard_routes(app):
             "message": "Auto-pipeline started.",
             "task": pipeline_tasks["auto_pipeline"],
         }), 202
+
+    # ── GDPR / Data Management ────────────────────────────────────────────────
+
+    @app.route("/api/admin/candidate/<int:candidate_id>", methods=["DELETE"])
+    @admin_required
+    def api_delete_candidate(candidate_id):
+        """Hard-delete all data for a single candidate (GDPR right to erasure)."""
+        from flask import g
+        deleted_by = getattr(g, "current_user", {}).get("username", "admin")
+        result = delete_candidate_data(
+            candidate_id=candidate_id,
+            reason="HR manual deletion",
+            deleted_by=deleted_by,
+        )
+        if result["success"]:
+            return jsonify(result), 200
+        return jsonify(result), 404 if "not found" in (result.get("error") or "").lower() else 500
+
+    @app.route("/api/admin/purge-old-data", methods=["POST"])
+    @admin_required
+    def api_purge_old_data():
+        """Delete all candidate records older than the configured retention period."""
+        from flask import g, request as freq
+        body = freq.get_json(silent=True) or {}
+        days = int(body.get("days", 90))
+        if days < 1:
+            return jsonify({"error": "days must be >= 1"}), 400
+        deleted_by = getattr(g, "current_user", {}).get("username", "system")
+        result = purge_old_data(days=days, deleted_by=deleted_by)
+        status = 200 if result["success"] else 500
+        return jsonify(result), status

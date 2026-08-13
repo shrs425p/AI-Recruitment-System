@@ -11,6 +11,7 @@ from flask import jsonify, render_template, request
 
 from app.core import OUTPUT_FOLDER
 from app.database import create_interview_token, get_all_tokens, get_interview_token
+from app.gdpr import record_consent
 from app.rate_limiter import SimpleRateLimiter
 from app.utils import login_required
 from src.interview_bot import evaluate_answer, generate_interview_question, proctor_check
@@ -161,6 +162,16 @@ def register_interview_routes(app):
                                rank=token_data.get("rank", 0),
                                score=token_data.get("score", 0))
 
+    @app.route("/api/candidate/consent", methods=["POST"])
+    def api_candidate_consent():
+        """Record GDPR/CCPA consent for an interview session. Non-blocking — always returns 200."""
+        data = request.get_json(silent=True) or {}
+        token = data.get("token", "")
+        ip = request.remote_addr or ""
+        if token:
+            record_consent(token=token, ip=ip)
+        return jsonify({"success": True}), 200
+
     @app.route("/api/candidate/interview/start", methods=["POST"])
     def api_candidate_interview_start():
         client_ip = request.remote_addr or "127.0.0.1"
@@ -179,6 +190,15 @@ def register_interview_routes(app):
         session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
+        first_q = generate_interview_question(
+            candidate_name=token_data["candidate_name"],
+            job_title=token_data["job_title"],
+            topic=INTERVIEW_PLAN[0][1],
+            q_num=1,
+            q_type=INTERVIEW_PLAN[0][0],
+            transcript=""
+        )
+
         interview_session[session_id] = {
             "token":          token,
             "session_key":    session_key,
@@ -189,22 +209,16 @@ def register_interview_routes(app):
             "job_title":      token_data["job_title"],
             "ranking_score":  token_data["score"],
             "responses":      [],
+            "server_questions": {1: first_q},
             "started_at":     time.time(),
             "webcam_log":     [],
             "browser_log":    [],
         }
+
         active_token_sessions[token] = session_id
 
         start_proctoring_session(session_id)
 
-        first_q = generate_interview_question(
-            candidate_name=token_data["candidate_name"],
-            job_title=token_data["job_title"],
-            topic=INTERVIEW_PLAN[0][1],
-            q_num=1,
-            q_type=INTERVIEW_PLAN[0][0],
-            transcript=""
-        )
 
         return jsonify({
             "success":    True,
@@ -230,6 +244,13 @@ def register_interview_routes(app):
         expected_q_num = len(session_data["responses"]) + 1
         if q_num != expected_q_num:
             return jsonify({"error": f"Expected question {expected_q_num}, got {q_num}"}), 409
+
+        server_q = session_data.get("server_questions", {}).get(q_num)
+        if server_q:
+            question = server_q
+
+        if 1 <= q_num <= len(INTERVIEW_PLAN):
+            q_type, topic = INTERVIEW_PLAN[q_num - 1]
 
         evaluation = evaluate_answer(
             question=question,

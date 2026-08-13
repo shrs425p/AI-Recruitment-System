@@ -1,4 +1,4 @@
-﻿import ipaddress
+import ipaddress
 import logging
 from functools import wraps
 

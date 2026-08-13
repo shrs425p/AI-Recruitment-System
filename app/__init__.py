@@ -6,6 +6,7 @@ from datetime import timedelta
 from flask import Flask, jsonify, render_template, request
 
 import config
+from app import error_reporter
 from app.utils import protect_hr_routes
 from src.common import APP_RESOURCE_DIR
 
@@ -72,9 +73,13 @@ def create_app():
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         _NONCE_POOL=set(),
         _NONCE_LOCK=threading.Lock(),
+        # Error reporting / telemetry (opt-in)
+        SENTRY_DSN=os.environ.get("SENTRY_DSN") or getattr(config, "SENTRY_DSN", ""),
+        TELEMETRY_ENABLED=getattr(config, "TELEMETRY_ENABLED", False),
     )
     register_error_handlers(app)
     protect_hr_routes(app)
+    error_reporter.init(app)
 
     @app.after_request
     def add_security_headers(response):

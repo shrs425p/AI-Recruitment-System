@@ -26,9 +26,20 @@ def test_auto_pipeline_starts_background_job(monkeypatch):
     app.secret_key = "mock_test_key_for_flask"
     dashboard_routes.register_dashboard_routes(app)
 
-    response = app.test_client().post("/api/run-auto-pipeline")
+    from app.auth import generate_jwt
+    with app.app_context():
+        token = generate_jwt(1, "admin", "admin")
+
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["jwt_token"] = token
+
+
+    response = client.post("/api/run-auto-pipeline")
 
     assert response.status_code == 202
+
     data = response.get_json()
     assert data["success"] is True
     assert data["started"] is True

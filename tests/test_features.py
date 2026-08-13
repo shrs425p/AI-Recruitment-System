@@ -37,8 +37,12 @@ def test_job_template_api_endpoints(tmp_path, monkeypatch):
     client = app.test_client()
 
     # Inject authenticated session so HR routes are accessible
+    from app.auth import generate_jwt
+    with app.app_context():
+        token = generate_jwt(1, "admin", "admin")
     with client.session_transaction() as sess:
         sess["logged_in"] = True
+        sess["jwt_token"] = token
 
     # POST create template
     resp = client.post(
@@ -71,9 +75,12 @@ def test_view_resume_security(tmp_path, monkeypatch):
     upload_routes.register_upload_routes(app)
     client = app.test_client()
 
-    # Inject authenticated session so HR routes are accessible
+    from app.auth import generate_jwt
+    with app.app_context():
+        token = generate_jwt(1, "admin", "admin")
     with client.session_transaction() as sess:
         sess["logged_in"] = True
+        sess["jwt_token"] = token
 
     # Valid request
     valid_resp = client.get("/api/view-resume/sample.pdf")
@@ -96,6 +103,14 @@ def test_upload_rejects_unsupported_files_and_preserves_duplicates(tmp_path, mon
     upload_routes.register_upload_routes(app)
     client = app.test_client()
 
+    from app.auth import generate_jwt
+    with app.app_context():
+        token = generate_jwt(1, "admin", "admin")
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["jwt_token"] = token
+
+
     response = client.post(
         "/api/upload",
         data={
@@ -106,6 +121,7 @@ def test_upload_rejects_unsupported_files_and_preserves_duplicates(tmp_path, mon
         },
         content_type="multipart/form-data",
     )
+
 
     data = response.get_json()
     assert response.status_code == 200

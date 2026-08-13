@@ -1,7 +1,9 @@
 import collections
 import json
 import logging
+import logging.handlers
 import queue
+import sys
 import threading
 
 logger = logging.getLogger(__name__)
@@ -9,18 +11,56 @@ logger = logging.getLogger(__name__)
 # Paths Setup
 from src.common import data_dir, data_path
 
-# Setup Centralized Logging
+# -- Structured JSON log formatter -------------------------------------------
+class _JsonFormatter(logging.Formatter):
+    """Emit one JSON object per log line for machine-readable log aggregation."""
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "module": record.module,
+            "msg": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+# -- Setup Centralized Logging with rotation ----------------------------------
 log_file_path = data_path("logs") / "app.log"
 log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+_rotating_handler = logging.handlers.RotatingFileHandler(
+    log_file_path,
+    maxBytes=5 * 1024 * 1024,  # 5 MB per file
+    backupCount=5,
+    encoding="utf-8",
+)
+_rotating_handler.setFormatter(
+    logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
+)
+
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(
+    logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
+)
+
 logging.basicConfig(
     level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
-    handlers=[
-        logging.FileHandler(log_file_path, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+    handlers=[_rotating_handler, _stream_handler],
 )
 logger = logging.getLogger(__name__)
+
+# -- Unhandled exception hook -------------------------------------------------
+def _excepthook(exc_type, exc_value, exc_tb):
+    if not issubclass(exc_type, KeyboardInterrupt):
+        logger.critical(
+            "Unhandled exception",
+            exc_info=(exc_type, exc_value, exc_tb),
+        )
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _excepthook
+
 
 
 def ensure_app_directories():
