@@ -16,10 +16,11 @@ Tests:
 """
 
 import os
-import time
-import requests
-import sys
 import secrets
+import sys
+import time
+
+import requests
 
 # Read the base URL from env so the port is not hardcoded.
 # Default falls back to 5001 for local dev runs.

@@ -81,6 +81,7 @@ def _ollama():
     global _ollama_client
     if _ollama_client is None:
         import ollama
+
         import config
         base_url = getattr(config, "OLLAMA_BASE_URL", "http://127.0.0.1:11434")
         _ollama_client = ollama.Client(host=base_url, timeout=300.0)
@@ -198,10 +199,10 @@ async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0
         return await router.call(system_msg, user_msg, max_tokens=num_predict)
 
 def call_ollama(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048) -> str:
+    import asyncio
     import logging
     import threading
-    import asyncio
-    
+
     logger = logging.getLogger(__name__)
     result = ""
     exception = None
@@ -234,6 +235,6 @@ def call_ollama(system_msg: str, user_msg: str, temperature: float = 0.0, num_pr
         except Exception as e:
             logger.error(f"  [ERROR] AI call failed: {e}")
             raise
-        
+
     return result
 

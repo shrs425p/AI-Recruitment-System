@@ -153,7 +153,7 @@ def set_setting(key: str, value: str, is_encrypted: bool = False):
         if is_encrypted and str_val and not str_val.startswith("ENC:"):
             from src.security import encrypt_secret
             str_val = encrypt_secret(str_val)
-        
+
         conn.execute(
             """INSERT INTO app_settings (key, value, is_encrypted, updated_at)
                VALUES (?, ?, ?, datetime('now'))
