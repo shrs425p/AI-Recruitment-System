@@ -1,8 +1,14 @@
 # GitHub Linguist — hide non-project files from language stats
 
-# Inno Setup installer (space in name handled with ?)
+# Inno Setup installer (? matches the space in "Inno Setup 6")
 Inno?Setup?6/* linguist-vendored
 Inno?Setup?6/**/* linguist-vendored
+
+# Vendored models & binaries (Tesseract-OCR HTML man pages cause HTML bloat)
+models/Tesseract-OCR/* linguist-vendored
+models/Tesseract-OCR/**/* linguist-vendored
+models/vosk-model-small-en-in-0.4/* linguist-vendored
+models/vosk-model-small-en-in-0.4/**/* linguist-vendored
 
 # Other build/packaging artifacts
 installer_output/* linguist-vendored
@@ -11,10 +17,6 @@ build/* linguist-vendored
 build/**/* linguist-vendored
 dist/* linguist-vendored
 dist/**/* linguist-vendored
-
-# Vendored models & binaries (Tesseract-OCR, Vosk)
-models/* linguist-vendored
-models/**/* linguist-vendored
 
 # Loose scripts
 Start.vbs linguist-vendored
