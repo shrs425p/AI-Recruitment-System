@@ -61,3 +61,5 @@ Thumbs.db
 .log
 *.log
 installer_output/
+hardcoded_results.json
+hardcodes.json
