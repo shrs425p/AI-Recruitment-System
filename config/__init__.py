@@ -6,6 +6,7 @@ No static config.py file or .env file is used.
 """
 
 import sys
+import types
 from typing import Any
 
 # Default configuration values
@@ -61,7 +62,7 @@ DEFAULT_SETTINGS = {
     "OLLAMA_CLOUD_ENABLED": False,
 }
 
-_cache = {}
+_cache: dict[str, Any] = {}
 _initialized = False
 
 
@@ -136,8 +137,12 @@ def set_setting(name: str, value: Any):
     except Exception:
         pass
 
+class _ConfigProxy(types.ModuleType):
 
-class _ConfigProxy:
+    def __init__(self, name: str):
+        super().__init__(name)
+        self.__dict__.update(sys.modules[name].__dict__)
+
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):
             raise AttributeError(name)
@@ -149,5 +154,54 @@ class _ConfigProxy:
         else:
             set_setting(name, value)
 
+LOGIN_ENABLED: bool
+HR_USERNAME: str
+HR_PASSWORD: str
+HR_PASSWORD_HASH: str
+FLASK_SECRET_KEY: str
+HR_DISPLAY_NAME: str
+HR_EMAIL: str
+HR_COMPANY: str
+THEME: str
+COLOR_PALETTE: str
+OLLAMA_MODEL: str
+OLLAMA_BASE_URL: str
+CLOUD_ENABLED: bool
+CLOUD_MODEL: str
+SMTP_HOST: str
+SMTP_PORT: int
+SMTP_EMAIL: str
+SMTP_PASSWORD: str
+EMAIL_TEMPLATE_SUBJECT: str
+EMAIL_TEMPLATE_BODY: str
+AI_RETRY_ATTEMPTS: int
+AI_RETRY_BACKOFF: int
+APP_MODE: str
+ANTHROPIC_KEY: str
+GEMINI_KEY: str
+GROQ_KEY: str
+OPENAI_KEY: str
+NVIDIA_KEY: str
+OPENROUTER_KEY: str
+GITHUB_KEY: str
+OLLAMA_CLOUD_KEY: str
+PRIVACY_MODEL: str
+ANTHROPIC_MODEL: str
+GEMINI_MODEL: str
+GROQ_MODEL: str
+OPENAI_MODEL: str
+NVIDIA_MODEL: str
+OPENROUTER_MODEL: str
+GITHUB_MODEL: str
+OLLAMA_CLOUD_MODEL: str
+ANTHROPIC_ENABLED: bool
+GEMINI_ENABLED: bool
+GROQ_ENABLED: bool
+OPENAI_ENABLED: bool
+NVIDIA_ENABLED: bool
+OPENROUTER_ENABLED: bool
+GITHUB_ENABLED: bool
+OLLAMA_CLOUD_ENABLED: bool
 
-sys.modules[__name__] = _ConfigProxy()
+sys.modules[__name__] = _ConfigProxy(__name__)
+

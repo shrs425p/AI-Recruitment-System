@@ -28,7 +28,7 @@ BASE  = os.environ.get("ARS_DESKTOP_URL", "http://127.0.0.1:5001").rstrip("/")
 PASS  = "[PASS]"
 FAIL  = "[FAIL]"
 
-results = []
+results: list[tuple[str, bool]] = []
 
 def check(name, condition, details=""):
     status = PASS if condition else FAIL
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # ── Summary ──────────────────────────────────────────────────────────────────
     print("\n" + "="*60)
     total  = len(results)
-    passed = sum(1 for _, ok in results if ok)
+    passed = sum(1 for _, ok in results if bool(ok))
     failed = total - passed
     print(f"  Result: {passed}/{total} passed, {failed} failed")
     print("="*60 + "\n")

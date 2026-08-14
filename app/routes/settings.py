@@ -148,3 +148,13 @@ def register_settings_routes(app):
         import main
         main._save_config(cfg)
         return jsonify({"success": True, "theme": cfg.THEME})
+
+    @app.route("/api/test-smtp", methods=["POST"])
+    @login_required
+    def api_test_smtp():
+        from src.email_sender import test_smtp_connection
+        success, message = test_smtp_connection()
+        if success:
+            return jsonify({"success": True, "message": "SMTP connection test succeeded!"})
+        return jsonify({"success": False, "error": message}), 400
+

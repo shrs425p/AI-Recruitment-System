@@ -222,7 +222,7 @@ def register_interview_routes(app):
 
     @app.route("/api/candidate/interview/answer", methods=["POST"])
     def api_candidate_interview_answer():
-        data           = request.json
+        data           = request.get_json(silent=True) or {}
         answer         = data.get("answer", "").strip()
         q_num          = int(data.get("question_num", 1))
         time_taken     = int(data.get("time_taken", 30))
@@ -304,7 +304,7 @@ def register_interview_routes(app):
 
     @app.route("/api/candidate/interview/finish", methods=["POST"])
     def api_candidate_interview_finish():
-        data       = request.json
+        data       = request.get_json(silent=True) or {}
         session_data, error = _get_candidate_session(data)
         if error:
             return error
