@@ -1,0 +1,15 @@
+# GitHub Linguist overrides — hide non-project files from language stats
+
+# Installer & packaging artifacts
+Inno Setup 6/**   linguist-vendored
+installer_output/** linguist-vendored
+build/**           linguist-vendored
+dist/**            linguist-vendored
+Start.vbs          linguist-vendored
+
+# Virtual environment
+venv/**            linguist-vendored
+
+# Docs / notebooks (optional: uncomment if you want to exclude)
+# docs/**          linguist-documentation
+# notebooks/**     linguist-documentation
