@@ -1,4 +1,3 @@
-import app.routes.ranking as ranking_routes
 import app.routes.upload as upload_routes
 from app import create_app
 from app.database import (

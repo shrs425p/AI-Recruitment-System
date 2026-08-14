@@ -1,6 +1,7 @@
 import ipaddress
 from functools import wraps
-from flask import jsonify, redirect, request, session, url_for
+
+from flask import jsonify, request, session
 
 PUBLIC_PATH_PREFIXES = (
     "/candidate-interview/",

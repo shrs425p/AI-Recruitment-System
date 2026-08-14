@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 import hmac
 import json
@@ -100,14 +101,14 @@ def register_interview_routes(app):
     def interview():
         from src.voice_interview import check_microphone, check_tts
         from src.webcam_proctor import check_webcam_available
-        
+
         tokens = get_all_tokens()
-        
+
         # Load the latest schedule to find confirmed candidates
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         candidates = []
         job_title = "Open Position"
-        
+
         if schedule_files:
             try:
                 with open(schedule_files[0], encoding="utf-8") as f:
@@ -118,17 +119,17 @@ def register_interview_routes(app):
                             candidates.append(entry)
             except Exception as e:
                 logger.error(f"Failed to load schedule: {e}")
-                
+
         # Hardware checks
         mic = check_microphone().get("available", False)
         tts = check_tts().get("available", False)
         cam = check_webcam_available().get("available", False)
-        
-        return render_template("interview.html", 
-                               candidates=candidates, 
+
+        return render_template("interview.html",
+                               candidates=candidates,
                                job_title=job_title,
-                               mic_available=mic, 
-                               tts_available=tts, 
+                               mic_available=mic,
+                               tts_available=tts,
                                webcam_available=cam,
                                tokens=tokens)
 

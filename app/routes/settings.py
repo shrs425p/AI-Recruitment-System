@@ -1,6 +1,4 @@
-import json
 import logging
-from urllib.parse import urlparse
 
 from flask import jsonify, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash

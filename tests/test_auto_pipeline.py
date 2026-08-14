@@ -1,6 +1,6 @@
-from app import create_app
 import app.routes.dashboard as dashboard_routes
 import config
+from app import create_app
 from app.core import pipeline_tasks
 
 

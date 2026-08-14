@@ -4,7 +4,6 @@ from werkzeug.security import generate_password_hash
 import config
 from app import create_app
 from app.routes.auth import register_auth_routes
-from app.routes.settings import register_settings_routes
 from src.common import APP_RESOURCE_DIR
 
 

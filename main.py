@@ -48,8 +48,8 @@ sys.excepthook = _handle_unhandled_exception
 
 # Create the flask app
 from app import create_app
-from src.common import APP_DATA_DIR
 from app.core import add_log_line, log_queue
+from src.common import APP_DATA_DIR
 
 app = create_app()
 
@@ -85,7 +85,7 @@ def _save_config(cfg):
     """Persist all config attributes directly to the SQLite database.
     No plain text config.py file or .env file is written to disk."""
     from app.database import save_settings_dict
-    
+
     KEYS = [
         "LOGIN_ENABLED", "HR_USERNAME", "HR_PASSWORD", "HR_PASSWORD_HASH",
         "FLASK_SECRET_KEY", "HR_DISPLAY_NAME", "HR_EMAIL", "HR_COMPANY",
@@ -207,7 +207,7 @@ def main():
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")
     CANDIDATE_PORT = _pick_port(candidate_host, _env_port("ARS_CANDIDATE_PORT", 5000))
     DESKTOP_PORT = _pick_port("127.0.0.1", _env_port("ARS_DESKTOP_PORT", 5001))
-    
+
     app.config["CANDIDATE_PORT"] = CANDIDATE_PORT
     app.config["DESKTOP_PORT"] = DESKTOP_PORT
 
@@ -237,7 +237,7 @@ def main():
             return nonce
 
     api = Api()
-    
+
     webview.create_window(
         title     = "AI Recruitment System",
         url       = f"http://127.0.0.1:{DESKTOP_PORT}/desktop-bootstrap",
