@@ -12,6 +12,10 @@ build/**/* linguist-vendored
 dist/* linguist-vendored
 dist/**/* linguist-vendored
 
+# Vendored models & binaries (Tesseract-OCR, Vosk)
+models/* linguist-vendored
+models/**/* linguist-vendored
+
 # Loose scripts
 Start.vbs linguist-vendored
 
