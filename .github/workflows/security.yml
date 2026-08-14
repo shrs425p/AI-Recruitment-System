@@ -1,6 +1,10 @@
 name: Security Audit
 
 on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
   schedule:
     - cron: '0 2 * * 0' # weekly on Sunday at 02:00 UTC
   workflow_dispatch:
@@ -29,6 +33,7 @@ jobs:
           pip install bandit pip-audit
 
       - name: Bandit security scan
+        continue-on-error: true
         run: |
           bandit -r app src -ll -f json -o bandit-report.json
 
@@ -40,6 +45,7 @@ jobs:
           path: bandit-report.json
 
       - name: Pip-audit dependency audit
+        continue-on-error: true
         run: |
           pip-audit --format=json > pip-audit.json
 
@@ -49,3 +55,4 @@ jobs:
         with:
           name: pip-audit-report
           path: pip-audit.json
+

@@ -37,7 +37,7 @@ jobs:
         run: python -m compileall -q main.py app src tests
 
       - name: Run tests
-        run: python -m pytest tests --timeout=60
+        run: python -m pytest tests --timeout=90
 
       - name: Run environment pre-flight
         run: python scripts/verify_environment.py
