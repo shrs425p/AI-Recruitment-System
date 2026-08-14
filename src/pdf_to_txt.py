@@ -7,7 +7,7 @@ import sys  # Used for sys.exit() in the watcher
 import time  # Used for sleep() in the polling loop
 from pathlib import Path  # Modern cross-platform path handling
 
-import fitz  # PyMuPDF — extract text + render pages to images
+import pymupdf as fitz  # PyMuPDF — extract text + render pages to images
 import pytesseract  # Python wrapper for the Tesseract OCR engine
 from PIL import Image  # Pillow — open PNG/JPG image files
 

@@ -67,7 +67,7 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 |---|---|
 | Local LLM | `Ollama` (llama3.2:3b default) |
 | Cloud Providers | NVIDIA, OpenAI, Anthropic, Gemini, Groq, OpenRouter, GitHub Models, Ollama Cloud |
-| Resume Parsing | `PyMuPDF (fitz)` — digital PDF text extraction |
+| Resume Parsing | `PyMuPDF (pymupdf)` — digital PDF text extraction |
 | OCR | `Tesseract OCR` (bundled in `models/Tesseract-OCR/`) |
 | Voice STT | `Vosk` (bundled model in `models/vosk-model-small-en-in-0.4/`) |
 | Voice TTS | `pyttsx3` — offline text-to-speech |
