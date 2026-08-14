@@ -13,10 +13,10 @@ PUBLIC_PATH_PREFIXES = (
     "/api/change-palette",
     "/api/toggle-ai-mode",
     "/api/provider-models",
-    "/api/test-smtp",
     "/desktop-bootstrap",
     "/api/desktop-login",
 )
+
 
 def is_local_request() -> bool:
     remote_addr = request.remote_addr or ""

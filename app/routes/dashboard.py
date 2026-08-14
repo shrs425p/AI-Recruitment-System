@@ -94,10 +94,11 @@ def _run_nlp_stage(results):
         async def limited_process(f):
             async with sem:
                 try:
-                    is_new = await process_file_async(f, output_nlp_path)
-                    return f, is_new, None
+                    success, err = await process_file_async(f, output_nlp_path)
+                    return f, success, err
                 except Exception as ex:
                     return f, False, str(ex)
+
         tasks = [limited_process(f) for f in txt_files]
         return await asyncio.gather(*tasks)
 

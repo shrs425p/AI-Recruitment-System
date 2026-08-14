@@ -52,7 +52,7 @@ importlib.reload(db)
 # ── Test scaffolding ─────────────────────────────────────────────────────────
 PASS = "[PASS]"
 FAIL = "[FAIL]"
-results = []
+results: list[tuple[str, bool]] = []
 
 def check(name, condition, details=""):
     status = PASS if condition else FAIL
@@ -295,7 +295,7 @@ check("delete_job_template removes record", all(t["id"] != tid for t in template
 print("\n[ Block 9 ] Concurrent writes (20 threads)\n")
 
 conc_run = db.create_run("concurrency_test")
-errors = []
+errors: list[str] = []
 
 def _worker(i):
     try:
@@ -385,7 +385,7 @@ shutil.rmtree(_tmp, ignore_errors=True)
 
 print("\n" + "="*60)
 total  = len(results)
-passed = sum(1 for _, ok in results if ok)
+passed = sum(1 for _, ok in results if bool(ok))
 failed = total - passed
 print(f"  Result: {passed}/{total} passed, {failed} failed")
 print("="*60 + "\n")

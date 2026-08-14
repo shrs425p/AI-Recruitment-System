@@ -158,7 +158,8 @@ async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 204
         system=system_msg,
         messages=[{"role": "user", "content": user_msg}]
     )
-    return msg.content[0].text
+    block = msg.content[0]
+    return getattr(block, "text", str(block))
 
 async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048, local_timeout: float = 300.0) -> str:
     import logging

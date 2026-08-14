@@ -345,8 +345,8 @@ def run_watcher():
             new_files_found = False
 
             for txt_file in txt_files:
-                is_new = process_file(txt_file, output_path)
-                if is_new:
+                success, _ = process_file(txt_file, output_path)
+                if success:
                     processed_count += 1
                     new_files_found = True
 
