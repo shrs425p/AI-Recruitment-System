@@ -14,7 +14,7 @@ Flask>=3.0
 waitress>=3.0
 
 # Calendar
-icalendar>=5.0
+icalendar>=7.3.0
 
 # Face detection
 mediapipe>=0.10.9
