@@ -2,7 +2,7 @@
 # Install with:  pip install -r requirements-dev.txt
 
 # Linting & formatting
-ruff>=0.4.0
+ruff>=0.16.5
 
 # Security scanning
 bandit[sarif]>=1.7.9
