@@ -181,8 +181,7 @@ class WebcamProctor:
                     time.sleep(0.033)
                     continue
 
-                # Flip horizontally so it looks like a mirror to the candidate
-                frame = cv2.flip(frame, 1)
+                # Frame flipping removed; most webcams mirror by default.
 
                 # ── Face detection ──────────────────────────────────
                 fh, fw = frame.shape[:2]  # frame height and width in pixels

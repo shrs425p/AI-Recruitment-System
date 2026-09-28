@@ -1,6 +1,56 @@
-# AI Recruitment System
+# AI Recruitment System: Autonomous Hiring Framework
 
-A desktop application that automates the recruitment pipeline — from uploading resumes to generating interview reports. Built with Python, Flask, and pywebview for Windows.
+<div align="center">
+  <img src="media/logo.png" alt="ARS Banner" width="85%">
+  
+  <br>
+
+  <h3>AI Recruitment System is a secure, automated AI pipeline for end-to-end technical hiring and proctored interviews.</h3>
+
+  <p>
+    <a href="docs/getting-started.md">Getting Started</a> | 
+    <a href="docs/index.md">Documentation</a> | 
+    <a href="https://github.com/shrs425p/AI-Recruitment-System">Follow @shrs425p (Creator)</a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/status-production_stable-orange?style=flat-square" alt="Status">
+    <img src="https://img.shields.io/github/v/release/shrs425p/AI-Recruitment-System?style=flat-square&label=latest" alt="Latest Version">
+    <img src="https://img.shields.io/badge/license-MIT-red?style=flat-square" alt="License">
+    <img src="https://img.shields.io/badge/tests-passed-brightgreen?style=flat-square" alt="Tests">
+  </p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/python-3.10%2B-yellow?style=flat-square" alt="Python">
+    <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square" alt="Platform">
+    <img src="https://img.shields.io/badge/security-verified-brightgreen?style=flat-square" alt="Security">
+  </p>
+
+  <br>
+
+  <p>
+    <b>Built With:</b><br>
+    <img src="https://img.shields.io/badge/Ollama-Local_LLM-white?style=for-the-badge&logo=ollama&logoColor=black" alt="Ollama">
+    <img src="https://img.shields.io/badge/NVIDIA-NIM_Cloud-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="NVIDIA">
+    <img src="https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+    <img src="https://img.shields.io/badge/Flask-Web_Framework-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
+    <img src="https://img.shields.io/badge/OpenCV-Computer_Vision-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white" alt="OpenCV">
+  </p>
+</div>
+
+---
+
+**AI Recruitment System** is a secure, end-to-end recruitment framework designed for automated resume extraction, AI-driven candidate ranking, and intelligent web-proctored interviewing. It integrates seamlessly with local privacy-focused LLMs (Ollama) and 8+ cloud providers, offering a comprehensive offline-first approach to technical hiring.
+
+---
+
+## Core Pillars & Unique Capabilities
+
+| Automated Pipeline | Privacy & Security | Intelligent Proctoring |
+| :--- | :--- | :--- |
+| **NLP Feature Extraction**<br>Extracts structured data directly from Resumes, PNGs, and JPGs via PyMuPDF and embedded Tesseract OCR. | **Local Privacy Mode**<br>A fully offline pipeline utilizing local Ollama models. No data ever leaves the candidate's machine or your desktop. | **Webcam Liveness**<br>Tracks continuous face presence, multiple faces, and flags absences natively using MediaPipe and OpenCV Haar cascades. |
+| **Job Description Ranking**<br>Dynamically scores candidates against specific job requirements using weighted matching across skills, domain, and experience. | **AES-Encrypted Vault**<br>Ensures that API keys and SMTP credentials are encrypted at rest using AES-Fernet and PBKDF2 key derivation. | **Browser Sandbox**<br>Tracks copy-paste attempts, tab-switching, and enforces a strict answer timeout protocol for interview integrity. |
+| **Dynamic Cloud Router**<br>Load balances requests intelligently across OpenAI, Anthropic, Gemini, NVIDIA, and OpenRouter with real-time dynamic model fetching. | **Tokenized Isolation**<br>One-time use cryptographically generated UUID tokens for secure entry into the standalone Interview Portal. | **Offline Voice Mode**<br>Integrated HTML5 Web Speech STT & TTS capabilities for seamless verbal technical screenings. |
 
 ---
 
@@ -89,14 +139,14 @@ ollama pull llama3.2:3b
 
 | Provider | Free Tier | Default Model |
 |---|---|---|
-| NVIDIA NIM | ✅ Yes | `meta/llama-3.1-8b-instruct` |
-| Groq | ✅ Yes | `llama3-8b-8192` |
-| OpenRouter | ✅ Some models | `meta-llama/llama-3.1-8b-instruct:free` |
-| Gemini | ✅ Yes | `gemini-1.5-flash` |
-| Anthropic | ❌ Paid | `claude-3-5-haiku-latest` |
-| OpenAI | ❌ Paid | `gpt-4o-mini` |
-| GitHub Models | ✅ Yes | `gpt-4o-mini` |
-| Ollama Cloud | ✅ Self-hosted | `llama3.2:3b` |
+| NVIDIA NIM | Yes | `meta/llama-3.1-8b-instruct` |
+| Groq | Yes | `llama3-8b-8192` |
+| OpenRouter | Some models | `meta-llama/llama-3.1-8b-instruct:free` |
+| Gemini | Yes | `gemini-1.5-flash` |
+| Anthropic | Paid only | `claude-3-5-haiku-latest` |
+| OpenAI | Paid only | `gpt-4o-mini` |
+| GitHub Models | Yes | `gpt-4o-mini` |
+| Ollama Cloud | Self-hosted | `llama3.2:3b` |
 
 Configure providers in Settings → AI Providers after launching the app.
 
@@ -171,3 +221,5 @@ AI-Recruitment-System/
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+

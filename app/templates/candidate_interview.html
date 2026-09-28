@@ -1304,12 +1304,16 @@
                 document.getElementById('textInputArea').style.display = 'block';
                 document.getElementById('voiceInputArea').classList.remove('active');
                 stopListening();
+                window.speechSynthesis.cancel(); // Stop reading if they switch back
             } else {
                 document.getElementById('textInputArea').style.display = 'none';
                 document.getElementById('voiceInputArea').classList.add('active');
                 if (!speechSupported) {
                     document.getElementById('voiceStatusText').textContent = 'Voice not supported in this browser';
                     document.getElementById('voiceListenBtn').disabled = true;
+                } else if (allQuestions && allQuestions[currentQIndex]) {
+                    // Read the question aloud immediately when switching to Voice Mode
+                    speakQuestion(allQuestions[currentQIndex].question);
                 }
             }
         }

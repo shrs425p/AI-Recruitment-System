@@ -98,10 +98,12 @@ After each answer is submitted, the AI evaluates it and returns:
 | Field | Description |
 |---|---|
 | `score` | 0–10 integer score |
-| `feedback` | 2–3 sentence constructive feedback |
+| `feedback` | 2—3 sentence constructive feedback |
 | `follow_up` | Optional follow-up question if the answer was incomplete |
 
 Evaluation uses `temperature=0.0` for consistent, deterministic scoring.
+
+> **Note on Prompt Tuning for Small Models:** The system prompt for grading has been explicitly relaxed to grant **partial credit** for incomplete answers. Previously, strict rules caused small local models (like `qwen2.5:1.5b`) to aggressively give 0/10 scores and hallucinate feedback if a candidate missed part of a multi-part question. The prompt now securely supports smaller LLMs.
 
 The answer and evaluation are appended to the transcript immediately. If AI evaluation fails (provider error, timeout), the answer is still saved — just without a score.
 
@@ -117,45 +119,25 @@ Each answer has a soft time limit of **120 seconds**. If a candidate takes longe
 
 ## Voice Mode
 
-Voice mode uses two libraries:
-- **Vosk** — offline speech-to-text (STT)
-- **pyttsx3** — offline text-to-speech (TTS)
-
-Both work entirely offline — no internet required.
+The platform provides a native Voice Mode built on HTML5 Web Speech APIs (`SpeechSynthesis` and `SpeechRecognition`), which works entirely in the browser without requiring external Python speech libraries.
 
 ### How Voice Mode Works
 
-1. The candidate enables Voice Mode in their interview session
-2. Questions are read aloud by pyttsx3 (TTS)
-3. The candidate speaks their answer
-4. Vosk records and transcribes the speech in real time
-5. The transcribed text is shown to the candidate for review before submission
-6. Candidate submits (or re-records)
+1. The candidate clicks **Voice Mode** in their interview session.
+2. The browser's TTS engine reads the current question aloud. *Note: Browser autoplay policies require this to be triggered by a click event.*
+3. The candidate speaks their answer, and the browser's native STT API continuously transcribes it into the text box in real time.
+4. The transcribed text is shown to the candidate for review before submission.
+5. Candidate submits the text.
 
 ### Requirements for Voice Mode
 
 | Component | Requirement |
 |---|---|
-| Vosk model | Must be present at `models/vosk-model-small-en-in-0.4/` |
-| Microphone | Any working system microphone |
-| pyttsx3 | Installed (included in `requirements.txt`) |
+| Browser | A modern browser supporting HTML5 Web Speech API (Chrome, Edge, Safari) |
+| Microphone | Any working system microphone (permissions must be granted in browser) |
+| Audio Output | Speakers or headphones for Text-to-Speech |
 
-**Check if voice mode is available:**
-```bash
-python -c "from src.voice_interview import check_microphone, check_tts; print(check_microphone(), check_tts())"
-```
-
-If either check returns `available: False`, voice mode will be disabled for that session. The interview continues in text mode.
-
-### Vosk Model
-
-The small English-India model (`vosk-model-small-en-in-0.4`) is bundled in the `models/` folder. It works reasonably well for standard English accents. If you need a different model:
-
-```bash
-python scripts/setup_vosk.py
-```
-
-This script downloads and sets up an alternative Vosk model.
+The `candidate_interview.html` template automatically detects if `window.speechSynthesis` and `window.webkitSpeechRecognition` are available. If not, the Voice Mode button is automatically disabled and the interview proceeds in text-only mode.
 
 ---
 

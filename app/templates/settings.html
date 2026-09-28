@@ -1247,6 +1247,8 @@
         const container = document.getElementById('setupProgressContainer');
         const termContainer = document.getElementById('setupTerminalContainer');
         const term = document.getElementById('setupTerminal');
+        const sel = document.getElementById('ollamaModelSelect');
+        const modelToPull = sel ? sel.value : '';
 
         btn.disabled = true;
         btn.textContent = 'Initializing...';
@@ -1254,7 +1256,11 @@
         termContainer.style.display = 'block';
         term.textContent = '>> Triggering background setup thread...\n';
 
-        fetch('/api/setup-privacy', { method: 'POST' })
+        fetch('/api/privacy-setup', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelToPull })
+        })
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
@@ -1282,7 +1288,7 @@
         const term = document.getElementById('setupTerminal');
         const btn = document.getElementById('btnStartSetup');
 
-        fetch('/api/setup-privacy/status')
+        fetch('/api/privacy-status')
             .then(r => r.json())
             .then(status => {
                 // Update terminal with unique log lines

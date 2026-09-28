@@ -23,11 +23,11 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 | **Candidate Ranking** | 5-criterion weighted AI scoring against any job description |
 | **Interview Scheduling** | Top-N shortlist, slot coordination, `.ics` calendar invites, Google Calendar sync |
 | **AI Interview Portal** | Token-authenticated candidate portal, 8 personalised questions per candidate |
-| **Voice Mode** | Offline speech-to-text (Vosk) + text-to-speech (pyttsx3) |
+| **Voice Mode** | Offline HTML5 Web Speech API (`SpeechSynthesis` + `SpeechRecognition`) |
 | **Webcam Proctoring** | Real-time face detection (MediaPipe + OpenCV Haar cascade fallback) |
 | **Violation Tracking** | Tab switches, copy-paste events, face absence, multiple faces |
 | **Report Generation** | PDF interview reports with transcript, scores, and proctor summary |
-| **Multi-Provider AI** | 8 cloud providers + local Ollama, with round-robin load balancing |
+| **Multi-Provider AI** | 8 cloud providers + local Ollama, with round-robin load balancing and dynamic live model fetching |
 | **Privacy Mode** | Fully offline: Ollama local LLM, no data leaves the machine |
 | **Encrypted Storage** | All API keys and secrets encrypted at rest (AES-Fernet + PBKDF2) |
 | **Email Notifications** | SMTP-based scheduling emails with customisable templates |
@@ -69,8 +69,8 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 | Cloud Providers | NVIDIA, OpenAI, Anthropic, Gemini, Groq, OpenRouter, GitHub Models, Ollama Cloud |
 | Resume Parsing | `PyMuPDF (fitz)` — digital PDF text extraction |
 | OCR | `Tesseract OCR` (bundled in `models/Tesseract-OCR/`) |
-| Voice STT | `Vosk` (bundled model in `models/vosk-model-small-en-in-0.4/`) |
-| Voice TTS | `pyttsx3` — offline text-to-speech |
+| Voice STT | HTML5 Web Speech API (`SpeechRecognition`) |
+| Voice TTS | HTML5 Web Speech API (`SpeechSynthesis`) |
 
 ### Proctoring & Vision
 | Component | Technology |

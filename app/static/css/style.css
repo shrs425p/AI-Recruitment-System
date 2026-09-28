@@ -265,10 +265,22 @@ html, body {
 /* ─────────────────────────────────────────────
    MAIN CONTENT AREA
    ───────────────────────────────────────────── */
+@keyframes slideInFade {
+    0% {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .main-content {
     flex: 1;
     overflow-y: auto;
     background: var(--md-sys-color-surface);
+    animation: slideInFade 0.4s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
 
 .page-inner {
@@ -1187,9 +1199,11 @@ html[data-palette="rose"].dark {
     position: relative;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
-    padding: 3px 8px 3px 6px;
+    padding: 3px 6px;
     height: 24px;
+    min-width: 74px;
     border-radius: var(--radius-pill);
     font-size: 9px;
     font-weight: 700;
