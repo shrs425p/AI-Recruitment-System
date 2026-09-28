@@ -146,7 +146,7 @@ ollama pull llama3.2:3b
 | Anthropic | Paid only | `claude-3-5-haiku-latest` |
 | OpenAI | Paid only | `gpt-4o-mini` |
 | GitHub Models | Yes | `gpt-4o-mini` |
-| Ollama Cloud | Self-hosted | `llama3.2:3b` |
+| Ollama Cloud | Paid only | `llama3.2:3b` |
 
 Configure providers in Settings → AI Providers after launching the app.
 
