@@ -54,20 +54,6 @@
 
 ---
 
-## What It Does
-
-```mermaid
-flowchart TD
-    A["Upload Resumes\n(PDF, PNG, JPG)"] --> B["Text Extraction\n(PyMuPDF + Tesseract OCR)"]
-    B --> C["NLP Profiling\n(AI extracts skills, experience, education)"]
-    C --> D["Candidate Ranking\n(Scored against Job Description)"]
-    D --> E["Interview Scheduling\n(.ics invites + candidate tokens)"]
-    E --> F["AI Interview Portal\n(Text or Voice mode)"]
-    F --> G["Webcam Proctoring\n(Face detection + violation tracking)"]
-    G --> H["PDF Reports\n(Scores + transcript + proctor summary)"]
-```
-
----
 
 ## Features
 
