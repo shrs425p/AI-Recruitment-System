@@ -130,12 +130,12 @@ def evaluate_answer(question: str, answer: str, job_title: str, domain: str) -> 
         f"Domain    : {domain}\n"
         f"Question  : {question}\n"
         f"Answer    : {answer}\n\n"
-        f"Score on these criteria (STRICTNESS LEVEL: 4 out of 5):\n"
-        f"- relevance   : 0-3 (Does the answer directly address the question? 0 for irrelevant or non-answers)\n"
-        f"- depth       : 0-3 (Does it show strong technical/domain understanding? 0 for superficial/blank)\n"
-        f"- clarity     : 0-2 (Is the answer structured and professional? 0 for fragmented/unclear)\n"
-        f"- correctness : 0-2 (Is it technically accurate? 0 if fundamentally wrong)\n\n"
-        f"If the candidate did not answer the question, or gave an irrelevant/gibberish response, give 0 on all.\n"
+        f"Score on these criteria:\n"
+        f"- relevance   : 0-3 (Does the answer address the question? 0 for completely irrelevant)\n"
+        f"- depth       : 0-3 (Does it show technical understanding? 0 for blank/gibberish)\n"
+        f"- clarity     : 0-2 (Is the answer structured? 0 for fragmented)\n"
+        f"- correctness : 0-2 (Is it accurate? 0 if fundamentally wrong)\n\n"
+        f"If the candidate provided a partial answer, score them appropriately. ONLY give 0 on all if the response is completely blank or gibberish.\n"
         f"Return ONLY valid JSON:\n"
         f'{{"relevance": 0, "depth": 0, "clarity": 0, "correctness": 0, "total": 0, '
         f'"feedback": "", "strong_points": [], "weak_points": []}}'

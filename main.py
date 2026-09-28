@@ -220,10 +220,21 @@ def main():
     time.sleep(1)
 
     class Api:
+        def __init__(self):
+            self._is_maximized = False
+            
         def minimize(self):
             webview.windows[0].minimize()
+            
         def maximize(self):
-            webview.windows[0].toggle_fullscreen()
+            w = webview.windows[0]
+            if self._is_maximized:
+                w.restore()
+                self._is_maximized = False
+            else:
+                w.maximize()
+                self._is_maximized = True
+                
         def close(self):
             webview.windows[0].close() if hasattr(webview.windows[0], 'close') else webview.windows[0].destroy()
         def get_auth_nonce(self):

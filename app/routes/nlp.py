@@ -5,7 +5,7 @@ import json
 import threading
 import time
 
-from flask import jsonify, render_template
+from flask import jsonify, render_template, request
 
 from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.database import create_run, finish_run, upsert_candidate
@@ -102,16 +102,25 @@ def register_nlp_routes(app):
         if privacy_setup_status["running"]:
             return jsonify({"error": "Installation is already running"}), 400
 
+        data = request.json or {}
+        requested_model = data.get("model")
+        if requested_model:
+            import config
+            import main
+            config.OLLAMA_MODEL = requested_model
+            config.PRIVACY_MODEL = requested_model
+            main._save_config(config)
+
         privacy_setup_status["running"] = True
         privacy_setup_status["percent"] = 5
         privacy_setup_status["message"] = "Initializing installer..."
         privacy_setup_status["success"] = False
-        privacy_setup_status["log"] = ["Starting local AI installation..."]
+        privacy_setup_status["log"] = [{"percent": None, "message": "Starting local AI installation..."}]
 
         def on_progress(percent, msg):
             privacy_setup_status["percent"] = percent
             privacy_setup_status["message"] = msg
-            privacy_setup_status["log"].append(f"[{percent}%] {msg}")
+            privacy_setup_status["log"].append({"percent": percent, "message": msg})
 
         def _run():
             try:
@@ -120,15 +129,15 @@ def register_nlp_routes(app):
                 if success:
                     privacy_setup_status["percent"] = 100
                     privacy_setup_status["message"] = "Local AI ready!"
-                    privacy_setup_status["log"].append("[Success] Ollama and Llama models configured.")
+                    privacy_setup_status["log"].append({"percent": 100, "message": "[Success] Ollama and models configured."})
                 else:
                     privacy_setup_status["percent"] = 0
                     privacy_setup_status["message"] = "Installation failed."
-                    privacy_setup_status["log"].append("[FAILED] Installation aborted due to error.")
+                    privacy_setup_status["log"].append({"percent": 0, "message": "[FAILED] Installation aborted due to error."})
             except Exception as e:
                 privacy_setup_status["percent"] = 0
                 privacy_setup_status["message"] = f"Error: {e}"
-                privacy_setup_status["log"].append(f"[ERROR] {e}")
+                privacy_setup_status["log"].append({"percent": 0, "message": f"[ERROR] {e}"})
             finally:
                 privacy_setup_status["running"] = False
 
@@ -145,5 +154,5 @@ def register_nlp_routes(app):
         privacy_setup.cancel_setup()
         privacy_setup_status["running"] = False
         privacy_setup_status["message"] = "Cancelled"
-        privacy_setup_status["log"].append("[INFO] Installation cancelled by user.")
+        privacy_setup_status["log"].append({"percent": None, "message": "[INFO] Installation cancelled by user."})
         return jsonify({"success": True})

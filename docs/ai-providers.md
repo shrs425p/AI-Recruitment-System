@@ -44,6 +44,12 @@ This means you can configure multiple providers simultaneously and the system wi
 
 ---
 
+## Dynamic Model Fetching
+
+The application dynamically fetches live models directly from the providers via `/api/provider-models`. When you paste an API key and click "Load" in the UI, it securely queries the provider's API (e.g., `https://integrate.api.nvidia.com/v1/models`) to retrieve every single model you currently have access to (such as the 80+ models NVIDIA hosts). This ensures the dropdowns are never out-of-date or hardcoded.
+
+---
+
 ## Setting Up Each Provider
 
 ### NVIDIA NIM *(Default — free credits available)*
@@ -52,12 +58,14 @@ This means you can configure multiple providers simultaneously and the system wi
 2. Sign in or create an account
 3. Go to any model page → click **Get API Key**
 4. Copy the key (starts with `nvapi-`)
-5. In Settings → AI Providers → NVIDIA: paste the key, select a model, enable
+5. In Settings → AI Providers → NVIDIA: paste the key and click **Load** to fetch the live catalog. Select a model, then enable it.
+
+> **Note on Vision Models:** Ensure you select a standard text-completion model (like `meta/llama-3.1-8b-instruct`). Specialized models like `nvidia/neva-22b` are Vision-Language Models and will return HTTP 404 errors for standard text chats.
 
 **Recommended models:**
 - `meta/llama-3.1-8b-instruct` (default, fast, free)
-- `meta/llama-3.3-70b-instruct` (more capable)
-- `nvidia/nemotron-4-340b-instruct` (most capable, slower)
+- `meta/llama-3.1-70b-instruct` (more capable)
+- `nvidia/llama-3.1-nemotron-70b-instruct` (highly capable text processing)
 
 **Verify:**
 ```bash

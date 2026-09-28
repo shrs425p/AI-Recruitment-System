@@ -149,6 +149,104 @@ def register_settings_routes(app):
         main._save_config(cfg)
         return jsonify({"success": True, "theme": cfg.THEME})
 
+    @app.route("/api/change-palette", methods=["POST"])
+    def api_change_palette():
+        data = request.json or {}
+        palette = data.get("palette", "lavender")
+        cfg.COLOR_PALETTE = palette
+        import main
+        main._save_config(cfg)
+        return jsonify({"success": True, "palette": cfg.COLOR_PALETTE})
+
+    @app.route("/api/toggle-ai-mode", methods=["POST"])
+    def api_toggle_ai_mode():
+        current = getattr(cfg, "APP_MODE", "privacy")
+        cfg.APP_MODE = "cloud" if current == "privacy" else "privacy"
+        import main
+        main._save_config(cfg)
+        return jsonify({"success": True, "mode": cfg.APP_MODE})
+
+    @app.route("/api/ollama/models", methods=["GET"])
+    def api_ollama_models():
+        try:
+            from src.common import _ollama
+            client = _ollama()
+            resp = client.list()
+            models = [m.get("name") or m.get("model") for m in resp.get("models", [])]
+            return jsonify({"models": models})
+        except Exception as e:
+            return jsonify({"error": str(e), "models": []})
+
+    @app.route("/api/provider-models", methods=["POST"])
+    def api_provider_models():
+        data = request.json or {}
+        provider = data.get("provider", "")
+        key = data.get("key", "").strip()
+
+        if not key and provider != "ollama_cloud":
+            return jsonify({"success": False, "error": "API Key is required to fetch models."})
+
+        import urllib.request
+        import json
+
+        models = []
+        try:
+            if provider == "openai":
+                req = urllib.request.Request("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    resp_data = json.loads(resp.read().decode())
+                    models = [m["id"] for m in resp_data.get("data", []) if "gpt" in m["id"] or "o1" in m["id"]]
+            elif provider == "groq":
+                req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {key}"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    resp_data = json.loads(resp.read().decode())
+                    models = [m["id"] for m in resp_data.get("data", [])]
+            elif provider == "gemini":
+                req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    resp_data = json.loads(resp.read().decode())
+                    models = [m["name"].replace("models/", "") for m in resp_data.get("models", []) if "gemini" in m["name"]]
+            elif provider == "anthropic":
+                # Anthropic's model API is limited, returning standard hardcoded ones + test key validation
+                req = urllib.request.Request("https://api.anthropic.com/v1/messages", 
+                    headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                    data=json.dumps({"model":"claude-3-haiku-20240307","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode())
+                try:
+                    urllib.request.urlopen(req, timeout=5)
+                    models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
+                except urllib.error.HTTPError as e:
+                    if e.code == 401: raise Exception("Invalid API Key")
+                    models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
+            elif provider == "openrouter":
+                req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    resp_data = json.loads(resp.read().decode())
+                    models = [m["id"] for m in resp_data.get("data", [])]
+            elif provider == "nvidia":
+                req = urllib.request.Request("https://integrate.api.nvidia.com/v1/models", headers={"Authorization": f"Bearer {key}"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    resp_data = json.loads(resp.read().decode())
+                    models = [m["id"] for m in resp_data.get("data", [])]
+            elif provider == "github":
+                # Fallback to standard github models
+                models = ["gpt-4o", "gpt-4o-mini", "meta-llama-3-70b-instruct", "meta-llama-3-8b-instruct"]
+            elif provider == "ollama_cloud":
+                base = key if key else "http://localhost:11434"
+                url = f"{base.rstrip('/')}/api/tags"
+                req = urllib.request.Request(url)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    resp_data = json.loads(resp.read().decode())
+                    models = [m["name"] for m in resp_data.get("models", [])]
+        except urllib.error.HTTPError as e:
+            return jsonify({"success": False, "error": f"API Key rejected or error (HTTP {e.code})"})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
+
+        if not models:
+            models = ["gpt-4o", "claude-3-5-sonnet-latest", "gemini-1.5-flash", "llama3-8b-8192"]
+
+        return jsonify({"success": True, "models": models, "count": len(models)})
+
     @app.route("/api/test-smtp", methods=["POST"])
     @login_required
     def api_test_smtp():

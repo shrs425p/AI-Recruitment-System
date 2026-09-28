@@ -80,7 +80,7 @@
         }
     </style>
     
-    <div class="custom-title-bar">
+    <div class="custom-title-bar" ondblclick="if(window.pywebview && window.pywebview.api) window.pywebview.api.maximize()">
         <div class="title-bar-brand" style="display: flex; align-items: center; gap: 8px;">
             <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Icon" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
             <span class="title">AI Recruitment System</span>
@@ -198,7 +198,7 @@
                     <!-- Theme Mode Toggle -->
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
                         <span class="status-label" style="margin-bottom:0; font-size:9.5px; letter-spacing:0.5px;">Theme Mode</span>
-                        <button onclick="toggleTheme()" class="btn btn-secondary" style="padding:4px 10px; font-size:9.5px; font-weight:700; border-radius:var(--radius-pill); height:24px; min-width:68px;" title="Switch Light/Dark Mode">
+                        <button onclick="toggleTheme()" class="btn btn-secondary" style="padding:4px 10px; font-size:9.5px; font-weight:700; border-radius:var(--radius-pill); height:24px; min-width:74px;" title="Switch Light/Dark Mode">
                             {% if config.THEME == 'dark' %}Light{% else %}Dark{% endif %}
                         </button>
                     </div>
