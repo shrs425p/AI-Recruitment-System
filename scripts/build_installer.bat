@@ -43,6 +43,16 @@ if exist "%~dp0..\Inno Setup 6\ISCC.exe" (
     set "ISCC=ISCC"
 )
 
+if not exist "venv\Scripts\pyinstaller.exe" (
+    echo [1.5/4] Installing PyInstaller dependency...
+    venv\Scripts\python.exe -m pip install pyinstaller
+    if errorlevel 1 (
+        echo ERROR: Could not install PyInstaller.
+        pause
+        exit /b 1
+    )
+)
+
 REM ===========================================================
 REM BUILD 1: PUBLIC (No Credentials)
 REM ===========================================================
