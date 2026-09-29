@@ -9,6 +9,7 @@ SolidCompression=yes
 OutputDir=..\installer_output
 OutputBaseFilename=ARS_Setup_1.0
 ArchitecturesInstallIn64BitMode=x64
+SetupIconFile=..\app\static\icon\ai.ico
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
