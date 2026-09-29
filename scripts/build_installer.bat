@@ -2,8 +2,8 @@
 REM ===========================================================
 REM  BUILD SCRIPT — AI Recruitment System (DUAL RELEASE)
 REM  Creates:
-REM   1. installer_output\ARS_Setup_1.0_Public.exe (NO CREDENTIALS)
-REM   2. installer_output\ARS_Setup_1.0_Private.exe (BUNDLED CREDENTIALS)
+REM  1. installer_output\ARS_Setup_3.0.0_Public.exe (NO CREDENTIALS)
+REM  2. installer_output\ARS_Setup_3.0.0_Private.exe (BUNDLED CREDENTIALS)
 REM ===========================================================
 
 cd /d "%~dp0.."
@@ -67,7 +67,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%ISCC%" /F"ARS_Setup_1.0_Public" scripts\installer.iss
+"%ISCC%" /F"ARS_Setup_3.0.0_Public" scripts\installer.iss
 if errorlevel 1 (
     echo ERROR: Inno Setup failed on Public build.
     pause
@@ -88,7 +88,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%ISCC%" /F"ARS_Setup_1.0_Private" scripts\installer.iss
+"%ISCC%" /F"ARS_Setup_3.0.0_Private" scripts\installer.iss
 if errorlevel 1 (
     echo ERROR: Inno Setup failed on Private build.
     pause
@@ -103,10 +103,10 @@ echo [4/4] Build Complete! Both installers generated.
 echo.
 echo -----------------------------------------------------------
 echo  PUBLIC RELEASE (Safe for GitHub/Web):
-echo  %DISPLAY_OUTPUT%\ARS_Setup_1.0_Public.exe
+echo  %DISPLAY_OUTPUT%\ARS_Setup_3.0.0_Public.exe
 echo.
 echo  PRIVATE RELEASE (For internal HR team only):
-echo  %DISPLAY_OUTPUT%\ARS_Setup_1.0_Private.exe
+echo  %DISPLAY_OUTPUT%\ARS_Setup_3.0.0_Private.exe
 echo -----------------------------------------------------------
 echo.
 pause
