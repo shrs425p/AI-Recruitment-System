@@ -4,7 +4,7 @@
 <style>
     /* ── STUNNING MATERIAL 3 ABOUT PAGE OVERRIDES ── */
     .about-viewport {
-        max-width: 1000px;
+        max-width: 100%;
         margin: 0 auto;
         display: flex;
         flex-direction: column;
@@ -57,6 +57,7 @@
         color: var(--md-sys-color-on-surface-variant);
         line-height: 1.6;
         margin-bottom: 8px;
+        max-width: 900px;
     }
 
     /* Overhaul lists into a high-fidelity card grid */
@@ -86,7 +87,7 @@
     }
 
     .about-card ol li:hover, .about-card ul li:hover {
-        background: var(--md-sys-color-surface-container);
+        background: rgba(255, 255, 255, 0.7); box-shadow: 0 8px 24px rgba(0,0,0,0.06);
         border-color: var(--md-sys-color-primary);
         transform: translateY(-2px);
     }
@@ -99,33 +100,16 @@
         font-size: 9.5px;
         font-weight: 700;
         color: var(--md-sys-color-primary);
-        margin-bottom: 8px;
         letter-spacing: 0.5px;
         background: var(--md-sys-color-primary-container);
-        width: fit-content;
         padding: 2px 8px;
         border-radius: var(--radius-pill);
+        position: absolute;
+        left: 0;
+        top: 6px;
     }
 
-    /* Styled checkmark badges for Unbiased Fairness lists */
-    .about-card ul li {
-        border-left: 3px solid var(--green);
-    }
-
-    .about-card ul li::before {
-        content: "✓ Bias Protection Audit";
-        font-family: var(--font-mono);
-        font-size: 9px;
-        font-weight: 700;
-        color: var(--green);
-        margin-bottom: 8px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        background: var(--green-soft);
-        width: fit-content;
-        padding: 2px 8px;
-        border-radius: var(--radius-pill);
-    }
+    
 
     /* Strong terms color overrides */
     .about-card strong {

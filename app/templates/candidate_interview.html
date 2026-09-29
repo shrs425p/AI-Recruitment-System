@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style_v2.css">
     <style>
         :root {
             --black:      var(--md-sys-color-on-surface);
@@ -940,7 +940,7 @@
         ═══════════════════════════════════ -->
         <div class="complete-section" id="completeSection">
             <div class="card" style="padding:48px 24px;">
-                <div class="complete-icon">✅</div>
+                <div class="complete-icon">▪️</div>
                 <div style="font-size:1.3rem; font-weight:700; margin-bottom:8px;">Interview Complete!</div>
                 <div class="final-score" id="finalScore"></div>
                 <div class="final-details" id="finalDetails"></div>
@@ -1264,7 +1264,7 @@
                     faceText.textContent = data.face_count + ' faces detected!';
                     indicator.className = 'proctor-indicator proctor-warn';
                 } else {
-                    faceIcon.textContent = '✅';
+                    faceIcon.textContent = '▪️';
                     faceText.textContent = 'Candidate present';
                     indicator.className = 'proctor-indicator proctor-ok';
                 }

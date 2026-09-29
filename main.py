@@ -81,6 +81,38 @@ logger.addHandler(sh)
 # Suppress flask engine logs
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
+def _load_config():
+    """On startup, read all previously saved settings from the SQLite database
+    and apply them back to the live config object so they survive a restart."""
+    try:
+        from app.database import get_all_settings
+        import config as cfg
+        saved = get_all_settings()
+        if not saved:
+            # Fresh install or wiped DB — write current defaults so they persist
+            _save_config(cfg)
+            return
+        for key, val in saved.items():
+            if not hasattr(cfg, key):
+                continue
+            current = getattr(cfg, key)
+            # Cast back to the original type
+            try:
+                if isinstance(current, bool):
+                    setattr(cfg, key, str(val).lower() in ("1", "true", "yes"))
+                elif isinstance(current, int):
+                    setattr(cfg, key, int(val))
+                elif isinstance(current, float):
+                    setattr(cfg, key, float(val))
+                else:
+                    setattr(cfg, key, val)
+            except (ValueError, TypeError):
+                setattr(cfg, key, val)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[Config] Could not load settings from DB: {e}")
+
+
 def _save_config(cfg):
     """Persist all config attributes directly to the SQLite database.
     No plain text config.py file or .env file is written to disk."""
@@ -202,6 +234,7 @@ def run_flask_http_local():
 def main():
     from app.database import init_db
     init_db()
+    _load_config()  # Restore saved settings from DB
 
     global CANDIDATE_PORT, DESKTOP_PORT
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")

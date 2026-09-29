@@ -50,7 +50,7 @@ def register_nlp_routes(app):
         from src.nlp_extractor import process_file_async
 
         async def run_batch():
-            sem = asyncio.Semaphore(4)
+            sem = asyncio.Semaphore(1)
             async def limited_process(f):
                 async with sem:
                     try:

@@ -45,7 +45,9 @@ def register_ranking_routes(app):
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)
         templates = get_all_job_templates()
-        return render_template("ranking.html", nlp_count=nlp_count, ranking=latest, templates=templates)
+        from app.database import get_setting
+        saved_jd = get_setting("LAST_JD_TEXT", "")
+        return render_template("ranking.html", nlp_count=nlp_count, ranking=latest, templates=templates, saved_jd=saved_jd)
 
     @app.route("/api/job-templates", methods=["GET"])
     @login_required
@@ -69,12 +71,27 @@ def register_ranking_routes(app):
         delete_job_template(template_id)
         return jsonify({"success": True})
 
+    @app.route("/api/save-jd", methods=["POST"])
+    @login_required
+    def api_save_jd():
+        data = request.json or {}
+        jd_text = data.get("jd_text", "").strip()
+        if not jd_text:
+            return jsonify({"success": False, "error": "Empty JD"}), 400
+        from app.database import set_setting
+        set_setting("LAST_JD_TEXT", jd_text)
+        return jsonify({"success": True})
+
     @app.route("/api/rank", methods=["POST"])
     def api_rank():
         data    = request.json
         jd_text = data.get("jd_text", "").strip()
         if not jd_text:
             return jsonify({"error": "No JD provided"}), 400
+
+        # Persist JD so it survives tab switches and restarts
+        from app.database import set_setting
+        set_setting("LAST_JD_TEXT", jd_text)
 
         pipeline_tasks["ranking"] = {"status": "running", "started": time.time()}
         _save_tasks()
@@ -86,6 +103,11 @@ def register_ranking_routes(app):
         jd_data = call_ai(build_jd_prompt(jd_text))
         if not jd_data:
             return jsonify({"error": "Failed to parse JD"}), 500
+            
+        # Fallback if AI returned empty template
+        if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
+            from src.ranking_engine import _extract_title_fallback
+            jd_data["job_title"] = _extract_title_fallback(jd_text)
 
         candidates = load_candidates(nlp_path)
         if not candidates:

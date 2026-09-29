@@ -3,7 +3,7 @@
 
 <div class="page-header">
     <div class="page-step">Step 02</div>
-    <h1 class="page-title">NLP Extraction</h1>
+    <h1 class="page-title">Skills Analysis</h1>
     <p class="page-desc">AI reads each resume and extracts structured data — name, skills, experience, education, domain
         and more.</p>
 </div>
@@ -24,7 +24,7 @@
 </div>
 
 <div class="card">
-    <div class="card-title">Run NLP Extraction</div>
+    <div class="card-title">Run Skills Analysis</div>
     <div class="card-desc">
         AI extracts structured data from each resume text file. Already-processed files are skipped automatically.
         This may take a few minutes depending on the number of resumes.
@@ -34,7 +34,7 @@
         {% if txt_count == 0 %}
         No TXT files found — go to Upload first
         {% else %}
-        Run NLP Extraction
+        Run Skills Analysis
         {% endif %}
     </button>
 
@@ -101,7 +101,7 @@
 
 <div style="margin-top:24px; display:flex; justify-content:space-between;">
     <a href="/upload" class="btn btn-secondary">← Upload</a>
-    <a href="/ranking" class="btn btn-secondary">Next: Ranking →</a>
+    <a href="/ranking" class="btn btn-secondary">Next: Fit Scoring →</a>
 </div>
 
 {% endblock %}
@@ -176,7 +176,7 @@
         });
 
         btn.disabled = false;
-        btn.textContent = 'Run NLP Extraction';
+        btn.textContent = 'Run Skills Analysis';
         showToast(`Done! ${data.success.length} extracted, ${data.skipped.length} skipped`, 'success');
     }
 
@@ -205,7 +205,7 @@
                             document.getElementById('nlpProgressPct').textContent = '100%';
                             document.getElementById('nlpProgressBar').style.width = '100%';
                             btn.disabled = false;
-                            btn.textContent = 'Run NLP Extraction';
+                            btn.textContent = 'Run Skills Analysis';
                         }
                     } catch(e) {}
                 }, 1500);

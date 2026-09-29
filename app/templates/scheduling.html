@@ -96,7 +96,7 @@
 
             <div class="form-group">
                 <label class="form-label">Job Title</label>
-                <input type="text" class="form-input" id="jobTitle" placeholder="e.g. Senior Financial Accountant">
+                <input type="text" class="form-input" id="jobTitle" placeholder="e.g. Senior Financial Accountant" value="{% if ranking and ranking.job_description and ranking.job_description.job_title %}{{ ranking.job_description.job_title }}{% endif %}">
             </div>
             <div class="form-group">
                 <label class="form-label">Hiring Manager Name</label>
@@ -245,7 +245,7 @@
 
 <div style="margin-top:24px; display:flex; justify-content:space-between;">
     <a href="/ranking" class="btn btn-secondary">← Ranking</a>
-    <a href="/interview" class="btn btn-secondary">Next: Interview Bot →</a>
+    <a href="/interview" class="btn btn-secondary">Next: Evaluation →</a>
 </div>
 
 {% endblock %}

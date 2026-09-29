@@ -406,15 +406,15 @@ def register_interview_routes(app):
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         if not schedule_files:
             return jsonify({"error": "No schedule found. Complete scheduling first."}), 404
-
         try:
             with open(schedule_files[0], encoding="utf-8") as f:
                 sdata = json.load(f)
         except Exception:
             return jsonify({"error": "Corrupted schedule summary"}), 500
 
-        from app.database import delete_all_tokens
-        delete_all_tokens()
+        from app.database import get_all_tokens
+        existing_tokens = get_all_tokens()
+        cand_to_token = {t["candidate_name"]: t for t in existing_tokens}
 
         host_url = request.host_url
         if "127.0.0.1" in host_url or "localhost" in host_url:
@@ -426,26 +426,138 @@ def register_interview_routes(app):
         links = []
         for entry in sdata.get("schedule", []):
             if entry.get("status") == "CONFIRMED":
-                token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
-                create_interview_token(
-                    token=token,
-                    candidate_name=entry["candidate_name"],
-                    source_file=entry["source_file"],
-                    job_title=sdata.get("job_title", "Interview"),
-                    rank=entry["rank"],
-                    score=entry["score"]
-                )
+                cand_name = entry["candidate_name"]
+                if cand_name in cand_to_token:
+                    # reuse token
+                    token_record = cand_to_token[cand_name]
+                    token = token_record["token"]
+                    used = token_record["used"]
+                else:
+                    token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+                    create_interview_token(
+                        token=token,
+                        candidate_name=cand_name,
+                        source_file=entry["source_file"],
+                        job_title=sdata.get("job_title", "Interview"),
+                        rank=entry.get("rank", 0),
+                        score=entry.get("score", 0)
+                    )
+                    used = 0
+
                 links.append({
-                    "candidate_name": entry["candidate_name"],
+                    "candidate_name": cand_name,
                     "url": host_url + f"candidate-interview/{token}",
-                    "used": 0
+                    "used": used,
+                    "email": entry.get("email", "")
                 })
         return jsonify({"success": True, "links": links})
+
+    @app.route("/api/send-interview-links", methods=["POST"])
+    @login_required
+    def api_send_interview_links():
+        # 1. Generate/get links
+        links_res = api_generate_interview_links().get_json()
+        if "error" in links_res:
+            return jsonify({"error": links_res["error"]}), 400
+        links = links_res.get("links", [])
+
+        # 2. Prepare email config
+        import config as cfg
+        smtp_host = getattr(cfg, "SMTP_HOST", "").strip()
+        smtp_port = int(getattr(cfg, "SMTP_PORT", 587) or 587)
+        smtp_email = getattr(cfg, "SMTP_EMAIL", "").strip()
+        smtp_password = getattr(cfg, "SMTP_PASSWORD", "").strip()
+        hr_name = getattr(cfg, "HR_DISPLAY_NAME", "").strip()
+        company = getattr(cfg, "HR_COMPANY", "").strip()
+
+        if not smtp_host or not smtp_email or not smtp_password:
+            return jsonify({"error": "SMTP not configured. Go to Settings → Email."}), 400
+
+        # Load schedule to get slot info
+        schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
+        try:
+            with open(schedule_files[0], encoding="utf-8") as f:
+                sdata = json.load(f)
+        except Exception:
+            sdata = {}
+
+        job_title = sdata.get("job_title", "Open Position")
+        cand_slots = {e.get("candidate_name"): (e.get("selected_slot", "") or (e.get("offered_slots") or [""])[0]) for e in sdata.get("schedule", [])}
+
+        from src.email_sender import send_interview_email
+        sent = 0
+        failed = 0
+        errors = []
+
+        for link_data in links:
+            cand_name = link_data["candidate_name"]
+            url = link_data["url"]
+            email = link_data.get("email", "")
+            
+            # Lookup email from NLP if missing
+            if not email:
+                nlp_path = OUTPUT_FOLDER / "nlp"
+                if nlp_path.exists():
+                    for nlp_file in nlp_path.glob("*_nlp.json"):
+                        try:
+                            import json as _json
+                            with open(nlp_file, encoding="utf-8") as nf:
+                                ndata = _json.load(nf)
+                            found_name = ndata.get("personal_info", {}).get("name", "")
+                            if found_name and cand_name.lower() in found_name.lower():
+                                email = ndata.get("personal_info", {}).get("email", "")
+                                break
+                        except Exception:
+                            continue
+
+            if not email:
+                failed += 1
+                errors.append(f"{cand_name}: No email found.")
+                continue
+
+            slot = cand_slots.get(cand_name, "TBD")
+
+            ok, err = send_interview_email(
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                smtp_email=smtp_email,
+                smtp_password=smtp_password,
+                recipient_email=email,
+                candidate_name=cand_name,
+                job_title=job_title,
+                interview_slot=slot,
+                hr_name=hr_name,
+                company=company,
+                interview_url=url,
+            )
+
+            if ok:
+                sent += 1
+            else:
+                failed += 1
+                errors.append(f"{cand_name}: {err}")
+
+        return jsonify({"success": True, "links": links, "sent": sent, "failed": failed, "errors": errors})
+
 
     @app.route("/api/interview-links", methods=["GET"])
     def api_interview_links():
         tokens = get_all_tokens()
-        return jsonify([dict(t) for t in tokens])
+        host_url = request.host_url
+        if "127.0.0.1" in host_url or "localhost" in host_url:
+            lan_ip = _get_lan_ip()
+            from flask import current_app
+            cand_port = current_app.config.get("CANDIDATE_PORT", 5000)
+            host_url = f"https://{lan_ip}:{cand_port}/"
+
+        links = []
+        for t in tokens:
+            links.append({
+                "candidate_name": t["candidate_name"],
+                "url": host_url + f"candidate-interview/{t['token']}",
+                "used": t["used"]
+            })
+        return jsonify({"links": links})
 
     @app.route("/api/interviews/list", methods=["GET"])
     def api_interviews_list():
