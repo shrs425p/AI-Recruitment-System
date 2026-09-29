@@ -1,13 +1,18 @@
 [Setup]
 AppName=AI Recruitment System
-AppVersion=1.0
+AppVersion=3.0.0
+AppPublisher=shrs425p
+AppPublisherURL=https://github.com/shrs425p/AI-Recruitment-System
+AppSupportURL=https://github.com/shrs425p/AI-Recruitment-System
+AppUpdatesURL=https://github.com/shrs425p/AI-Recruitment-System
+AppComments=Automated AI-powered talent screening and remote proctoring platform.
 DefaultDirName={autopf}\ARS
 DefaultGroupName=AI Recruitment System
 UninstallDisplayIcon={app}\ARS.exe
 Compression=lzma2
 SolidCompression=yes
 OutputDir=..\installer_output
-OutputBaseFilename=ARS_Setup_1.0
+OutputBaseFilename=ARS_Setup_3.0.0
 ArchitecturesInstallIn64BitMode=x64
 SetupIconFile=..\app\static\icon\ai.ico
 
