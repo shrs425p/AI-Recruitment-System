@@ -45,27 +45,31 @@ WEIGHTS = {
 # ─────────────────────────────────────────────
 
 def build_jd_prompt(jd_text: str) -> str:
-    return f"""
-You are an expert HR analyst. Read the Job Description below and extract key requirements.
-Return ONLY valid JSON. No explanation, no markdown, no extra text.
+    return f"""You are an HR analyst. Extract structured data from this job description.
 
 JD TEXT:
-\"\"\"
-{jd_text}
-\"\"\"
+\"\"\"{jd_text}\"\"\"
 
-Return EXACTLY this JSON:
+Fill in this JSON with real values from the JD above. Do not leave fields empty if the information is present.
+Return ONLY the JSON object, no extra text:
 {{
-  "job_title": "",
-  "domain": "",
-  "required_experience_years": null,
-  "required_education": "",
-  "required_skills": [],
-  "preferred_skills": [],
+  "job_title": "<extract from JD, e.g. Python Developer>",
+  "domain": "<e.g. Software, Data Science, Marketing>",
+  "required_experience_years": <number or null>,
+  "required_education": "<e.g. Bachelor's in CS>",
+  "required_skills": ["<skill1>", "<skill2>"],
+  "preferred_skills": ["<skill1>"],
   "required_certifications": [],
-  "job_summary": ""
-}}
-"""
+  "job_summary": "<one sentence summary>"
+}}"""
+
+def _extract_title_fallback(jd_text: str) -> str:
+    """If AI returns empty job_title, grab the first meaningful line of the JD as the title."""
+    for line in jd_text.splitlines():
+        line = line.strip()
+        if line and len(line) < 80 and not line.startswith(("http", "www", "#")):
+            return line
+    return "Open Position"
 
 # ─────────────────────────────────────────────
 # PROMPT: Score a Candidate Against JD

@@ -15,6 +15,7 @@ def send_interview_email(
     interview_slot,
     hr_name="",
     company="",
+    interview_url=None,
 ):
     """
     Send an interview invitation email to a candidate.
@@ -47,7 +48,7 @@ def send_interview_email(
         "interview_slot": date_display,
         "company": company or "Our Company",
         "hr_name": hr_line,
-        "interview_link": "Candidate Portal Link",
+        "interview_link": interview_url or "Link will be provided",
     }
 
     if custom_subject:
@@ -76,6 +77,15 @@ def send_interview_email(
             f"Best regards,\n{hr_line}{company_line}\n"
         )
 
+    link_html = ""
+    if interview_url:
+        link_html = f"""
+        <p style="margin-top:24px;">Please use the following unique link to access your AI Interview portal at the scheduled time:</p>
+        <div style="margin:24px 0;">
+            <a href="{interview_url}" style="background-color:#18181b;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block;">Open Interview Portal</a>
+        </div>
+        """
+
     body_html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
         <h2 style="color:#18181b;">Interview Invitation</h2>
@@ -86,6 +96,7 @@ def send_interview_email(
         <div style="background:#f4f4f5;padding:16px 20px;border-radius:8px;margin:16px 0;font-size:15px;">
             <strong>{date_display}</strong>
         </div>
+        {link_html}
         <p>Please ensure you are available at the above time. If you need to reschedule,
            reply to this email at your earliest convenience.</p>
         <p style="margin-top:24px;">Best regards,<br><strong>{hr_line}</strong>{company_line}</p>

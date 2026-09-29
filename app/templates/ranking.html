@@ -25,16 +25,23 @@
 
     <div class="form-group">
         <textarea class="form-input" id="jdInput" rows="10"
-            placeholder="Paste the full job description here..."></textarea>
+            placeholder="Paste the full job description here...">{{ saved_jd | default('') }}</textarea>
     </div>
 
-    <button class="btn btn-primary" id="rankBtn" onclick="runRanking()" {% if nlp_count==0 %}disabled{% endif %}>
-        {% if nlp_count == 0 %}
-        No candidates — run NLP first
-        {% else %}
-        Rank {{ nlp_count }} Candidates
-        {% endif %}
-    </button>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn-primary" id="rankBtn" onclick="runRanking()" {% if nlp_count==0 %}disabled{% endif %}>
+            {% if nlp_count == 0 %}
+            No candidates — run NLP first
+            {% else %}
+            Rank {{ nlp_count }} Candidates
+            {% endif %}
+        </button>
+        <button class="btn btn-secondary" id="saveJdBtn" onclick="saveJdNow()" style="display:flex; align-items:center; gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save JD
+        </button>
+        <span id="jdSaveStatus" style="font-size:11px; color:var(--md-sys-color-on-surface-variant); opacity:0; transition:opacity 0.4s;"></span>
+    </div>
 
     <!-- Live animated progress bar -->
     <div id="rankProgressWrap" style="display:none; margin-top:16px;">
@@ -135,7 +142,7 @@
 
 <div style="margin-top:24px; display:flex; justify-content:space-between;">
     <a href="/nlp" class="btn btn-secondary">← NLP</a>
-    <a href="/scheduling" class="btn btn-secondary">Next: Scheduling →</a>
+    <a href="/scheduling" class="btn btn-secondary">Next: Coordination →</a>
 </div>
 
 {% endblock %}
@@ -332,5 +339,44 @@
             }
         } catch(e) {}
     })();
+
+    // ── JD Auto-save ──────────────────────────────────────────
+    let _jdSaveTimer = null;
+    const _jdInput = document.getElementById('jdInput');
+    const _jdStatus = document.getElementById('jdSaveStatus');
+
+    function _showJdStatus(msg, ok) {
+        _jdStatus.textContent = msg;
+        _jdStatus.style.color = ok ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-error)';
+        _jdStatus.style.opacity = '1';
+        setTimeout(() => { _jdStatus.style.opacity = '0'; }, 2500);
+    }
+
+    async function saveJdNow() {
+        const jd = _jdInput ? _jdInput.value.trim() : '';
+        if (!jd) { showToast('Nothing to save — paste a JD first', 'error'); return; }
+        try {
+            const res = await fetch('/api/save-jd', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jd_text: jd })
+            });
+            const data = await res.json();
+            if (data.success) _showJdStatus('✓ Saved', true);
+            else _showJdStatus('Save failed', false);
+        } catch(e) {
+            _showJdStatus('Save failed', false);
+        }
+    }
+
+    // Auto-save 1.5s after user stops typing
+    if (_jdInput) {
+        _jdInput.addEventListener('input', () => {
+            clearTimeout(_jdSaveTimer);
+            _jdStatus.textContent = 'Saving...';
+            _jdStatus.style.opacity = '0.5';
+            _jdSaveTimer = setTimeout(saveJdNow, 1500);
+        });
+    }
 </script>
 {% endblock %}

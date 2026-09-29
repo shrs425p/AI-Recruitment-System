@@ -8,13 +8,9 @@ PUBLIC_PATH_PREFIXES = (
     "/api/candidate/",
     "/api/health",
     "/static/",
-    "/api/toggle-theme",
-    "/api/change-theme",
-    "/api/change-palette",
-    "/api/toggle-ai-mode",
-    "/api/provider-models",
     "/desktop-bootstrap",
     "/api/desktop-login",
+    "/login",
 )
 
 
@@ -31,8 +27,8 @@ def is_public_candidate_path(path: str) -> bool:
 def _auth_failure_response():
     if request.path.startswith("/api/"):
         return jsonify({"error": "Not found", "code": 404}), 404
-    # Return a minimal body so error-handler tests can assert on content.
-    return "<h1>404 Not Found</h1>", 404
+    # Return a completely blank response to hide the system from unauthorized browsers
+    return "", 404
 
 def hr_access_allowed() -> bool:
     if session.get("logged_in") and session.get("desktop_session"):

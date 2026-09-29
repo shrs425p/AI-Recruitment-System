@@ -245,40 +245,36 @@
         color: var(--md-sys-color-on-surface-variant);
         line-height: 1.6;
         margin-bottom: 8px;
+        max-width: 900px;
     }
 
     .about-card ol,
     .about-card ul {
         list-style: none;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
         padding: 0;
-        margin: 12px 0 24px 0;
+        margin: 16px 0 32px 0;
         counter-reset: about-counter;
+        max-width: 900px;
     }
 
     .about-card ol li,
     .about-card ul li {
-        background: var(--md-sys-color-surface-container-low);
-        border: 1px solid var(--md-sys-color-outline-variant);
-        border-radius: var(--radius-md);
-        padding: 18px;
-        font-size: 12.5px;
+        background: transparent;
+        border: none;
+        padding: 6px 0 6px 44px;
+        font-size: 13.5px;
         color: var(--md-sys-color-on-surface);
-        line-height: 1.55;
+        line-height: 1.6;
         position: relative;
-        display: flex;
-        flex-direction: column;
-        transition: all 0.22s cubic-bezier(0.2, 0, 0, 1);
-        box-shadow: var(--elevation-1);
+        display: block;
     }
 
     .about-card ol li:hover,
     .about-card ul li:hover {
-        background: var(--md-sys-color-surface-container);
-        border-color: var(--md-sys-color-primary);
-        transform: translateY(-2px);
+        /* No card hover effect for human document layout */
     }
 
     .about-card ol li::before {
@@ -288,32 +284,29 @@
         font-size: 9.5px;
         font-weight: 700;
         color: var(--md-sys-color-primary);
-        margin-bottom: 8px;
         letter-spacing: 0.5px;
         background: var(--md-sys-color-primary-container);
-        width: fit-content;
         padding: 2px 8px;
         border-radius: var(--radius-pill);
+        position: absolute;
+        left: 0;
+        top: 6px;
     }
 
     .about-card ul li {
-        border-left: 3px solid var(--green);
+        /* Removed green border for human layout */
     }
 
     .about-card ul li::before {
-        content: "✓ Bias Protection Audit";
-        font-family: var(--font-mono);
-        font-size: 9px;
-        font-weight: 700;
-        color: var(--green);
-        margin-bottom: 8px;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        background: var(--green-soft);
-        width: fit-content;
-        padding: 2px 8px;
-        border-radius: var(--radius-pill);
-    }
+    content: "•";
+    font-size: 18px;
+    color: var(--md-sys-color-primary);
+    position: absolute;
+    left: 20px;
+    top: 4px;
+    background: transparent;
+    padding: 0;
+}
 
     .about-card strong {
         color: var(--md-sys-color-on-surface);
@@ -428,14 +421,26 @@
                                 style="display:inline-block; width:12px; height:12px; background:#0f61a4; border-radius:50%;"></span>
                             Slate Blue
                         </label>
-                        <!-- Terracotta Rose -->
+                                                <!-- Terracotta Rose -->
                         <label class="theme-opt {{ 'active' if cfg.COLOR_PALETTE == 'rose' }}"
                             style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
-                            <input type="radio" name="color_palette" value="rose" {{ 'checked' if
-                                cfg.COLOR_PALETTE=='rose' }} onchange="selectPalette(this.value)">
-                            <span
-                                style="display:inline-block; width:12px; height:12px; background:#984061; border-radius:50%;"></span>
+                            <input type="radio" name="color_palette" value="rose" {{ 'checked' if cfg.COLOR_PALETTE=='rose' }} onchange="selectPalette(this.value)">
+                            <span style="display:inline-block; width:12px; height:12px; background:#984061; border-radius:50%;"></span>
                             Terracotta Rose
+                        </label>
+                        <!-- Executive Graphite -->
+                        <label class="theme-opt {{ 'active' if cfg.COLOR_PALETTE == 'graphite' }}"
+                            style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
+                            <input type="radio" name="color_palette" value="graphite" {{ 'checked' if cfg.COLOR_PALETTE=='graphite' }} onchange="selectPalette(this.value)">
+                            <span style="display:inline-block; width:12px; height:12px; background:#454545; border-radius:50%;"></span>
+                            Executive Graphite
+                        </label>
+                        <!-- Corporate Navy -->
+                        <label class="theme-opt {{ 'active' if cfg.COLOR_PALETTE == 'navy' }}"
+                            style="border-radius:var(--radius-pill); padding:8px 20px; display:flex; align-items:center; gap:8px;">
+                            <input type="radio" name="color_palette" value="navy" {{ 'checked' if cfg.COLOR_PALETTE=='navy' }} onchange="selectPalette(this.value)">
+                            <span style="display:inline-block; width:12px; height:12px; background:#0f4c81; border-radius:50%;"></span>
+                            Corporate Navy
                         </label>
                     </div>
                 </div>

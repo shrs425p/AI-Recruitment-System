@@ -18,7 +18,8 @@ from src.nlp_extractor import process_file_async
 
 # Imports for auto-pipeline
 from src.pdf_to_txt import process_file as pdf_process_file
-from src.ranking_engine import load_candidates, save_leaderboard_txt, save_scores_json, score_candidate
+from src.ranking_engine import build_jd_prompt, call_ai, load_candidates, save_leaderboard_txt, save_scores_json, score_candidate
+from src.shortlist_report import save_shortlist_report
 from src.report_generator import (
     calculate_combined_score,
     generate_ai_report,
@@ -90,7 +91,7 @@ def _run_nlp_stage(results):
     import asyncio
 
     async def run_batch():
-        sem = asyncio.Semaphore(4)
+        sem = asyncio.Semaphore(1)
         async def limited_process(f):
             async with sem:
                 try:
@@ -138,9 +139,49 @@ def _run_ranking_stage(results):
     ranking_files = sorted(output_ranking_path.glob("ranking_scores*.json"), reverse=True)
 
     if not ranking_files:
-        results["ranking"] = {
-            "success": False, "message": "No active job description. Add one in Ranking to enable automatic scoring.", "count": 0
-        }
+        # No ranking yet — check if user has a saved JD and run fresh ranking
+        from app.database import get_setting
+        saved_jd_text = get_setting("LAST_JD_TEXT", "")
+        if not saved_jd_text:
+            results["ranking"] = {
+                "success": False, "message": "No job description saved. Paste one in Fit Scoring and save it first.", "count": 0
+            }
+            return
+        # Run fresh ranking using the saved JD
+        _set_auto_pipeline_status(
+            "running", f"Step 3/{AUTO_PIPELINE_STEPS}: Running first-time ranking with saved JD...",
+            step="ranking", result=results
+        )
+        candidates = load_candidates(output_nlp_path)
+        if not candidates:
+            results["ranking"] = {"success": False, "message": "No candidate profiles found.", "count": 0}
+            return
+        jd_data = call_ai(build_jd_prompt(saved_jd_text))
+        if not jd_data:
+            results["ranking"] = {"success": False, "message": "Failed to parse saved JD.", "count": 0}
+            return
+            
+        # Fallback if AI returned empty template
+        if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
+            from src.ranking_engine import _extract_title_fallback
+            jd_data["job_title"] = _extract_title_fallback(saved_jd_text)
+
+        scored = []
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            futures = {executor.submit(score_candidate, c, jd_data): c for c in candidates}
+            for future in as_completed(futures):
+                res_score = future.result()
+                if res_score:
+                    scored.append(res_score)
+        ranked = sorted(scored, key=lambda x: x.get("total_score", 0), reverse=True)
+        save_leaderboard_txt(ranked, jd_data, output_ranking_path)
+        save_scores_json(ranked, jd_data, output_ranking_path)
+        shortlist = save_shortlist_report(ranked, jd_data, output_ranking_path)
+        rank_run_id = create_run("ranking", {"job_title": jd_data.get("job_title"), "count": len(ranked), "source": "auto_pipeline"})
+        for r in ranked:
+            upsert_candidate(run_id=rank_run_id, name=r.get("candidate_name") or r.get("candidate", ""), score=r.get("total_score", 0))
+        finish_run(rank_run_id, "COMPLETED")
+        results["ranking"] = {"success": True, "message": f"Ranked {len(ranked)} candidate(s) using saved JD.", "count": len(ranked)}
         return
 
     latest_ranking = None
@@ -427,7 +468,7 @@ def register_dashboard_routes(app):
         from app import database
         database.delete_all_tokens()
 
-        folders_to_clear = ["nlp", "ranking", "scheduling", "interviews", "reports"]
+        folders_to_clear = ["txt", "nlp", "ranking", "scheduling", "interviews", "reports"]
         for folder in folders_to_clear:
             path = OUTPUT_FOLDER / folder
             if path.exists():
@@ -439,6 +480,8 @@ def register_dashboard_routes(app):
                             shutil.rmtree(f)
                     except Exception as e:
                         logger.warning('Caught exception: %s', e, exc_info=True)
+                        
+
         pipeline_tasks.clear()
         _save_tasks()
         return jsonify({"success": True, "message": "Database reset completed safely."})

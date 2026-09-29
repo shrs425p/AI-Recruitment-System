@@ -75,8 +75,8 @@
 ══════════════════════════════════════════ -->
 <div id="candidateList">
     <div class="card">
-        <div class="card-title">Confirmed Candidates</div>
-        <div class="card-desc">Job: <strong>{{ job_title }}</strong> — Select a candidate and interview mode.</div>
+        <div class="card-title">Local Kiosk Mode (In-Office Interview)</div>
+        <div class="card-desc">Job: <strong>{{ job_title }}</strong> — If the candidate is physically present, you can host the interview directly on this computer. Select a candidate below.</div>
 
         <!-- Mode Toggle -->
         <div class="mode-toggle-wrap">
@@ -112,207 +112,12 @@
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     RULES CONFIRMATION
-══════════════════════════════════════════ -->
-<div id="rulesInterface" style="display:none; max-width: 800px; margin: 0 auto;">
-    <div class="page-header" style="text-align:center;">
-        <h1 class="page-title">Dos and Don'ts</h1>
-        <p class="page-desc">Please review these rules to ensure a smooth and verified evaluation session.</p>
-    </div>
 
-    <div class="card" style="padding: 28px;">
-        <div class="dos-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            Dos — Required Practices
-        </div>
-        <div class="gallery-row">
-            <div class="gallery-card">
-                <img src="/static/img/Look At Screen.png" alt="Look At Screen" onerror="this.style.display='none'">
-                <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">Look at screen</div>
-            </div>
-            <div class="gallery-card">
-                <img src="/static/img/Don,t Look Away.png" alt="Don't Look Away" onerror="this.style.display='none'">
-                <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">Remain focused</div>
-            </div>
-        </div>
-
-        <div class="donts-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            Don'ts — Strictly Prohibited
-        </div>
-        <div class="gallery-row" style="margin-bottom: 0;">
-            <div class="gallery-card">
-                <img src="/static/img/No Copy Paste.png" alt="No Copy Paste" onerror="this.style.display='none'">
-                <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No copy-paste</div>
-            </div>
-            <div class="gallery-card">
-                <img src="/static/img/No Screenshot.png" alt="No Screenshot" onerror="this.style.display='none'">
-                <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No screenshots</div>
-            </div>
-            <div class="gallery-card">
-                <img src="/static/img/No Tab Switching.png" alt="No Tab Switching" onerror="this.style.display='none'">
-                <div style="font-size: 12px; font-weight: 600; color: var(--md-sys-color-on-surface);">No tab switching</div>
-            </div>
-        </div>
-    </div>
-
-    <div style="text-align: center; margin-top: 32px; margin-bottom: 24px;">
-        <button onclick="proceedToInterview()" class="btn btn-primary" style="font-size: 13.5px; padding: 12px 32px;">
-            I Understand — Start Interview
-        </button>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     INTERVIEW INTERFACE
-══════════════════════════════════════════ -->
-<div id="interviewInterface" style="display:none;">
-
-    <!-- Top bar -->
-    <div
-        style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:16px; flex-wrap:wrap;">
-        <div>
-            <div id="interviewCandidateName" style="font-size:20px; font-weight:600;"></div>
-            <div id="interviewMeta" style="font-size:13px; color:var(--gray-400); margin-top:2px;"></div>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-            <div id="modeBadge" style="font-size:11px; font-weight:600; padding:4px 10px; border-radius:99px;"></div>
-            <div style="text-align:right;">
-                <div id="questionCounter" style="font-family:var(--font-mono); font-size:13px; color:var(--gray-400);">
-                </div>
-                <div id="totalScoreDisplay"
-                    style="font-size:22px; font-weight:700; color:var(--black); font-family:var(--font-mono);"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Interview layout: question left, webcam right -->
-    <div class="interview-layout">
-
-        <!-- Left: Question card -->
-        <div class="interview-main">
-            <div class="question-card" id="questionCard">
-                <div class="q-meta">
-                    <span class="q-num" id="qNum"></span>
-                    <span class="q-type" id="qType"></span>
-                    <span class="q-topic" id="qTopic"></span>
-                </div>
-                <div class="q-text" id="qText"></div>
-                <div class="timer" id="timer">00:00</div>
-
-                <!-- TEXT MODE answer area -->
-                <div id="textAnswerArea">
-                    <div class="form-group">
-                        <textarea class="form-input" id="answerInput" rows="4"
-                            placeholder="Type your answer here..."></textarea>
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn btn-primary" id="submitBtn" onclick="submitAnswer()">Submit Answer</button>
-                        <button class="btn btn-secondary" onclick="skipQuestion()">Skip</button>
-                    </div>
-                </div>
-
-                <!-- VOICE MODE answer area -->
-                <div id="voiceAnswerArea" style="display:none;">
-                    <div class="voice-status-box">
-                        <div class="voice-wave" id="voiceWave">
-                            <div class="bar"></div>
-                            <div class="bar"></div>
-                            <div class="bar"></div>
-                            <div class="bar"></div>
-                            <div class="bar"></div>
-                        </div>
-                        <div id="voiceStatusText" class="voice-status-text">Ready</div>
-                        <div id="voiceTranscript" class="voice-transcript"></div>
-                    </div>
-                    <div style="display:flex; gap:10px; margin-top:12px;">
-                        <button class="btn btn-primary" id="listenBtn" onclick="startListening()">
-                            🎤 Start Speaking
-                        </button>
-                        <button class="btn btn-secondary" onclick="skipQuestion()">Skip</button>
-                    </div>
-                </div>
-
-                <!-- AI thinking indicator -->
-                <div id="evalThinking" style="display:none; align-items:center; gap:10px; padding:14px 0; color:#666; font-size:0.9rem;">
-                    <span class="spinner" style="border-top-color:#6366f1;"></span>
-                    <span>AI is evaluating your answer…</span>
-                </div>
-
-                <!-- Evaluation result -->
-                <div class="eval-result" id="evalResult" style="display:none;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div class="eval-score" id="evalScore"></div>
-                        <div>
-                            <div style="font-size:12px; font-weight:600; color:var(--gray-800);">Score</div>
-                            <div class="eval-feedback" id="evalFeedback"></div>
-                        </div>
-                    </div>
-                    <div style="margin-top:12px;">
-                        <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Interview Complete -->
-            <div id="interviewComplete" style="display:none;">
-                <div class="card" style="text-align:center; padding:48px;">
-                    <div style="font-size:36px; margin-bottom:16px;">✅</div>
-                    <div style="font-size:22px; font-weight:700; margin-bottom:8px;">Interview Complete!</div>
-                    <div id="finalScoreDisplay"
-                        style="font-size:48px; font-weight:700; font-family:var(--font-mono); margin:16px 0;"></div>
-                    <div id="finalDetails" style="font-size:14px; color:var(--gray-600); margin-bottom:24px;"></div>
-                    <div style="display:flex; gap:12px; justify-content:center;">
-                        <button class="btn btn-secondary" onclick="backToList()">← Back to Candidates</button>
-                        <a href="/reports" class="btn btn-primary">View Reports →</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right: Webcam feed + proctor status -->
-        <div class="interview-sidebar" id="webcamSidebar">
-            <div class="webcam-card">
-                <div class="webcam-title">
-                    📷 Proctoring
-                    <span class="proctor-indicator" id="proctorIndicator">●</span>
-                </div>
-
-                <!-- Live feed -->
-                <div class="webcam-feed-wrap">
-                    <img id="webcamFeed" class="webcam-feed" src="" alt="Webcam feed">
-                    <div id="webcamOffMsg" class="webcam-off-msg">
-                        {% if webcam_available %}
-                        Webcam will start with interview
-                        {% else %}
-                        No webcam found
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Face status -->
-                <div class="face-status" id="faceStatus">
-                    <span id="faceIcon">👤</span>
-                    <span id="faceText">Waiting...</span>
-                </div>
-
-                <!-- Proctor flags -->
-                <div class="proctor-flags" id="proctorFlags">
-                    <div
-                        style="font-size:11px; color:var(--gray-400); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
-                        Flags</div>
-                    <div id="flagList" style="font-size:12px; color:var(--gray-600);">None</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 {% endif %}
 
 <div style="margin-top:24px; display:flex; justify-content:space-between;">
     <a href="/scheduling" class="btn btn-secondary">← Scheduling</a>
-    <a href="/reports" class="btn btn-secondary">Next: Reports →</a>
+    <a href="/reports" class="btn btn-secondary">Next: Reporting →</a>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -672,73 +477,46 @@
     // ─────────────────────────────────────────────
     // START INTERVIEW
     // ─────────────────────────────────────────────
-    let pendingInterview = {};
-
-    function startInterview(name, sourceFile, rank, score) {
-        pendingInterview = { name, sourceFile, rank, score };
-        document.getElementById('candidateList').style.display = 'none';
-        document.getElementById('rulesInterface').style.display = 'block';
-    }
-
-    async function proceedToInterview() {
-        const { name, sourceFile, rank, score } = pendingInterview;
-
-        document.getElementById('rulesInterface').style.display = 'none';
-        document.getElementById('interviewInterface').style.display = 'block';
-        document.getElementById('interviewComplete').style.display = 'none';
-        document.getElementById('questionCard').style.display = 'block';
-
-        currentCandidate = { candidate_name: name, source_file: sourceFile, rank, score };
-
-        document.getElementById('interviewCandidateName').textContent = name;
-        document.getElementById('interviewMeta').textContent = `Job: ${JOB_TITLE} | Score: ${score}/100`;
-
-        // Mode badge
-        const badge = document.getElementById('modeBadge');
-        if (interviewMode === 'voice') {
-            badge.textContent = '🎤 Voice Mode';
-            badge.style.cssText = 'background:var(--green-soft);color:var(--green);font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;';
-        } else {
-            badge.textContent = '✍️ Text Mode';
-            badge.style.cssText = 'background:var(--blue-soft);color:var(--blue);font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;';
-        }
-
-        // Start interview session
-        showOverlay('Generating interview questions with AI…');
-        const res = await fetch('/api/interview/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_file: sourceFile, job_title: JOB_TITLE, mode: interviewMode })
-        });
-        hideOverlay();
-        const data = await res.json();
-        if (data.error) { showToast(data.error, 'error'); return; }
-
-        sessionId = data.session_id;
-        allQuestions = data.questions;
-        currentQIndex = 0;
-        currentScore = 0;
-
-        // Start webcam proctoring
-        startWebcam();
-
-        // Start voice session if voice mode
-        if (interviewMode === 'voice') {
-            const voiceRes = await fetch('/api/voice/start', {
+    async function startInterview(name, sourceFile, rank, score) {
+        showOverlay('Preparing secure kiosk session...');
+        
+        try {
+            // Ensure links are generated first
+            const res = await fetch('/api/generate-interview-links', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: sessionId, candidate_name: name, job_title: JOB_TITLE })
+                headers: { 'Content-Type': 'application/json' }
             });
-            const voiceData = await voiceRes.json();
-            if (!voiceRes.ok || !voiceData.success) {
-                showToast(voiceData.error || 'Voice mode unavailable. Switching to Text mode.', 'error');
-                interviewMode = 'text';
-                document.getElementById('modeTextBtn').classList.add('active');
-                document.getElementById('modeVoiceBtn').classList.remove('active');
+            const data = await res.json();
+            
+            if (data.error) {
+                hideOverlay();
+                alert('Error preparing kiosk session: ' + data.error);
+                return;
             }
-        }
+            
+            const linkData = data.links.find(l => l.candidate_name === name);
+            if (!linkData) {
+                hideOverlay();
+                alert('Could not find interview link for this candidate.');
+                return;
+            }
+            
+            if (linkData.used) {
+                const proceed = confirm(`This candidate has already completed their interview.\nDo you want to open their expired session anyway?`);
+                if (!proceed) {
+                    hideOverlay();
+                    return;
+                }
+            }
 
-        showQuestion(0);
+            // Open the clean candidate portal in a new window
+            window.open(linkData.url, '_blank', 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
+        } catch (e) {
+            alert('Failed to start interview. Please check server logs.');
+            console.error(e);
+        } finally {
+            hideOverlay();
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -1037,7 +815,7 @@
             faceText.textContent = `${faceCount} faces detected!`;
             indicator.className = 'proctor-indicator proctor-warn';
         } else {
-            faceIcon.textContent = '✅';
+            faceIcon.textContent = '▪️';
             faceText.textContent = 'Candidate present';
             indicator.className = 'proctor-indicator proctor-ok';
         }
@@ -1135,7 +913,7 @@
             return;
         }
 
-        status.innerHTML = `<span style="color:var(--green);">✅ ${data.links.length} links generated. Share these with candidates on the same WiFi network.</span>`;
+        status.innerHTML = `<span style="color:var(--green);">▪️ ${data.links.length} links generated. Share these with candidates on the same WiFi network.</span>`;
         renderLinksTable(data.links);
     }
 
@@ -1159,7 +937,7 @@
             return;
         }
 
-        let msg = `<span style="color:var(--green);">✅ Sent: ${data.sent}</span>`;
+        let msg = `<span style="color:var(--green);">▪️ Sent: ${data.sent}</span>`;
         if (data.failed > 0) {
             msg += ` &nbsp;|&nbsp; <span style="color:var(--red);">Failed: ${data.failed}</span>`;
         }

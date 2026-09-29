@@ -10,7 +10,6 @@ def register_auth_routes(app):
     if "desktop_bootstrap" in app.view_functions:
         return
     @app.route("/desktop-bootstrap")
-
     def desktop_bootstrap():
         if session.get("logged_in") and session.get("desktop_session"):
             return redirect(url_for("dashboard"))

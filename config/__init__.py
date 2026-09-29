@@ -15,6 +15,7 @@ DEFAULT_SETTINGS = {
     "HR_USERNAME": "hr",
     "HR_PASSWORD": "",
     "HR_PASSWORD_HASH": "",
+    "APP_PIN": "",
 
     "FLASK_SECRET_KEY": "",
     "HR_DISPLAY_NAME": "HR Admin",
@@ -158,6 +159,7 @@ LOGIN_ENABLED: bool
 HR_USERNAME: str
 HR_PASSWORD: str
 HR_PASSWORD_HASH: str
+APP_PIN: str
 FLASK_SECRET_KEY: str
 HR_DISPLAY_NAME: str
 HR_EMAIL: str
