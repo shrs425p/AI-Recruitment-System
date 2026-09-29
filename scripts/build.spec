@@ -3,8 +3,12 @@
 block_cipher = None
 
 import os
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 include_creds = os.environ.get("BUNDLE_CREDS", "0") == "1"
+
+vosk_datas = collect_data_files('vosk')
+vosk_binaries = collect_dynamic_libs('vosk')
 
 my_datas = [
     ('../app', 'app'),
@@ -12,14 +16,15 @@ my_datas = [
     ('../config', 'config'),
     ('../media', 'media'),
     ('../models', 'models')
-]
+] + vosk_datas
+
 if include_creds and os.path.exists('../credentials.json'):
     my_datas.append(('../credentials.json', '.'))
 
 a = Analysis(
     ['../main.py'],
     pathex=[],
-    binaries=[],
+    binaries=vosk_binaries,
     datas=my_datas,
     hiddenimports=[
         'waitress',

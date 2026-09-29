@@ -28,7 +28,7 @@ try:
     from vosk import KaldiRecognizer as VoskRecognizer
     from vosk import Model as VoskModel
     _VOSK_AVAILABLE = True
-except ImportError:
+except Exception:
     _VOSK_AVAILABLE = False
 
 _BASE_DIR = install_path(".")
