@@ -143,7 +143,7 @@ STRICT RULES:
 - Follow rubric bands exactly.
 - Base scores ONLY on the candidate data provided.
 - Do NOT assume or hallucinate missing information.
-- Provide a 1-sentence reason for each score.
+- Provide a 3-5-sentence reason for each score.
 - Return ONLY valid JSON — no markdown, no explanation.
 
 JOB DESCRIPTION:
@@ -161,14 +161,14 @@ Return EXACTLY this JSON:
 {{
   "candidate_name": "",
   "scores": {{
-    "domain_match":     {{"score": 0, "max": {WEIGHTS['domain_match']}, "reason": ""}},
-    "skills_match":     {{"score": 0, "max": {WEIGHTS['skills_match']}, "reason": ""}},
-    "experience_years": {{"score": 0, "max": {WEIGHTS['experience_years']}, "reason": ""}},
-    "education":        {{"score": 0, "max": {WEIGHTS['education']}, "reason": ""}},
-    "certifications":   {{"score": 0, "max": {WEIGHTS['certifications']}, "reason": ""}}
+    "domain_match":     {{"score": <number>, "max": {WEIGHTS['domain_match']}, "reason": ""}},
+    "skills_match":     {{"score": <number>, "max": {WEIGHTS['skills_match']}, "reason": ""}},
+    "experience_years": {{"score": <number>, "max": {WEIGHTS['experience_years']}, "reason": ""}},
+    "education":        {{"score": <number>, "max": {WEIGHTS['education']}, "reason": ""}},
+    "certifications":   {{"score": <number>, "max": {WEIGHTS['certifications']}, "reason": ""}}
   }},
-  "total_score": 0,
-  "percentage": 0,
+  "total_score": <number>,
+  "percentage": <number>,
   "overall_verdict": "",
   "strengths": [],
   "gaps": [],
