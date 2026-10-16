@@ -21,7 +21,7 @@ def _get_about_html() -> str:
         "<p>This platform is an advanced AI research and development project focused on transforming traditional recruitment workflows. It leverages state-of-the-art machine learning models and fluid, data-dense user interfaces to explore how automation can streamline candidate evaluation, from initial resume parsing to final technical interviews.</p>"
         "<h3>Core Architecture &amp; Features</h3>"
         "<ol>"
-        "<li><strong>Intelligent Data Import:</strong> Advanced extraction pipeline utilizing PyMuPDF for digital documents and Tesseract OCR for image-based or scanned resumes, ensuring high-fidelity data capture.</li>"
+        "<li><strong>Intelligent Data Import:</strong> Advanced extraction pipeline utilizing pypdf for digital documents and Tesseract OCR for image-based or scanned resumes, ensuring high-fidelity data capture.</li>"
         "<li><strong>AI Skills Analysis:</strong> Employs sophisticated Natural Language Processing (NLP) models to parse unstructured text, accurately identifying key technical skills, educational background, and domain expertise.</li>"
         "<li><strong>Algorithmic Fit Scoring:</strong> A dynamic scoring engine that matches extracted candidate profiles against highly configurable role templates, delivering objective and explainable match scores.</li>"
         "<li><strong>Automated Coordination:</strong> Integrated calendar management system capable of auto-generating iCalendar (.ics) invitations and streamlining interview scheduling without manual overhead.</li>"

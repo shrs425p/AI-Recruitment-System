@@ -1,6 +1,6 @@
 import io
 
-import fitz
+from fpdf import FPDF
 
 from app import create_app
 from app.database import (
@@ -101,12 +101,12 @@ def test_resume_upload_and_view_encryption(tmp_path, monkeypatch):
 
 
 def test_pdf_processing_with_encrypted_files(tmp_path):
-    # Create a real PDF with fitz
-    doc = fitz.open()
-    page = doc.new_page()
-    page.insert_text((72, 72), "Jane Doe - Python Developer with 5 years experience in machine learning.")
-    pdf_bytes = doc.tobytes()
-    doc.close()
+    # Create a real PDF with fpdf
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    pdf.cell(text="Jane Doe - Python Developer with 5 years experience in machine learning.")
+    pdf_bytes = bytes(pdf.output())
 
     # Encrypt the PDF bytes and write to disk
     enc_pdf = tmp_path / "jane_encrypted.pdf"

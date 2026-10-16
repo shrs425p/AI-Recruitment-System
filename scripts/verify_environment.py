@@ -31,7 +31,7 @@ def check_dependencies():
     required_modules = [
         "flask",
         "webview",
-        "fitz",
+        "pypdf",
         "pytesseract",
         "PIL",
         "numpy",

@@ -7,9 +7,9 @@ import sys  # Used for sys.exit() in the watcher
 import time  # Used for sleep() in the polling loop
 from pathlib import Path  # Modern cross-platform path handling
 
-import fitz  # PyMuPDF — extract text + render pages to images
 import pytesseract  # Python wrapper for the Tesseract OCR engine
 from PIL import Image  # Pillow — open PNG/JPG image files
+from pypdf import PdfReader  # Pure-Python PDF parsing (BSD-3 licensed)
 
 from src.common import data_path, install_path
 from src.security import decrypt_bytes
@@ -45,10 +45,10 @@ WATCH_INTERVAL_SECONDS  = 5
 
 def extract_direct_text(pdf_input):
     """
-    Extract embedded text from a digital PDF using PyMuPDF (fitz).
+    Extract embedded text from a digital PDF using pypdf.
 
     This is fast (~milliseconds) because it reads text already stored in the
-    PDF rather than running OCR.  Works for PDFs created by Word, LaTeX, etc.
+    PDF rather than running OCR. Works for PDFs created by Word, LaTeX, etc.
 
     Accepts a file path (str or Path) or raw bytes. Transparently decrypts
     encrypted files at rest if needed.
@@ -59,21 +59,19 @@ def extract_direct_text(pdf_input):
     try:
         if isinstance(pdf_input, (bytes, bytearray)):
             decrypted = decrypt_bytes(pdf_input)
-            doc = fitz.open(stream=decrypted, filetype="pdf")
         else:
             path = Path(pdf_input)
             if not path.exists():
                 return ""
-            raw = path.read_bytes()
-            decrypted = decrypt_bytes(raw)
-            doc = fitz.open(stream=decrypted, filetype="pdf")
+            decrypted = decrypt_bytes(path.read_bytes())
 
-        with doc:
-            text = ""
-            for page in doc:
-                # get_text("text") returns plain text without layout styling
-                text += page.get_text("text") + "\n"
-            return text.strip()
+        reader = PdfReader(io.BytesIO(decrypted))
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text.strip()
     except Exception as e:
         logger.info(f"> [extract_direct_text] Error: {e}")
         return ""
@@ -142,14 +140,24 @@ def process_file(file_path: Path, output_path: Path):
                 full_text = extracted_text
                 logger.info("(Direct Text)")
             else:
-                # Likely a scanned PDF — render pages to images via PyMuPDF then OCR
-                # matrix with zoom=3 gives ~300 dpi (72 * 3 ≈ 216–300 effective)
-                with fitz.open(stream=file_bytes, filetype="pdf") as doc:
-                    for page in doc:
-                        pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
-                        img = Image.open(io.BytesIO(pix.tobytes("png")))
-                        full_text += pytesseract.image_to_string(img) + "\n"
-                logger.info("(OCR Fallback)")
+                # Scanned PDF or mixed pages — extract page images via pypdf and OCR
+                ocr_text = ""
+                try:
+                    reader = PdfReader(io.BytesIO(file_bytes))
+                    for page in reader.pages:
+                        page_direct = page.extract_text() or ""
+                        if page_direct.strip():
+                            ocr_text += page_direct + "\n"
+                        for img_file in page.images:
+                            try:
+                                ocr_text += pytesseract.image_to_string(img_file.image) + "\n"
+                            except Exception as err:
+                                logger.info(f"> OCR image extraction failed for page item: {err}")
+                except Exception as e:
+                    logger.info(f"> [pypdf OCR Fallback] Error reading pages: {e}")
+
+                full_text = ocr_text if ocr_text.strip() else extracted_text
+                logger.info("(OCR Fallback)" if full_text else "(No Text Found)")
 
         else:
             # PNG / JPG — always OCR because there is no embedded text layer
