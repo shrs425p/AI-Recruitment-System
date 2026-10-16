@@ -12,6 +12,11 @@ def _app():
     app.secret_key = "mock_test_key_for_flask"
     app.add_url_rule("/dashboard", "dashboard", lambda: "dashboard")
     register_auth_routes(app)
+
+    @app.context_processor
+    def inject_csrf():
+        return {"csrf_token": lambda: "test-token"}
+
     return app
 
 
