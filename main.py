@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import socket
@@ -151,43 +152,90 @@ def _save_config(cfg):
             pass
 
 
+def _get_lan_ip_address() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def _is_cert_valid_and_current(cert_path: Path) -> bool:
+    if not cert_path.exists():
+        return False
+    try:
+        from cryptography import x509
+        cert_data = cert_path.read_bytes()
+        cert_obj = x509.load_pem_x509_certificate(cert_data)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        expiry = getattr(cert_obj, "not_valid_after_utc", None)
+        if expiry is None:
+            expiry = cert_obj.not_valid_after.replace(tzinfo=datetime.timezone.utc)
+        # Check if cert has expired or expires within 7 days
+        return (expiry - now).total_seconds() > 7 * 86400
+    except Exception:
+        return False
+
+
+def _generate_ssl_cert(cert: Path, key: Path):
+    import ipaddress
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, APP_NAME),
+        x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+    ])
+
+    san_entries = [
+        x509.DNSName("localhost"),
+        x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+    ]
+    lan_ip = _get_lan_ip_address()
+    if lan_ip not in {"127.0.0.1", "localhost"}:
+        try:
+            san_entries.append(x509.IPAddress(ipaddress.ip_address(lan_ip)))
+        except ValueError:
+            pass
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert_obj = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now)
+        .not_valid_after(now + datetime.timedelta(days=365))  # 1 year validity
+        .add_extension(
+            x509.SubjectAlternativeName(san_entries),
+            critical=False,
+        )
+        .sign(private_key, hashes.SHA256())
+    )
+    cert.write_bytes(cert_obj.public_bytes(serialization.Encoding.PEM))
+    key.write_bytes(private_key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.NoEncryption(),
+    ))
+
+
 def _ensure_ssl_cert():
     ssl_dir = APP_DATA_DIR / "data/output/ssl"
     ssl_dir.mkdir(parents=True, exist_ok=True)
     cert = ssl_dir / "cert.pem"
     key  = ssl_dir / "key.pem"
-    if not cert.exists() or not key.exists():
-        import datetime
-
-        from cryptography import x509
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.x509.oid import NameOID
-
-        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-        subject = issuer = x509.Name([
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME,    APP_NAME),
-            x509.NameAttribute(NameOID.COMMON_NAME,          "localhost"),
-        ])
-        cert_obj = (
-            x509.CertificateBuilder()
-            .subject_name(subject)
-            .issuer_name(issuer)
-            .public_key(private_key.public_key())
-            .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-            .not_valid_after(
-                datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650)
-            )
-            .sign(private_key, hashes.SHA256())
-        )
-        cert.write_bytes(cert_obj.public_bytes(serialization.Encoding.PEM))
-        key.write_bytes(private_key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.TraditionalOpenSSL,
-            serialization.NoEncryption(),
-        ))
+    if not _is_cert_valid_and_current(cert) or not key.exists():
+        _generate_ssl_cert(cert, key)
     return str(cert), str(key)
 
 
