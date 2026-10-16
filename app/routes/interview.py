@@ -586,6 +586,7 @@ def register_interview_routes(app):
         return jsonify({"links": links})
 
     @app.route("/api/interviews/list", methods=["GET"])
+    @login_required
     def api_interviews_list():
         int_files = (OUTPUT_FOLDER / "interviews").glob("*.json")
         list_ints = []
