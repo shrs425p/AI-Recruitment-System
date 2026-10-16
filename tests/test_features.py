@@ -173,3 +173,78 @@ def test_save_config_persists_to_database():
     assert get_setting("THEME") == "dark"
     assert not (main.APP_DATA_DIR / "config.py").exists()
 
+
+def test_report_pdf_routes(monkeypatch):
+    import json
+
+    import main
+    from app.routes.reports import OUTPUT_FOLDER
+
+    test_report = {
+        "candidate_name": "Test Candidate",
+        "job_title": "Software Engineer",
+        "generated_at": "2026-10-16 12:00:00",
+        "scores": {
+            "combined_score": 85.0,
+            "ranking_score": 80.0,
+            "interview_pct": 90.0,
+            "interview_score": 45,
+            "interview_max": 50,
+            "technical_pct": 90.0,
+            "behavioral_pct": 90.0,
+        },
+        "proctoring": {"status": "CLEAN", "flagged_count": 0},
+        "ai_report": {
+            "hire_recommendation": "RECOMMEND",
+            "risk_level": "LOW",
+            "overall_summary": "Solid candidate",
+            "key_strengths": ["Python"],
+            "key_gaps": ["None"],
+        },
+        "responses": [
+            {
+                "question_num": 1,
+                "type": "TECHNICAL",
+                "topic": "Python",
+                "question": "What is a generator?",
+                "answer": "A function that yields values.",
+                "score": 9,
+                "evaluation": {"feedback": "Good answer", "relevance": 3, "depth": 2, "clarity": 2, "correctness": 2},
+            }
+        ],
+    }
+
+    reports_dir = OUTPUT_FOLDER / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_file = reports_dir / "report_Test_Candidate_test.json"
+    report_file.write_text(json.dumps(test_report), encoding="utf-8")
+
+    try:
+        app = main.app
+        with app.test_client() as client:
+            res = client.get(f"/api/report-pdf/{report_file.name}")
+            assert res.status_code in [302, 401]
+
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+                sess["desktop_session"] = True
+
+            res = client.get(f"/api/report-pdf/{report_file.name}")
+            assert res.status_code == 200
+            assert res.mimetype == "application/pdf"
+            assert len(res.data) > 1000
+
+            monkeypatch.setattr("os.startfile", lambda p: None, raising=False)
+            res_save = client.get(f"/api/save-report-pdf/{report_file.name}")
+            assert res_save.status_code == 200
+            data = res_save.get_json()
+            assert data["success"] is True
+            assert (reports_dir / "report_Test_Candidate.pdf").exists()
+    finally:
+        if report_file.exists():
+            report_file.unlink()
+        pdf_out = reports_dir / "report_Test_Candidate.pdf"
+        if pdf_out.exists():
+            pdf_out.unlink()
+
+

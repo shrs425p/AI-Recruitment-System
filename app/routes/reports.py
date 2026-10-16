@@ -119,18 +119,6 @@ def register_reports_routes(app):
     @app.route("/api/report-pdf/<filename>")
     @login_required
     def api_report_pdf(filename):
-        import unicodedata
-        from io import BytesIO
-
-        from fpdf import FPDF
-
-        def _safe(s):
-            if s is None:
-                return ""
-            s = str(s)
-            s = unicodedata.normalize("NFKD", s)
-            return s.encode("latin-1", errors="replace").decode("latin-1")
-
         safe = re.sub(r'[^a-zA-Z0-9_.\-]', '', filename)
         json_path = OUTPUT_FOLDER / "reports" / safe
         if not json_path.exists() or not json_path.suffix == '.json':
@@ -142,29 +130,31 @@ def register_reports_routes(app):
         except Exception:
             return jsonify({"error": "Report file is corrupted"}), 500
 
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=20)
-        pdf.add_page()
-        pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "Post-Interview Evaluation Report", new_x="LMARGIN", new_y="NEXT", align="C")
-        pdf.ln(4)
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 6, _safe(f"Candidate    : {report.get('candidate_name','N/A')}"), new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(0, 6, _safe(f"Job Title    : {report.get('job_title','N/A')}"), new_x="LMARGIN", new_y="NEXT")
-        pdf.cell(0, 6, _safe(f"Domain       : {report.get('domain','N/A')}"), new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(4)
+        # Backfill responses if missing from report JSON
+        if not report.get("responses"):
+            interviews_path = OUTPUT_FOLDER / "interviews"
+            cname = report.get("candidate_name")
+            for jf in interviews_path.glob("interview_*.json"):
+                try:
+                    with open(jf, encoding="utf-8") as tf:
+                        tdata = json.load(tf)
+                        if tdata.get("candidate_name") == cname:
+                            report["responses"] = tdata.get("responses", [])
+                            break
+                except Exception:
+                    pass
 
-        buf = BytesIO()
-        pdf.output(dest="S")
-        buf.write(pdf.output())
-        buf.seek(0)
-
-        candidate = re.sub(r'[^a-zA-Z0-9_]', '_', report.get("candidate_name", "report"))
-        return Response(
-            buf.getvalue(),
-            mimetype="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=report_{candidate}.pdf"}
-        )
+        try:
+            from src.report_generator import generate_evaluation_pdf
+            pdf = generate_evaluation_pdf(report)
+            candidate = re.sub(r'[^a-zA-Z0-9_]', '_', report.get("candidate_name", "report"))
+            return Response(
+                bytes(pdf.output()),
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=report_{candidate}.pdf"}
+            )
+        except Exception as e:
+            return jsonify({"error": f"PDF generation failed: {e}"}), 500
 
     @app.route("/api/save-report-pdf/<filename>")
     @login_required
@@ -181,20 +171,32 @@ def register_reports_routes(app):
         except Exception:
             return jsonify({"error": "Report file corrupted"}), 500
 
-        try:
-            from fpdf import FPDF
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Helvetica", "B", 16)
-            pdf.cell(0, 10, "Post-Interview Evaluation Report", new_x="LMARGIN", new_y="NEXT", align="C")
+        # Backfill responses if missing from report JSON
+        if not report.get("responses"):
+            interviews_path = OUTPUT_FOLDER / "interviews"
+            cname = report.get("candidate_name")
+            for jf in interviews_path.glob("interview_*.json"):
+                try:
+                    with open(jf, encoding="utf-8") as tf:
+                        tdata = json.load(tf)
+                        if tdata.get("candidate_name") == cname:
+                            report["responses"] = tdata.get("responses", [])
+                            break
+                except Exception:
+                    pass
 
+        try:
+            from src.report_generator import generate_evaluation_pdf
             candidate = re.sub(r'[^a-zA-Z0-9_]', '_', report.get("candidate_name", "report"))
             pdf_name = f"report_{candidate}.pdf"
             pdf_path = OUTPUT_FOLDER / "reports" / pdf_name
-            pdf.output(str(pdf_path))
+            generate_evaluation_pdf(report, output_file=pdf_path)
 
-            # Auto-open with system PDF viewer
-            _os.startfile(str(pdf_path))
+            # Auto-open with system PDF viewer if available
+            try:
+                _os.startfile(str(pdf_path))
+            except Exception:
+                pass
         except Exception as e:
             return jsonify({"error": f"PDF save failed: {e}"}), 500
 

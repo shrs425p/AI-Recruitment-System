@@ -281,7 +281,7 @@
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         {% for ev in b_logs %}
                         <span class="badge badge-red" style="font-family:var(--font-mono); font-size:11px;">
-                            ⚠️ {{ ev.type }}
+                            ⚠ {{ ev.type }}
                         </span>
                         {% endfor %}
                     </div>
@@ -313,7 +313,7 @@
                         <div style="display:flex; align-items:center; gap:8px;">
                             {% if q.answer_flags %}
                                 {% for fl in q.answer_flags %}
-                                <span class="badge badge-red" style="font-size:11px;">⚠️ {{ fl }}</span>
+                                <span class="badge badge-red" style="font-size:11px;">⚠ {{ fl }}</span>
                                 {% endfor %}
                             {% else %}
                                 <span class="badge badge-green" style="font-size:11px;">✓ Clean</span>

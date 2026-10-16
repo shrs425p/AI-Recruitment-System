@@ -118,3 +118,11 @@ def test_save_report_txt_and_json(tmp_path):
     content = txt_files[0].read_text(encoding="utf-8")
     assert "Alice Wonder" in content
     assert "STRONGLY RECOMMEND" in content
+
+    rg.save_report_json(transcript, ai_report, 85.6, tmp_path)
+    json_files = list(tmp_path.glob("report_Alice_Wonder_*.json"))
+    assert len(json_files) == 1
+
+    pdf_file = rg.save_report_pdf(transcript, ai_report, 85.6, tmp_path)
+    assert pdf_file.exists()
+    assert pdf_file.stat().st_size > 1000
