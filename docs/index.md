@@ -18,7 +18,7 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 | Feature | Details |
 |---|---|
 | **Resume Upload** | PDF (digital + scanned), PNG, JPG |
-| **OCR Extraction** | PyMuPDF for digital PDFs, Tesseract OCR for scanned documents |
+| **Document & OCR Extraction** | pypdf for digital PDFs, Tesseract OCR for scanned documents and images |
 | **NLP Profile Extraction** | AI-powered structured JSON: skills, experience, education, projects, certifications, awards |
 | **Candidate Ranking** | 5-criterion weighted AI scoring against any job description |
 | **Interview Scheduling** | Top-N shortlist, slot coordination, `.ics` calendar invites, Google Calendar sync |
@@ -26,10 +26,10 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 | **Voice Mode** | Offline HTML5 Web Speech API (`SpeechSynthesis` + `SpeechRecognition`) |
 | **Webcam Proctoring** | Real-time face detection (MediaPipe + OpenCV Haar cascade fallback) |
 | **Violation Tracking** | Tab switches, copy-paste events, face absence, multiple faces |
-| **Report Generation** | PDF interview reports with transcript, scores, and proctor summary |
+| **Report Generation** | Material Design 3 monochrome PDF reports with rubrics, full transcripts, and proctoring summary |
 | **Multi-Provider AI** | 8 cloud providers + local Ollama, with round-robin load balancing and dynamic live model fetching |
 | **Privacy Mode** | Fully offline: Ollama local LLM, no data leaves the machine |
-| **Encrypted Storage** | All API keys and secrets encrypted at rest (AES-Fernet + PBKDF2) |
+| **Encrypted Storage** | API credentials, candidate PII in database, and uploaded resumes encrypted at rest (AES-Fernet + PBKDF2) |
 | **Email Notifications** | SMTP-based scheduling emails with customisable templates |
 
 ---
@@ -67,7 +67,7 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 |---|---|
 | Local LLM | `Ollama` (llama3.2:3b default) |
 | Cloud Providers | NVIDIA, OpenAI, Anthropic, Gemini, Groq, OpenRouter, GitHub Models, Ollama Cloud |
-| Resume Parsing | `PyMuPDF (fitz)` — digital PDF text extraction |
+| Resume Parsing | `pypdf` — digital PDF text extraction |
 | OCR | `Tesseract OCR` (bundled in `models/Tesseract-OCR/`) |
 | Voice STT | HTML5 Web Speech API (`SpeechRecognition`) |
 | Voice TTS | HTML5 Web Speech API (`SpeechSynthesis`) |
@@ -82,7 +82,8 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 ### Security
 | Component | Technology |
 |---|---|
-| Credential Encryption | `cryptography` — AES-Fernet with PBKDF2-HMAC-SHA256 key derivation |
+| Credential & Data Encryption | `cryptography` — AES-Fernet with PBKDF2-HMAC-SHA256 key derivation |
+| CSRF Protection | `Flask-WTF` / `X-CSRF-Token` header verification on state-changing routes |
 | Password Hashing | `werkzeug.security` — scrypt-based password hashing |
 | Desktop Auth | One-time nonce pool (cryptographically random, single-use tokens) |
 | TLS | `cryptography` — self-signed RSA-2048 certificate (10-year validity) |
@@ -90,48 +91,12 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 ### Reporting & Scheduling
 | Component | Technology |
 |---|---|
-| PDF Reports | `fpdf2` |
+| PDF Reports | `fpdf2` (Material Design 3 monochrome evaluation format) |
 | Calendar Invites | `icalendar` (`.ics` files) |
 | Google Calendar | `google-api-python-client` |
 | Email | `smtplib` (SMTP, configurable host/port) |
 
 ---
 
-## Quick Orientation
-
-```
-AI-Recruitment-System/
-├── main.py                 ← Application entry point
-├── app/
-│   ├── __init__.py         ← Flask app factory (create_app)
-│   ├── core.py             ← Log queue, live log streaming
-│   ├── database.py         ← SQLite ORM and encrypted settings
-│   ├── routes/             ← HTTP route handlers (one file per feature)
-│   ├── templates/          ← Jinja2 HTML templates
-│   └── static/             ← CSS, JS, icons
-├── src/
-│   ├── common.py           ← Paths, AI call dispatcher, JSON utils
-│   ├── pdf_to_txt.py       ← PDF/image → plain text (PyMuPDF + Tesseract)
-│   ├── nlp_extractor.py    ← Resume text → structured JSON (AI)
-│   ├── ranking_engine.py   ← Candidate scoring against JD (AI)
-│   ├── scheduling.py       ← Slot allocation, .ics generation
-│   ├── interview_bot.py    ← Question generation and answer evaluation (AI)
-│   ├── webcam_proctor.py   ← Real-time face detection and violation tracking
-│   ├── voice_interview.py  ← Vosk STT + pyttsx3 TTS
-│   ├── report_generator.py ← PDF report generation (fpdf2)
-│   ├── provider_router.py  ← Round-robin multi-provider AI router
-│   ├── security.py         ← AES-Fernet encryption/decryption
-│   ├── google_calendar.py  ← Google Calendar API integration
-│   └── email_sender.py     ← SMTP email dispatch
-├── config/
-│   └── __init__.py         ← Dynamic database-backed config module
-├── models/
-│   ├── Tesseract-OCR/      ← Bundled Tesseract OCR engine
-│   └── vosk-model-small-en-in-0.4/ ← Bundled Vosk speech model
-├── scripts/
-│   ├── verify_environment.py   ← Dependency check script
-│   ├── verify_providers.py     ← AI provider connectivity test
-│   └── setup_vosk.py           ← Vosk model download helper
-├── tests/                  ← pytest test suite
-└── docs/                   ← This documentation
-```
+For detailed module responsibilities and subsystem architecture, see [Architecture](architecture.md).  
+For developer conventions, file organization, and contribution guidelines, see [Contributing](contributing.md).

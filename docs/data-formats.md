@@ -265,31 +265,69 @@ This document describes the exact structure of every JSON file the system produc
 ## AI Report Output — `report_<name>_<timestamp>.json`
 
 **Location:** `%LOCALAPPDATA%\AI Recruitment System\data\output\reports\`  
-**Produced by:** `src/report_generator.py` (JSON version, before PDF generation)
+**Produced by:** `src/report_generator.py` (JSON companion file)
 
 ```json
 {
   "candidate_name": "John Doe",
-  "overall_summary": "John demonstrated strong technical competence across all domains tested...",
-  "technical_assessment": "Scored 7.5/10 on average for technical questions. Particular strength in Python internals and system design.",
-  "behavioral_assessment": "Solid STAR-format responses. Communication is clear and structured.",
-  "key_strengths": [
-    "Deep Python knowledge",
-    "Clear communication style",
-    "Relevant AWS experience"
-  ],
-  "key_gaps": [
-    "Limited mention of testing practices",
-    "No experience with PostgreSQL at scale"
-  ],
-  "proctoring_remarks": "Two minor tab-switch events recorded. One brief face absence. Overall integrity appears good.",
-  "risk_level": "Low",
-  "combined_score": 85,
-  "hire_recommendation": "Recommend",
-  "hire_justification": "Strong technical fit with demonstrated experience directly relevant to the role.",
-  "suggested_next_steps": [
-    "Schedule a follow-up technical round with the engineering team",
-    "Request a code sample or GitHub portfolio review"
+  "source_file": "john_doe_nlp",
+  "scores": {
+    "ranking_score": 85,
+    "interview_score": 72,
+    "interview_max": 80,
+    "interview_pct": 90,
+    "technical_score": 45,
+    "technical_max": 50,
+    "technical_pct": 90,
+    "behavioral_score": 27,
+    "behavioral_max": 30,
+    "behavioral_pct": 90,
+    "combined_score": 88
+  },
+  "proctoring": {
+    "status": "CLEAN",
+    "flagged_count": 1,
+    "log": [
+      {
+        "timestamp": "2026-08-20T10:15:30",
+        "type": "tab_switch",
+        "details": "Candidate switched browser tab"
+      }
+    ]
+  },
+  "ai_report": {
+    "overall_summary": "John demonstrated strong technical competence across all domains tested...",
+    "technical_assessment": "Scored 45/50 on technical questions. Particular strength in Python internals and system design.",
+    "behavioral_assessment": "Solid STAR-format responses. Communication is clear and structured.",
+    "key_strengths": [
+      "Deep Python knowledge",
+      "Clear communication style",
+      "Relevant AWS experience"
+    ],
+    "key_gaps": [
+      "Limited mention of testing practices",
+      "No experience with PostgreSQL at scale"
+    ],
+    "proctoring_remarks": "One minor tab-switch event recorded. Overall integrity verified.",
+    "risk_level": "Low",
+    "hire_recommendation": "Recommend",
+    "hire_justification": "Strong technical fit with demonstrated experience directly relevant to the role.",
+    "suggested_next_steps": [
+      "Schedule a follow-up technical round with the engineering team",
+      "Request a code sample or GitHub portfolio review"
+    ]
+  },
+  "responses": [
+    {
+      "question_number": 1,
+      "question_type": "technical",
+      "topic": "Python",
+      "question": "How would you implement rate limiting in a FastAPI application?",
+      "answer": "I would use a combination of Redis and a token bucket algorithm...",
+      "score": 9,
+      "feedback": "Strong answer demonstrating solid architecture grasp.",
+      "answer_time_seconds": 45
+    }
   ]
 }
 ```

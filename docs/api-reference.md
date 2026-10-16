@@ -5,8 +5,9 @@ All routes are served by the same Flask application on both servers:
 - Candidate Portal: `https://<server-ip>:5000`
 
 Routes marked **[Auth Required]** require an active HR session (`session["logged_in"] = True`).  
-Routes marked **[Token]** require a valid interview token.  
-Routes under `/candidate-interview/` are public (token-validated internally).
+State-changing requests (`POST`, `PUT`, `DELETE`, `PATCH`) on HR routes additionally require a valid CSRF token in the `X-CSRF-Token` header.  
+Routes marked **[Token]** require a valid interview session key (`X-Session-Key`).  
+Routes under `/candidate-interview/` are public entrypoints that validate candidate interview tokens internally.
 
 ---
 
@@ -397,24 +398,58 @@ Returns the current proctoring status for the candidate's session.
 ---
 
 ## Reports
-
+ 
 ### `GET /reports`
 **[Auth Required]**  
-Returns the reports page listing all completed interviews.
-
+Returns the reports HTML page listing all completed interviews, proctor logs, and generated evaluation dossiers.
+ 
 ---
-
-### `POST /api/reports/generate`
-**[Auth Required]**  
-Generates a PDF report for a completed interview.
-
-**Request body:**
+ 
+### `POST /api/generate-reports`
+**[Auth Required] [CSRF Required]**  
+Batch-generates AI evaluation reports and summaries for all completed interview transcripts in `data/output/interviews/`.
+ 
+**Response (success):**
 ```json
-{ "session_id": "..." }
+{
+  "success": true,
+  "count": 1,
+  "reports": [
+    {
+      "candidate_name": "Olivia Cox",
+      "combined_score": 82,
+      "hire_recommendation": "Recommend",
+      "risk_level": "Low",
+      "key_strengths": ["Strong Python foundation", "Clear communication"],
+      "key_gaps": ["Limited distributed systems exposure"]
+    }
+  ]
+}
 ```
-
-**Response:**  
-PDF file download (Content-Type: `application/pdf`)
+ 
+---
+ 
+### `GET /api/report-pdf/<filename>`
+**[Auth Required]**  
+Generates and streams the Material Design 3 monochrome PDF evaluation dossier as a file download.
+ 
+**Parameters:** `filename` — Name of the report JSON file (e.g. `report_olivia_cox_20261016.json`).
+ 
+**Response:** PDF document (`Content-Type: application/pdf`).
+ 
+---
+ 
+### `GET /api/save-report-pdf/<filename>`
+**[Auth Required]**  
+Generates and writes the PDF report to `data/output/reports/report_<candidate>.pdf` and attempts to open it in the default system viewer.
+ 
+**Response:**
+```json
+{
+  "success": true,
+  "path": "C:\\...\\data\\output\\reports\\report_olivia_cox.pdf"
+}
+```
 
 ---
 

@@ -58,7 +58,7 @@ copy "%LOCALAPPDATA%\AI Recruitment System\data\ars.db" "D:\Backup\ars_backup.db
 copy "%LOCALAPPDATA%\AI Recruitment System\.secret_salt" "D:\Backup\.secret_salt"
 ```
 
-Always back up both `ars.db` AND `.secret_salt` together — the database contains encrypted API keys that can only be decrypted with the matching salt.
+Always back up both `ars.db` AND `.secret_salt` together — the database and files contain encrypted API keys, candidate PII, and resumes that can only be decrypted with the matching salt.
 
 ### Resume and Output Files Backup
 
