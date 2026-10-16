@@ -68,6 +68,7 @@ def create_app():
     app.config.update(
         MAX_CONTENT_LENGTH=_max_upload_size(),
         SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=False,  # Plain HTTP on loopback (127.0.0.1:5001) for HR desktop UI
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         _NONCE_POOL=set(),

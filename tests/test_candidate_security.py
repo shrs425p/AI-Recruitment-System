@@ -135,3 +135,18 @@ def test_candidate_answer_uses_server_issued_question(monkeypatch):
     assert response.status_code == 200
     assert recorded["question"] == "Question 1"
     assert recorded["domain"] == "Introduction"
+
+
+def test_session_cookie_flags_for_hr_and_candidate_apps():
+    from app import create_app, create_candidate_app
+    hr_app = create_app()
+    cand_app = create_candidate_app()
+
+    assert hr_app.config["SESSION_COOKIE_HTTPONLY"] is True
+    assert hr_app.config["SESSION_COOKIE_SECURE"] is False
+    assert hr_app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+    assert cand_app.config["SESSION_COOKIE_HTTPONLY"] is True
+    assert cand_app.config["SESSION_COOKIE_SECURE"] is True
+    assert cand_app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
