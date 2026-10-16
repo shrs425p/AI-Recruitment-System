@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import socket
+import ssl
 import sys
 import threading
 import time
@@ -9,6 +10,8 @@ import traceback
 from pathlib import Path
 
 import webview
+from waitress import serve as waitress_serve
+from waitress.server import TcpWSGIServer
 
 # Add directories to search paths so imports load seamlessly
 ROOT_DIR = Path(__file__).parent.resolve()
@@ -273,10 +276,6 @@ def run_flask_https():
     # This is intentional: candidate_app isolates candidate-only routes.
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")
 
-    import ssl
-
-    from waitress.server import TcpWSGIServer
-
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
 
@@ -299,7 +298,6 @@ def run_flask_https():
 
 
 def run_flask_http_local():
-    from waitress import serve as waitress_serve
     # The desktop UI is served only on loopback, but it is still a production
     # request server. Waitress avoids Flask's development server and debugger.
     _threads = _env_port("ARS_SERVER_THREADS", 8)  # env override for concurrency tuning
