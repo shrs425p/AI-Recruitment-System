@@ -2,11 +2,22 @@ import argparse
 import datetime as dt
 import os
 import random
+import sys
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+try:
+    from src.common import data_dir
+
+    DEFAULT_OUTPUT = str(data_dir("resumes"))
+except Exception:
+    DEFAULT_OUTPUT = os.path.join(ROOT_DIR, "data", "resumes")
+
 MONTHS = [
     "Jan",
     "Feb",
@@ -576,8 +587,8 @@ PROJECT_BULLETS = [
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate synthetic resume PDFs.")
-    parser.add_argument("--count", type=int, default=100)
-    parser.add_argument("--output", default=os.path.join("data", "resumes"))
+    parser.add_argument("--count", type=int, default=20, help="Number of synthetic resumes to generate (default: 20)")
+    parser.add_argument("--output", default=DEFAULT_OUTPUT, help=f"Destination directory (default: {DEFAULT_OUTPUT})")
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
