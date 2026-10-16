@@ -89,6 +89,11 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
             base_url = "https://api.openai.com/v1"
         elif name == "groq":
             base_url = "https://api.groq.com/openai/v1"  # openai not openapi
+        elif name == "ollama_cloud":
+            base_url = provider.get("key") or provider.get("base_url") or ""
+            parsed = urlparse(base_url)
+            if parsed.scheme != "https":
+                raise RuntimeError("Ollama Cloud base URL must use HTTPS.")
 
         url = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
@@ -96,7 +101,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
             "Content-Type": "application/json"
         }
         if name == "ollama_cloud":
-            headers = {"Content-Type": "application/json"} # no auth key required
+            headers = {"Content-Type": "application/json"}  # no auth key required
 
         payload = {
             "model": model,

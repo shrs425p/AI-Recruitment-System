@@ -238,12 +238,21 @@ def register_settings_routes(app):
                 # Fallback to standard github models
                 models = ["gpt-4o", "gpt-4o-mini", "meta-llama-3-70b-instruct", "meta-llama-3-8b-instruct"]
             elif provider == "ollama_cloud":
-                base = key if key else "http://localhost:11434"
+                base = (key or "").strip()
+                if not base:
+                    return jsonify({"success": False, "error": "Ollama Cloud URL is required."}), 400
+                from urllib.parse import urlparse
+                parsed = urlparse(base)
+                if parsed.scheme != "https":
+                    return jsonify({"success": False, "error": "Ollama Cloud URL must use HTTPS."}), 400
                 url = f"{base.rstrip('/')}/api/tags"
                 req = urllib.request.Request(url)
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    resp_data = json.loads(resp.read().decode())
-                    models = [m["name"] for m in resp_data.get("models", [])]
+                try:
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        resp_data = json.loads(resp.read().decode())
+                        models = [m["name"] for m in resp_data.get("models", [])]
+                except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
+                    return jsonify({"success": False, "error": f"Failed to connect to Ollama Cloud: {e}"}), 400
         except urllib.error.HTTPError as e:
             return jsonify({"success": False, "error": f"API Key rejected or error (HTTP {e.code})"})
         except Exception as e:
