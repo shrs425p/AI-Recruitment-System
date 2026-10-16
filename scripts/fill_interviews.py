@@ -2,8 +2,9 @@
 scripts/fill_interviews.py — Auto-fill and complete candidate interviews for active tokens.
 """
 import json
-import random
+import os
 import re
+import secrets
 import sys
 import time
 import uuid
@@ -177,7 +178,7 @@ def fill_candidate_interview(token_row: dict) -> Path:
 
     for idx, (q_num, q_type, topic, question, answer) in enumerate(q_specs):
         sc = score_choices[(idx + hash(name)) % len(score_choices)]
-        dur = random.randint(40, 75)
+        dur = 40 + secrets.randbelow(36)
         responses.append({
             "question_num": q_num,
             "type": q_type,
@@ -202,7 +203,7 @@ def fill_candidate_interview(token_row: dict) -> Path:
             },
             "answer_flags": [],
             "time_taken": dur,
-            "server_verified_time": round(dur + random.uniform(0.1, 0.8), 1),
+            "server_verified_time": round(dur + (secrets.randbelow(8) + 1) / 10.0, 1),
         })
 
     technical = [r for r in responses if r["type"] == "TECHNICAL"]
@@ -219,7 +220,7 @@ def fill_candidate_interview(token_row: dict) -> Path:
         "session_id": session_id,
         "token": token,
         "session_key": session_key,
-        "remote_addr": "10.13.214.176",
+        "remote_addr": os.environ.get("CANDIDATE_CLIENT_IP", "127.0.0.1"),
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "candidate_name": name,
         "source_file": source_file,

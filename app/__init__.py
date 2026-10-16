@@ -128,6 +128,7 @@ def create_app():
         SESSION_COOKIE_SECURE=False,  # Plain HTTP on loopback (127.0.0.1:5001) for HR desktop UI
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+        WTF_CSRF_ENABLED=True,
         _NONCE_POOL=set(),
         _NONCE_LOCK=threading.Lock(),
     )
@@ -194,8 +195,10 @@ def create_candidate_app():
         SESSION_COOKIE_SECURE=True,  # Candidate portal is served strictly over HTTPS
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=4),
+        WTF_CSRF_ENABLED=True,
     )
     register_error_handlers(app)
+    register_csrf_protection(app)
 
     @app.after_request
     def add_security_headers(response):
