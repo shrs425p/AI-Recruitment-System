@@ -45,6 +45,7 @@ def register_reports_routes(app):
         return render_template("reports.html", reports=reports_data, summary=summary)
 
     @app.route("/api/generate-reports", methods=["POST"])
+    @login_required
     def api_generate_reports():
         interviews_path = OUTPUT_FOLDER / "interviews"
         output_path     = OUTPUT_FOLDER / "reports"
