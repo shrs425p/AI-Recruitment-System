@@ -39,6 +39,8 @@ def test_job_template_api_endpoints(tmp_path, monkeypatch):
     with client.session_transaction() as sess:
         sess["logged_in"] = True
         sess["desktop_session"] = True
+        sess["_csrf_token"] = "csrf-template-test"
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = "csrf-template-test"
 
 
     # POST create template
@@ -99,6 +101,8 @@ def test_upload_rejects_unsupported_files_and_preserves_duplicates(tmp_path, mon
     with client.session_transaction() as sess:
         sess["logged_in"] = True
         sess["desktop_session"] = True
+        sess["_csrf_token"] = "csrf-upload-test"
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = "csrf-upload-test"
 
 
     response = client.post(

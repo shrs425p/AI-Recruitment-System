@@ -1,9 +1,10 @@
+import hmac
 import os
 import secrets
 import threading
 from datetime import timedelta
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, session
 
 import config
 from app.utils import protect_hr_routes
@@ -55,6 +56,42 @@ def register_error_handlers(app: Flask):
         return _error_response(500, "An internal server error occurred.")
 
 
+def register_csrf_protection(app: Flask):
+    """Enforce CSRF protection on state-changing endpoints for authenticated HR sessions."""
+
+    @app.before_request
+    def ensure_csrf_token():
+        if "_csrf_token" not in session:
+            session["_csrf_token"] = secrets.token_hex(32)
+
+    @app.context_processor
+    def inject_csrf_token():
+        def get_csrf_token():
+            if "_csrf_token" not in session:
+                session["_csrf_token"] = secrets.token_hex(32)
+            return session["_csrf_token"]
+        return {"csrf_token": get_csrf_token}
+
+    @app.before_request
+    def validate_csrf():
+        # Only validate state-changing methods
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return None
+        # Only protect /api/ endpoints
+        if not request.path.startswith("/api/"):
+            return None
+        # Allowlist candidate-facing endpoints and desktop login bootstrap
+        if request.path.startswith("/api/candidate/") or request.path in ("/api/desktop-login", "/api/health"):
+            return None
+        # If an HR session is active, require a valid X-CSRF-Token
+        if session.get("logged_in"):
+            expected = session.get("_csrf_token")
+            provided = request.headers.get("X-CSRF-Token")
+            if not expected or not provided or not hmac.compare_digest(provided, expected):
+                return jsonify({"error": "CSRF token missing or invalid", "code": 403}), 403
+        return None
+
+
 def create_app():
     templates_dir = str(APP_RESOURCE_DIR / "app" / "templates")
     static_dir = str(APP_RESOURCE_DIR / "app" / "static")
@@ -76,6 +113,7 @@ def create_app():
     )
     register_error_handlers(app)
     protect_hr_routes(app)
+    register_csrf_protection(app)
 
     @app.after_request
     def add_security_headers(response):

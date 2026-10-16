@@ -63,3 +63,5 @@ Thumbs.db
 installer_output/
 hardcoded_results.json
 hardcodes.json
+AUDIT_REPORT.md
+ROUTE_INVENTORY.md

@@ -13,6 +13,8 @@ def _auth_client():
     with client.session_transaction() as sess:
         sess["logged_in"] = True
         sess["desktop_session"] = True
+        sess["_csrf_token"] = "csrf-ollama-test"
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = "csrf-ollama-test"
     return client
 
 
