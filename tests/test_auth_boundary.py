@@ -109,10 +109,11 @@ def test_hr_app_blocks_unauthenticated_requests():
         assert res.get_json().get("code") == 401
 
 
-def test_candidate_happy_path_with_valid_token(monkeypatch):
+def test_candidate_happy_path_with_valid_token(monkeypatch, tmp_path):
     """Candidate can complete an interview flow with a valid, active token."""
     token = "T_VALID_123"
     _setup_interview_stubs(monkeypatch, _sample_token(used=0))
+    monkeypatch.setattr(interview_routes, "OUTPUT_FOLDER", tmp_path)
 
     cand_app = create_candidate_app()
     client = cand_app.test_client()
