@@ -500,7 +500,7 @@ def generate_interview_question(
             # Strip extra quotes or prefixes if the AI generated them
             cleaned = raw.strip().strip('"').strip("'").strip()
             # If the AI put a prefix like "Q: " or "Question: ", strip it
-            cleaned = re.sub(r'^(Q|Question\s*\d*)\s*:\s*', '', cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r'^(?:Question(?:\s+\d+|\d+)?|Q\d*)\s*:\s*', '', cleaned, flags=re.IGNORECASE)
             return cleaned.strip()
     except Exception as e:
         logger.info(f"  [ERROR] Single question generation failed: {e}")

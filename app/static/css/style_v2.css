@@ -465,6 +465,19 @@ html, body {
 /* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
    FORM ELEMENTS
    ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* Accessibility: Screen-reader-only utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .form-group {
     margin-bottom: 16px;
 }
@@ -836,6 +849,7 @@ tbody tr:hover td {
     border: 1px solid var(--md-sys-color-outline-variant);
     border-radius: var(--radius-pill); /* Pill shapes */
     cursor: pointer;
+    font-family: inherit;
     font-size: 13px;
     font-weight: 600;
     transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
@@ -843,6 +857,8 @@ tbody tr:hover td {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    width: 100%;
+    text-align: left;
 }
 
 .slot-option:hover {

@@ -24,7 +24,9 @@
     </div>
 
     <div class="form-group">
+        <label for="jdInput" class="sr-only">Job Description</label>
         <textarea class="form-input" id="jdInput" rows="10"
+            aria-label="Job Description"
             placeholder="Paste the full job description here...">{{ saved_jd | default('') }}</textarea>
     </div>
 
@@ -148,7 +150,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt" crossorigin="anonymous"></script>
 <script type="application/json" id="rankingData">
     {% if ranking %}{{ ranking.ranked_candidates | tojson }}{% else %}null{% endif %}
 </script>

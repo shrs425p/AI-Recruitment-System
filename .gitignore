@@ -57,6 +57,7 @@ dist/
 # IDEs, Editors & Operating System
 .vscode/
 .idea/
+.sonarlint/
 *.swp
 *.swo
 .DS_Store

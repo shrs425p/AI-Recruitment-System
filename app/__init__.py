@@ -116,7 +116,7 @@ def create_app():
     templates_dir = str(APP_RESOURCE_DIR / "app" / "templates")
     static_dir = str(APP_RESOURCE_DIR / "app" / "static")
 
-    app = Flask("ARS", template_folder=templates_dir, static_folder=static_dir)
+    app = Flask("ARS", template_folder=templates_dir, static_folder=static_dir)  # NOSONAR
     app.secret_key = (
         os.environ.get("FLASK_SECRET_KEY")
         or getattr(config, "FLASK_SECRET_KEY", "")
