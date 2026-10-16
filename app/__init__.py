@@ -93,6 +93,25 @@ def register_csrf_protection(app: Flask):
         return None
 
 
+def _apply_security_headers(response):
+    response.headers.setdefault("Cache-Control", "no-store")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'self';"
+    )
+    response.headers.setdefault("Content-Security-Policy", csp)
+    return response
+
+
 def create_app():
     templates_dir = str(APP_RESOURCE_DIR / "app" / "templates")
     static_dir = str(APP_RESOURCE_DIR / "app" / "static")
@@ -118,11 +137,7 @@ def create_app():
 
     @app.after_request
     def add_security_headers(response):
-        response.headers.setdefault("Cache-Control", "no-store")
-        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-        return response
+        return _apply_security_headers(response)
 
     @app.context_processor
     def inject_config():
@@ -184,11 +199,7 @@ def create_candidate_app():
 
     @app.after_request
     def add_security_headers(response):
-        response.headers.setdefault("Cache-Control", "no-store")
-        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-        return response
+        return _apply_security_headers(response)
 
     @app.context_processor
     def inject_config():

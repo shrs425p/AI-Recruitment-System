@@ -156,3 +156,17 @@ def test_session_cookie_flags_for_hr_and_candidate_apps():
     assert cand_app.config["SESSION_COOKIE_SECURE"] is True
     assert cand_app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
 
+
+def test_csp_headers_no_unsafe_eval():
+    from app import create_app, create_candidate_app
+
+    for app_factory in (create_app, create_candidate_app):
+        app = app_factory()
+        with app.test_client() as client:
+            resp = client.get("/api/health")
+            csp = resp.headers.get("Content-Security-Policy", "")
+            assert csp != ""
+            assert "default-src 'self'" in csp
+            assert "'unsafe-eval'" not in csp
+
+
