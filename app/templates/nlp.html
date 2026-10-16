@@ -114,8 +114,8 @@
     let _nlpStart = 0;   // nlp_count at time of button click
 
     function _startNlpPoll() {
-        _nlpTotal = parseInt(document.getElementById('txtTotal').textContent) || 0;
-        _nlpStart = parseInt(document.getElementById('nlpCount').textContent) || 0;
+        _nlpTotal = Number.parseInt(document.getElementById('txtTotal').textContent, 10) || 0;
+        _nlpStart = Number.parseInt(document.getElementById('nlpCount').textContent, 10) || 0;
         const toProcess = _nlpTotal - _nlpStart;
 
         _nlpTimer = setInterval(async () => {

@@ -94,9 +94,8 @@ def check_tesseract():
     if os.path.exists(cmd):
         print(f"OK (System binary found at {cmd})")
         return True
-    else:
-        print(f"WARNING (Bundled Tesseract binary not at {bundled_cmd} — fallback to system PATH)")
-        return True
+    print(f"WARNING (Bundled Tesseract binary not at {bundled_cmd} — fallback to system PATH)")
+    return False
 
 
 def check_ollama():
@@ -109,10 +108,10 @@ def check_ollama():
                 print("OK (Ollama server reachable at http://localhost:11434)")
                 return True
     except Exception as e:
-        print(f"WARNING (Ollama service not responding on http://localhost:11434: {e})")
+        print(f"INFO (Ollama service not responding on http://localhost:11434: {e})")
         print("      Note: Privacy AI mode requires Ollama. Run 'ollama serve' if needed.")
-        return True
-    return True
+        return False
+    return False
 
 
 def main():
@@ -120,16 +119,16 @@ def main():
     print("  AI RECRUITMENT SYSTEM — PRODUCTION PRE-FLIGHT VERIFIER")
     print("=" * 60)
 
-    results = [
+    core_results = [
         check_python_version(),
         check_dependencies(),
         check_database(),
-        check_tesseract(),
-        check_ollama(),
     ]
+    check_tesseract()
+    check_ollama()
 
     print("-" * 60)
-    if all(results):
+    if all(core_results):
         print("STATUS: SUCCESS — Environment is production-ready!")
         return 0
     else:

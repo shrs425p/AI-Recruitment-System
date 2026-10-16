@@ -29,7 +29,8 @@
         </div>
         <div class="upload-title">Click to browse or drag &amp; drop</div>
         <div class="upload-sub">PDF, PNG, JPG, JPEG — multiple files supported</div>
-        <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+        <label for="fileInput" class="sr-only">Upload resume files</label>
+        <input type="file" id="fileInput" aria-label="Upload resume files" multiple accept=".pdf,.png,.jpg,.jpeg" style="display:none">
     </div>
 
     <div class="file-list" id="uploadList"></div>
@@ -105,7 +106,7 @@
             }
         });
         document.getElementById('pdfCount').textContent =
-            parseInt(document.getElementById('pdfCount').textContent) + data.count;
+            Number.parseInt(document.getElementById('pdfCount').textContent, 10) + data.count;
         showToast(`${data.count} file(s) uploaded`, 'success');
     }
 
@@ -114,7 +115,7 @@
     let _extractTotal = 0;
 
     function _startExtractPoll() {
-        _extractTotal = parseInt(document.getElementById('pdfCount').textContent) || 0;
+        _extractTotal = Number.parseInt(document.getElementById('pdfCount').textContent, 10) || 0;
         _extractTimer = setInterval(async () => {
             try {
                 const res = await fetch('/api/stats');

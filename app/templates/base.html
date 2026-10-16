@@ -115,8 +115,7 @@
             color: var(--red);
         }
     </style>
-    
-    <div class="custom-title-bar" ondblclick="if(window.pywebview && window.pywebview.api) window.pywebview.api.maximize()">
+    <div class="custom-title-bar">
         <div class="title-bar-brand" style="display: flex; align-items: center; gap: 8px;">
             <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Icon" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
             <span class="title">AI Recruitment System</span>
@@ -357,6 +356,15 @@
         function hideOverlay() {
             document.getElementById('aiOverlay').style.display = 'none';
         }
+        // ── Custom Title Bar dblclick maximize ──
+        const _tb = document.querySelector('.custom-title-bar');
+        if (_tb) {
+            _tb.addEventListener('dblclick', function(e) {
+                if (e.target.closest('.window-controls')) return;
+                if (window.pywebview && window.pywebview.api) window.pywebview.api.maximize();
+            });
+        }
+
         // ── Global Stats Poller (runs on every page every 2 s) ──
         (function () {
             let _t = null;

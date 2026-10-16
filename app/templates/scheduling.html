@@ -95,21 +95,21 @@
             <div class="card-desc">Enter job title and hiring manager name.</div>
 
             <div class="form-group">
-                <label class="form-label">Job Title</label>
-                <input type="text" class="form-input" id="jobTitle" placeholder="e.g. Senior Financial Accountant" value="{% if ranking and ranking.job_description and ranking.job_description.job_title %}{{ ranking.job_description.job_title }}{% endif %}">
+                <label class="form-label" for="jobTitle">Job Title</label>
+                <input type="text" class="form-input" id="jobTitle" aria-label="Job Title" placeholder="e.g. Senior Financial Accountant" value="{% if ranking and ranking.job_description and ranking.job_description.job_title %}{{ ranking.job_description.job_title }}{% endif %}">
             </div>
             <div class="form-group">
-                <label class="form-label">Hiring Manager Name</label>
-                <input type="text" class="form-input" id="hrName" placeholder="e.g. Shreyas Pawar">
+                <label class="form-label" for="hrName">Hiring Manager Name</label>
+                <input type="text" class="form-input" id="hrName" aria-label="Hiring Manager Name" placeholder="e.g. Shreyas Pawar">
             </div>
             <div class="form-group">
-                <label class="form-label">Hiring Manager Email <span
+                <label class="form-label" for="hrEmail">Hiring Manager Email <span
                         style="color:var(--gray-400); font-weight:400;">(for Google Calendar invites)</span></label>
-                <input type="email" class="form-input" id="hrEmail" placeholder="e.g. hr@company.com">
+                <input type="email" class="form-input" id="hrEmail" aria-label="Hiring Manager Email" placeholder="e.g. hr@company.com">
             </div>
             <div class="form-group">
-                <label class="form-label">Candidates to Schedule</label>
-                <input type="number" class="form-input" id="topN" min="1" max="50" value="10">
+                <label class="form-label" for="topN">Candidates to Schedule</label>
+                <input type="number" class="form-input" id="topN" aria-label="Candidates to Schedule" min="1" max="50" value="10">
             </div>
         </div>
 
@@ -122,15 +122,18 @@
 
             <div id="slotsContainer">
                 <div class="slot-input-row">
-                    <input type="text" class="form-input" placeholder="2026-03-01 10:00">
+                    <label for="slotInput1" class="sr-only">Available time slot 1</label>
+                    <input type="text" class="form-input" id="slotInput1" aria-label="Available time slot 1" placeholder="2026-03-01 10:00">
                     <button class="btn-remove" onclick="removeSlot(this)">×</button>
                 </div>
                 <div class="slot-input-row">
-                    <input type="text" class="form-input" placeholder="2026-03-01 14:00">
+                    <label for="slotInput2" class="sr-only">Available time slot 2</label>
+                    <input type="text" class="form-input" id="slotInput2" aria-label="Available time slot 2" placeholder="2026-03-01 14:00">
                     <button class="btn-remove" onclick="removeSlot(this)">×</button>
                 </div>
                 <div class="slot-input-row">
-                    <input type="text" class="form-input" placeholder="2026-03-02 10:00">
+                    <label for="slotInput3" class="sr-only">Available time slot 3</label>
+                    <input type="text" class="form-input" id="slotInput3" aria-label="Available time slot 3" placeholder="2026-03-02 10:00">
                     <button class="btn-remove" onclick="removeSlot(this)">×</button>
                 </div>
             </div>
@@ -195,10 +198,10 @@
                     {% if entry.offered_slots %}
                     <div class="slot-options" id="slots-{{ loop.index }}">
                         {% for slot in entry.offered_slots %}
-                        <div class="slot-option {% if slot == entry.selected_slot %}selected{% endif %}"
+                        <button type="button" class="slot-option {% if slot == entry.selected_slot %}selected{% endif %}"
                             onclick="selectSlot(this, '{{ entry.candidate_name }}', '{{ slot }}', 'slots-{{ loop.index }}')">
                             {{ slot }}
-                        </div>
+                        </button>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -259,7 +262,7 @@
         const container = document.getElementById('slotsContainer');
         const row = document.createElement('div');
         row.className = 'slot-input-row';
-        row.innerHTML = `<input type="text" class="form-input" placeholder="YYYY-MM-DD HH:MM">
+        row.innerHTML = `<input type="text" class="form-input" aria-label="Available time slot" placeholder="YYYY-MM-DD HH:MM">
                      <button class="btn-remove" onclick="removeSlot(this)">×</button>`;
         container.appendChild(row);
     }
@@ -406,10 +409,10 @@
                 : entry.status === 'SKIPPED' ? 'badge-gray'
                     : 'badge-amber';
             const slotsHtml = (entry.offered_slots || []).map(slot => `
-            <div class="slot-option ${slot === entry.selected_slot ? 'selected' : ''}"
+            <button type="button" class="slot-option ${slot === entry.selected_slot ? 'selected' : ''}"
                  onclick="selectSlot(this,'${entry.candidate_name}','${slot}','dyn-slots-${idx}')">
                 ${slot}
-            </div>`).join('');
+            </button>`).join('');
 
             return `
         <div style="padding:12px 14px;border:1px solid var(--gray-100);border-radius:var(--radius);background:var(--white);">
@@ -435,7 +438,7 @@
         const jobTitle = document.getElementById('jobTitle').value.trim();
         const hrName = document.getElementById('hrName').value.trim();
         const hrEmail = document.getElementById('hrEmail').value.trim();
-        const topN = parseInt(document.getElementById('topN').value || '10', 10);
+        const topN = Number.parseInt(document.getElementById('topN').value || '10', 10);
         const slots = getSlots();
 
         if (!jobTitle) { showToast('Enter a job title', 'error'); return; }
