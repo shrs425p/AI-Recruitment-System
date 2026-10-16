@@ -33,6 +33,7 @@ def register_upload_routes(app):
         return render_template("upload.html", pdf_count=pdf_count, txt_count=txt_count)
 
     @app.route("/api/upload", methods=["POST"])
+    @login_required
     def api_upload():
         files = request.files.getlist("resumes")
         saved = []
