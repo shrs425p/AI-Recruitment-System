@@ -226,10 +226,8 @@
     }
 
     .about-card h3 {
-        font-size: 16px;
         font-weight: 700;
         color: var(--md-sys-color-primary);
-        letter-spacing: -0.2px;
         margin-top: 16px;
         margin-bottom: 4px;
         display: flex;
@@ -346,13 +344,13 @@
             <div id="loginFields" {% if not cfg.LOGIN_ENABLED %}style="display:none;"{% endif %}>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                     <div class="form-group">
-                        <label class="form-label">Username</label>
-                        <input class="form-input" name="hr_username" value="{{ cfg.HR_USERNAME }}" placeholder="hr">
+                        <label class="form-label" for="hrUsername">Username</label>
+                        <input class="form-input" id="hrUsername" name="hr_username" value="{{ cfg.HR_USERNAME }}" placeholder="hr">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Password <span style="font-weight:400; color:var(--gray-400);">(leave
+                        <label class="form-label" for="hrPassword">Password <span style="font-weight:400; color:var(--gray-400);">(leave
                                 blank to keep current)</span></label>
-                        <input class="form-input" name="hr_password" type="password" placeholder="••••••••">
+                        <input class="form-input" id="hrPassword" name="hr_password" type="password" placeholder="••••••••">
                     </div>
                 </div>
             </div>
@@ -365,7 +363,7 @@
 
             <div style="display:flex; flex-direction:column; gap:16px;">
                 <div>
-                    <label class="form-label" style="margin-bottom:8px;">Theme Mode</label>
+                    <div class="form-label" style="margin-bottom:8px;">Theme Mode</div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
                         <label class="theme-opt {{ 'active' if cfg.THEME == 'light' }}"
                             style="border-radius:var(--radius-pill); padding:8px 20px;">
@@ -383,7 +381,7 @@
                 </div>
 
                 <div>
-                    <label class="form-label" style="margin-bottom:8px;">Color Palette</label>
+                    <div class="form-label" style="margin-bottom:8px;">Color Palette</div>
                     <div style="display:flex; gap:12px; flex-wrap:wrap;">
                         <!-- Lavender -->
                         <label
@@ -446,18 +444,18 @@
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                 <div class="form-group">
-                    <label class="form-label">Display Name</label>
-                    <input class="form-input" name="display_name" value="{{ cfg.HR_DISPLAY_NAME }}"
+                    <label class="form-label" for="hrDisplayName">Display Name</label>
+                    <input class="form-input" id="hrDisplayName" name="display_name" value="{{ cfg.HR_DISPLAY_NAME }}"
                         placeholder="HR Admin">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input class="form-input" name="email" type="email" value="{{ cfg.HR_EMAIL }}"
+                    <label class="form-label" for="hrEmailField">Email</label>
+                    <input class="form-input" id="hrEmailField" name="email" type="email" value="{{ cfg.HR_EMAIL }}"
                         placeholder="hr@company.com">
                 </div>
                 <div class="form-group" style="grid-column:span 2;">
-                    <label class="form-label">Company / Organisation</label>
-                    <input class="form-input" name="company" value="{{ cfg.HR_COMPANY }}" placeholder=" Shrs ">
+                    <label class="form-label" for="hrCompany">Company / Organisation</label>
+                    <input class="form-input" id="hrCompany" name="company" value="{{ cfg.HR_COMPANY }}" placeholder=" Shrs ">
                 </div>
             </div>
         </div>
@@ -672,7 +670,7 @@
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
                     <div class="form-group">
-                        <label class="form-label">Active Model</label>
+                        <label class="form-label" for="ollamaModelSelect">Active Model</label>
                         <div style="display:flex; gap:8px;">
                             <select class="form-input" name="privacy_model" id="ollamaModelSelect" style="flex:1;">
                                 <option value="{{ cfg.PRIVACY_MODEL }}">{{ cfg.PRIVACY_MODEL }}</option>
@@ -684,8 +682,8 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Local Server URL</label>
-                        <input class="form-input" name="ollama_base_url" value="{{ cfg.OLLAMA_BASE_URL }}"
+                        <label class="form-label" for="ollamaBaseUrl">Local Server URL</label>
+                        <input class="form-input" id="ollamaBaseUrl" name="ollama_base_url" value="{{ cfg.OLLAMA_BASE_URL }}"
                             placeholder="http://localhost:11434">
                     </div>
                 </div>
@@ -693,7 +691,7 @@
                 <!-- Silent Setup Console -->
                 <div style="margin-top:20px; padding-top:18px; border-top:1px solid var(--gray-100);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <label class="form-label" style="margin-bottom:0;">Local Environment Bootstrapper</label>
+                        <div class="form-label" style="margin-bottom:0;">Local Environment Bootstrapper</div>
                         <button type="button" class="btn btn-secondary" id="btnStartSetup" onclick="startPrivacySetup()"
                             style="font-size:0.8rem; padding:6px 14px;">
                             Initialize Environment
@@ -756,12 +754,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="anthropic_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="anthropic_key" id="anthropic_key" type="password"
                             value="{{ cfg.ANTHROPIC_KEY }}" placeholder="sk-ant-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="anthropic_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="anthropic_model" id="anthropic_model"
                                 value="{{ cfg.ANTHROPIC_MODEL }}" placeholder="claude-3-5-haiku-latest"
@@ -798,12 +796,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="gemini_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="gemini_key" id="gemini_key" type="password"
                             value="{{ cfg.GEMINI_KEY }}" placeholder="AIza...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="gemini_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="gemini_model" id="gemini_model"
                                 value="{{ cfg.GEMINI_MODEL }}" placeholder="gemini-1.5-flash" list="dl-gemini"
@@ -840,12 +838,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="groq_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="groq_key" id="groq_key" type="password"
                             value="{{ cfg.GROQ_KEY }}" placeholder="gsk_...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="groq_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="groq_model" id="groq_model" value="{{ cfg.GROQ_MODEL }}"
                                 placeholder="llama3-8b-8192" list="dl-groq" style="flex:1;">
@@ -881,12 +879,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="openai_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="openai_key" id="openai_key" type="password"
                             value="{{ cfg.OPENAI_KEY }}" placeholder="sk-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="openai_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="openai_model" id="openai_model"
                                 value="{{ cfg.OPENAI_MODEL }}" placeholder="gpt-4o-mini" list="dl-openai"
@@ -923,12 +921,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="nvidia_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="nvidia_key" id="nvidia_key" type="password"
                             value="{{ cfg.NVIDIA_KEY }}" placeholder="nvapi-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="nvidia_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="nvidia_model" id="nvidia_model"
                                 value="{{ cfg.NVIDIA_MODEL }}" placeholder="meta/llama-3.3-70b-instruct"
@@ -965,12 +963,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="openrouter_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="openrouter_key" id="openrouter_key" type="password"
                             value="{{ cfg.OPENROUTER_KEY }}" placeholder="sk-or-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="openrouter_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="openrouter_model" id="openrouter_model"
                                 value="{{ cfg.OPENROUTER_MODEL }}" placeholder="meta-llama/llama-3.1-8b-instruct:free"
@@ -1007,12 +1005,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">GitHub Token</label>
+                        <label class="form-label" for="github_key" style="font-size:0.8rem;">GitHub Token</label>
                         <input class="form-input" name="github_key" id="github_key" type="password"
                             value="{{ cfg.GITHUB_KEY }}" placeholder="ghp_...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="github_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="github_model" id="github_model"
                                 value="{{ cfg.GITHUB_MODEL }}" placeholder="gpt-4o-mini" list="dl-github"
@@ -1049,12 +1047,12 @@
                 </div>
                 <div class="provider-grid">
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">API Key</label>
+                        <label class="form-label" for="ollama_cloud_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="ollama_cloud_key" id="ollama_cloud_key" type="password"
                             value="{{ cfg.OLLAMA_CLOUD_KEY }}" placeholder="ollama_...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
-                        <label class="form-label" style="font-size:0.8rem;">Model</label>
+                        <label class="form-label" for="ollama_cloud_model" style="font-size:0.8rem;">Model</label>
                         <div style="display:flex; gap:6px;">
                             <input class="form-input" name="ollama_cloud_model" id="ollama_cloud_model"
                                 value="{{ cfg.OLLAMA_CLOUD_MODEL }}" placeholder="llama3.2:3b" list="dl-ollama-cloud"
@@ -1102,22 +1100,22 @@
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                 <div class="form-group">
-                    <label class="form-label">Gmail Address</label>
-                    <input class="form-input" name="smtp_email" type="email" value="{{ cfg.SMTP_EMAIL }}"
+                    <label class="form-label" for="smtpEmail">Gmail Address</label>
+                    <input class="form-input" id="smtpEmail" name="smtp_email" type="email" value="{{ cfg.SMTP_EMAIL }}"
                         placeholder="hr@gmail.com">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">App Password</label>
-                    <input class="form-input" name="smtp_password" type="password" value="{{ cfg.SMTP_PASSWORD }}"
+                    <label class="form-label" for="smtpPassword">App Password</label>
+                    <input class="form-input" id="smtpPassword" name="smtp_password" type="password" value="{{ cfg.SMTP_PASSWORD }}"
                         placeholder="xxxx xxxx xxxx xxxx">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">SMTP Host</label>
-                    <input class="form-input" name="smtp_host" value="{{ cfg.SMTP_HOST }}" placeholder="smtp.gmail.com">
+                    <label class="form-label" for="smtpHost">SMTP Host</label>
+                    <input class="form-input" id="smtpHost" name="smtp_host" value="{{ cfg.SMTP_HOST }}" placeholder="smtp.gmail.com">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">SMTP Port</label>
-                    <input class="form-input" name="smtp_port" type="number" value="{{ cfg.SMTP_PORT }}"
+                    <label class="form-label" for="smtpPort">SMTP Port</label>
+                    <input class="form-input" id="smtpPort" name="smtp_port" type="number" value="{{ cfg.SMTP_PORT }}"
                         placeholder="587">
                 </div>
             </div>
