@@ -60,42 +60,33 @@ When `LOGIN_ENABLED = False` (the default), the nonce-based desktop login still 
 
 ---
 
-## Credential Encryption at Rest
+## Data & Credential Encryption at Rest
 
-All sensitive configuration values (API keys, SMTP password, Flask secret key) are encrypted before being written to the SQLite database.
+Sensitive configuration values, candidate personally identifiable information (PII), and uploaded resume files on disk are encrypted at rest using AES-Fernet.
 
-### How It Works
+### Key Derivation (`src/security.py`)
+1. A 16-byte cryptographically random salt is generated on first initialization and stored at `%LOCALAPPDATA%\AI Recruitment System\.secret_salt`.
+2. PBKDF2-HMAC-SHA256 is executed with 100,000 iterations and the application identifier.
+3. The derived 32-byte key is base64-encoded and used to instantiate the AES-Fernet cipher.
 
-**Key Derivation** (`src/security.py`):
-1. A 16-byte random salt is generated on first run and saved to `%LOCALAPPDATA%\AI Recruitment System\.secret_salt`
-2. PBKDF2-HMAC-SHA256 is run with 100,000 iterations and the application name as the password
-3. The derived 32-byte key is base64-encoded → used as the AES-Fernet key
-
-**Encryption:**
-```python
-encrypt_secret("my-api-key")  →  "ENC:gAAAAAB..."
-```
-
-**Decryption:**
-```python
-decrypt_secret("ENC:gAAAAAB...")  →  "my-api-key"
-```
-
-**In the database:** Encrypted values are stored with an `ENC:` prefix. The app checks for this prefix before attempting decryption.
-
-### Which Keys Are Encrypted
-
+### 1. Configuration Credentials
+Sensitive settings in the SQLite database (`app_settings` table) are stored with an `ENC:` prefix:
 ```
 ANTHROPIC_KEY, GEMINI_KEY, GROQ_KEY, OPENAI_KEY,
 NVIDIA_KEY, OPENROUTER_KEY, GITHUB_KEY, OLLAMA_CLOUD_KEY,
 SMTP_PASSWORD, FLASK_SECRET_KEY
 ```
+- `encrypt_secret("plaintext")` -> `"ENC:gAAAAAB..."`
+- `decrypt_secret("ENC:gAAAAAB...")` -> `"plaintext"`
 
-All other settings (theme, model names, enabled flags) are stored in plain text.
+### 2. Candidate Database Records (PII)
+Candidate names, email addresses, and phone numbers stored within the local SQLite database are encrypted at rest with AES-Fernet before writing to disk, and decrypted into memory only during active HR workflows.
 
-### Important: The Salt File
+### 3. Uploaded Resume Files on Disk
+Resumes stored in `data/resumes/` are encrypted at rest using `encrypt_bytes()`, adding an `ARS_ENC:` binary magic prefix. When `pdf_to_txt.py` or OCR processes these files, `decrypt_bytes()` decrypts them directly in-memory without writing unencrypted temporary files to disk.
 
-The encryption key is derived from the salt at `%LOCALAPPDATA%\AI Recruitment System\.secret_salt`. If this file is deleted or the application is moved to a different machine, the encrypted values **cannot be decrypted**. You will need to re-enter all API keys in Settings.
+### The Salt File
+The master AES-Fernet key is derived from the salt at `%LOCALAPPDATA%\AI Recruitment System\.secret_salt`. If this file is removed or corrupted, encrypted credentials, stored PII, and encrypted resume files cannot be decrypted. Backup routines should preserve both `ars.db` and `.secret_salt` together.
 
 ---
 
@@ -154,9 +145,18 @@ The application includes a rate limiter (`app/rate_limiter.py`) to prevent abuse
 
 Rate limiting is applied to:
 - `/api/desktop-login` — nonce consumption endpoint
-- AI-triggered endpoints (NLP, ranking, interview evaluation)
+- AI-triggered endpoints (NLP extraction, ranking, interview answer evaluation)
 
-The limiter tracks requests per IP address and returns HTTP 429 (`Too Many Requests`) when the limit is exceeded. The 429 response is handled by the registered error handler and returns a JSON error or error page.
+The limiter uses a bounded-capacity sliding window algorithm with automatic LRU purging to prevent memory exhaustion attacks. Requests exceeding thresholds return HTTP 429 (`Too Many Requests`).
+
+---
+
+## CSRF Protection
+
+Cross-Site Request Forgery (CSRF) protection is enforced across the application using `Flask-WTF` and custom header verification:
+
+- **HR Dashboard & Management APIs:** All state-changing HTTP requests (`POST`, `PUT`, `DELETE`, `PATCH`) require a valid CSRF token provided via the `X-CSRF-Token` HTTP header or form parameter.
+- **Candidate Portal Exemption & Isolation:** Candidate interview endpoints (`/candidate-interview/`, `/api/candidate/`) do not use browser session cookies for state. Instead, they require a cryptographically generated HMAC session key (`X-Session-Key` header or payload) verified against the active in-memory session. Because ambient cookie credentials are not accepted for candidate state changes, cookie-based CSRF is structurally prevented.
 
 ---
 
@@ -168,7 +168,7 @@ To keep sessions persistent across restarts, set a fixed `FLASK_SECRET_KEY` in S
 
 Session settings:
 - `SESSION_COOKIE_HTTPONLY = True` — JS cannot access the session cookie
-- `SESSION_COOKIE_SAMESITE = "Lax"` — CSRF protection for cross-site requests
+- `SESSION_COOKIE_SAMESITE = "Lax"` — limits cookie transmission on cross-site requests
 - `PERMANENT_SESSION_LIFETIME = timedelta(hours=8)` — sessions expire after 8 hours
 
 ---
@@ -178,6 +178,21 @@ Session settings:
 Interview tokens are UUIDs generated with `uuid.uuid4()`. They are:
 - Single-use per interview run (completing the interview invalidates the token)
 - Stored in the database linked to the candidate name and job title
-- Not time-expiring by default — the HR manager manually closes sessions if needed
+- Protected on every request during the session using HMAC-signed session keys (`X-Session-Key`)
 
-The candidate-facing API routes validate the token on every request during the session using HMAC-signed session keys, not just on the initial load.
+---
+
+## Prompt Sandboxing & PII Minimization
+
+To defend against indirect prompt injection and maintain candidate privacy:
+
+- **Input Sandboxing:** Untrusted candidate responses and resume extracts are wrapped in explicit boundary tags (e.g. `<candidate_answer>...</candidate_answer>`) and sanitized to strip instruction-override patterns before evaluation prompts are assembled.
+- **PII Minimization:** Raw candidate contact details (phone numbers, full street addresses, email addresses) are stripped before sending text to external LLMs for scoring or question generation. Only technical experience and relevant domain data are included in evaluation payloads.
+
+---
+
+## Supply Chain & Permissive Licensing
+
+The application strictly utilizes commercially permissive licenses (MIT, BSD-3-Clause, Apache-2.0):
+- PDF text extraction relies on `pypdf` (BSD-3-Clause), eliminating AGPL copyleft encumbrances associated with libraries like PyMuPDF.
+- All dependencies are vetted for production use in Windows enterprise desktop environments.

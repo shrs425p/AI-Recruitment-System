@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 
 try:
@@ -117,10 +118,21 @@ def init_db():
             updated_at   TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS interview_sessions (
+            session_id     TEXT PRIMARY KEY,
+            token          TEXT NOT NULL,
+            candidate_name TEXT NOT NULL,
+            job_title      TEXT DEFAULT '',
+            session_data   TEXT NOT NULL,
+            created_at     REAL NOT NULL,
+            updated_at     TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_candidates_run_id ON candidates(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_run_id ON schedules(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status);
         CREATE INDEX IF NOT EXISTS idx_interview_tokens_token ON interview_tokens(token);
+        CREATE INDEX IF NOT EXISTS idx_interview_sessions_token ON interview_sessions(token);
     """)
     conn.commit()
     conn.close()
@@ -260,7 +272,10 @@ def get_runs(run_type=None, limit=20):
 # ─── Candidate helpers ───
 
 def upsert_candidate(run_id, name, email="", source_file="", score=0, skills=None):
-    """Insert or update a candidate within a run. Returns the candidate id."""
+    """Insert or update a candidate within a run. Encrypts email PII at rest. Returns the candidate id."""
+    from src.security import encrypt_secret
+    stored_email = encrypt_secret(email) if email else ""
+
     conn = get_connection()
     try:
         cur = conn.execute(
@@ -271,13 +286,13 @@ def upsert_candidate(run_id, name, email="", source_file="", score=0, skills=Non
         if row:
             conn.execute(
                 "UPDATE candidates SET email=?, source_file=?, score=?, skills=? WHERE id=?",
-                (email, source_file, score, skills_json, row["id"]),
+                (stored_email, source_file, score, skills_json, row["id"]),
             )
             cid = row["id"]
         else:
             cur = conn.execute(
                 "INSERT INTO candidates (run_id, name, email, source_file, score, skills) VALUES (?,?,?,?,?,?)",
-                (run_id, name, email, source_file, score, skills_json),
+                (run_id, name, stored_email, source_file, score, skills_json),
             )
             cid = cur.lastrowid
         conn.commit()
@@ -286,7 +301,7 @@ def upsert_candidate(run_id, name, email="", source_file="", score=0, skills=Non
         conn.close()
 
 def get_candidate_by_name(name, run_id=None):
-    """Return candidate row or None. If run_id given, scoped to that run."""
+    """Return candidate row or None with transparently decrypted PII. If run_id given, scoped to that run."""
     conn = get_connection()
     try:
         if run_id:
@@ -297,12 +312,18 @@ def get_candidate_by_name(name, run_id=None):
             row = conn.execute(
                 "SELECT * FROM candidates WHERE name=? ORDER BY id DESC LIMIT 1", (name,)
             ).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        from src.security import decrypt_secret
+        cand_dict = dict(row)
+        if cand_dict.get("email"):
+            cand_dict["email"] = decrypt_secret(cand_dict["email"])
+        return cand_dict
     finally:
         conn.close()
 
 def get_all_candidates(run_id=None):
-    """Return candidates as a list of dicts. If run_id given, scoped to that run."""
+    """Return candidates as a list of dicts with transparently decrypted PII. If run_id given, scoped to that run."""
     conn = get_connection()
     try:
         if run_id:
@@ -311,7 +332,14 @@ def get_all_candidates(run_id=None):
             ).fetchall()
         else:
             rows = conn.execute("SELECT * FROM candidates ORDER BY score DESC").fetchall()
-        return [dict(r) for r in rows]
+        from src.security import decrypt_secret
+        results = []
+        for r in rows:
+            d = dict(r)
+            if d.get("email"):
+                d["email"] = decrypt_secret(d["email"])
+            results.append(d)
+        return results
     finally:
         conn.close()
 
@@ -390,12 +418,14 @@ def mark_email_sent(schedule_id):
         conn.close()
 
 def log_email(run_id, schedule_id, recipient, subject, status="SENT", error=""):
-    """Log an email send attempt."""
+    """Log an email send attempt. Encrypts recipient email address at rest."""
+    from src.security import encrypt_secret
+    stored_recipient = encrypt_secret(recipient) if recipient else ""
     conn = get_connection()
     try:
         conn.execute(
             "INSERT INTO email_log (run_id, schedule_id, recipient, subject, status, error) VALUES (?,?,?,?,?,?)",
-            (run_id, schedule_id, recipient, subject, status, error),
+            (run_id, schedule_id, stored_recipient, subject, status, error),
         )
         conn.commit()
     finally:
@@ -495,3 +525,102 @@ def delete_job_template(template_id: int) -> bool:
     with db_session() as conn:
         conn.execute("DELETE FROM job_templates WHERE id=?", (template_id,))
         return True
+
+
+def delete_candidate(candidate_id: int) -> dict | None:
+    """Purge a candidate and all related database records (schedules, email_logs, tokens).
+    Returns deleted candidate metadata (name, source_file) or None if not found."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("SELECT id, name, source_file FROM candidates WHERE id=?", (candidate_id,))
+        cand = cur.fetchone()
+        if not cand:
+            return None
+        cand_dict = dict(cand)
+        name = cand_dict["name"]
+        source_file = cand_dict["source_file"]
+
+        # Delete from email_log for matching schedules
+        conn.execute("""
+            DELETE FROM email_log WHERE schedule_id IN (
+                SELECT id FROM schedules WHERE candidate_name=?
+            )
+        """, (name,))
+
+        # Delete from schedules
+        conn.execute("DELETE FROM schedules WHERE candidate_name=?", (name,))
+
+        # Delete from interview_tokens
+        conn.execute("DELETE FROM interview_tokens WHERE candidate_name=? OR (source_file != '' AND source_file=?)", (name, source_file))
+
+        # Delete from interview_sessions
+        conn.execute("DELETE FROM interview_sessions WHERE candidate_name=?", (name,))
+
+        # Delete from candidates
+        conn.execute("DELETE FROM candidates WHERE id=?", (candidate_id,))
+        conn.commit()
+        return cand_dict
+    finally:
+        conn.close()
+
+
+def save_interview_session(session_id: str, data: dict):
+    """Insert or update an active interview session in SQLite."""
+    token = data.get("token", "")
+    cand_name = data.get("candidate_name", "")
+    job_title = data.get("job_title", "")
+    created_at = data.get("started_at") or data.get("created_at") or time.time()
+    payload = json.dumps(data)
+    with db_session() as conn:
+        conn.execute(
+            """
+            INSERT INTO interview_sessions (session_id, token, candidate_name, job_title, session_data, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(session_id) DO UPDATE SET
+                token=excluded.token,
+                candidate_name=excluded.candidate_name,
+                job_title=excluded.job_title,
+                session_data=excluded.session_data,
+                updated_at=datetime('now')
+            """,
+            (session_id, token, cand_name, job_title, payload, created_at),
+        )
+
+
+def get_interview_session(session_id: str) -> dict | None:
+    """Retrieve an interview session by session_id from SQLite."""
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT session_data FROM interview_sessions WHERE session_id=?", (session_id,)
+        ).fetchone()
+        if row and row["session_data"]:
+            return json.loads(row["session_data"])
+        return None
+
+
+def get_active_session_by_token(token: str) -> tuple[str | None, dict | None]:
+    """Retrieve the most recent session for an interview token."""
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT session_id, session_data FROM interview_sessions WHERE token=? ORDER BY rowid DESC LIMIT 1",
+            (token,),
+        ).fetchone()
+        if row and row["session_data"]:
+            return row["session_id"], json.loads(row["session_data"])
+        return None, None
+
+
+def delete_interview_session(session_id: str) -> bool:
+    """Delete an interview session by session_id."""
+    with db_session() as conn:
+        conn.execute("DELETE FROM interview_sessions WHERE session_id=?", (session_id,))
+        return True
+
+
+def cleanup_expired_interview_sessions(ttl_seconds: int = 7200) -> int:
+    """Delete sessions older than ttl_seconds from SQLite."""
+    cutoff = time.time() - ttl_seconds
+    with db_session() as conn:
+        cur = conn.execute("DELETE FROM interview_sessions WHERE created_at < ?", (cutoff,))
+        return cur.rowcount
+

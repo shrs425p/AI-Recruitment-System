@@ -34,6 +34,12 @@ def _app(monkeypatch):
     )
     interview_routes.interview_session.clear()
     interview_routes.active_token_sessions.clear()
+    try:
+        from app.database import db_session
+        with db_session() as conn:
+            conn.execute("DELETE FROM interview_sessions")
+    except Exception:
+        pass
 
     # create_app() already registers all blueprints/routes including interview.
     # Do NOT call register_interview_routes again — it would duplicate endpoints.
@@ -45,7 +51,7 @@ def _app(monkeypatch):
 def test_candidate_answer_requires_session_key(monkeypatch):
     client = _app(monkeypatch).test_client()
 
-    started = client.post("/api/candidate/interview/start", json={"token": "T_123"})
+    started = client.post("/api/candidate/interview/start", json={"token": "T_123", "consent": True})
     session_id = started.get_json()["session_id"]
 
     response = client.post(
@@ -64,7 +70,7 @@ def test_candidate_answer_requires_session_key(monkeypatch):
 def test_candidate_answer_accepts_matching_session_key(monkeypatch):
     client = _app(monkeypatch).test_client()
 
-    started = client.post("/api/candidate/interview/start", json={"token": "T_123"})
+    started = client.post("/api/candidate/interview/start", json={"token": "T_123", "consent": True})
     data = started.get_json()
 
     response = client.post(
@@ -87,7 +93,7 @@ def test_candidate_session_is_bound_to_remote_client(monkeypatch):
 
     started = client.post(
         "/api/candidate/interview/start",
-        json={"token": "T_123"},
+        json={"token": "T_123", "consent": True},
         environ_base={"REMOTE_ADDR": "192.168.1.20"},
     )
     data = started.get_json()
@@ -117,7 +123,7 @@ def test_candidate_answer_uses_server_issued_question(monkeypatch):
         lambda **kwargs: recorded.update(kwargs) or {"total": 7, "feedback": "Good"},
     )
     client = app.test_client()
-    started = client.post("/api/candidate/interview/start", json={"token": "T_123"}).get_json()
+    started = client.post("/api/candidate/interview/start", json={"token": "T_123", "consent": True}).get_json()
 
     response = client.post(
         "/api/candidate/interview/answer",
@@ -135,3 +141,32 @@ def test_candidate_answer_uses_server_issued_question(monkeypatch):
     assert response.status_code == 200
     assert recorded["question"] == "Question 1"
     assert recorded["domain"] == "Introduction"
+
+
+def test_session_cookie_flags_for_hr_and_candidate_apps():
+    from app import create_app, create_candidate_app
+    hr_app = create_app()
+    cand_app = create_candidate_app()
+
+    assert hr_app.config["SESSION_COOKIE_HTTPONLY"] is True
+    assert hr_app.config["SESSION_COOKIE_SECURE"] is False
+    assert hr_app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+    assert cand_app.config["SESSION_COOKIE_HTTPONLY"] is True
+    assert cand_app.config["SESSION_COOKIE_SECURE"] is True
+    assert cand_app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+
+def test_csp_headers_no_unsafe_eval():
+    from app import create_app, create_candidate_app
+
+    for app_factory in (create_app, create_candidate_app):
+        app = app_factory()
+        with app.test_client() as client:
+            resp = client.get("/api/health")
+            csp = resp.headers.get("Content-Security-Policy", "")
+            assert csp != ""
+            assert "default-src 'self'" in csp
+            assert "'unsafe-eval'" not in csp
+
+

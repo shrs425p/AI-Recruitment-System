@@ -97,11 +97,26 @@ def register_auth_routes(app):
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
             password_hash = getattr(config, "HR_PASSWORD_HASH", "")
-            password_ok = (
-                check_password_hash(password_hash, password)
-                if password_hash
-                else hmac.compare_digest(password, getattr(config, "HR_PASSWORD", ""))
-            )
+
+            password_ok = False
+            if password_hash:
+                password_ok = check_password_hash(password_hash, password)
+            else:
+                raw_configured = getattr(config, "HR_PASSWORD", "")
+                if raw_configured and hmac.compare_digest(password, raw_configured):
+                    from werkzeug.security import generate_password_hash
+
+                    from app.database import save_settings_dict
+
+                    new_hash = generate_password_hash(password)
+                    config.HR_PASSWORD_HASH = new_hash
+                    config.HR_PASSWORD = ""
+                    try:
+                        save_settings_dict({"HR_PASSWORD_HASH": new_hash, "HR_PASSWORD": ""})
+                    except Exception:
+                        pass
+                    password_ok = True
+
             if hmac.compare_digest(username, getattr(config, "HR_USERNAME", "")) and password_ok:
                 session.clear()
                 session["logged_in"] = True

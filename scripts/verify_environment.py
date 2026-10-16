@@ -31,7 +31,9 @@ def check_dependencies():
     required_modules = [
         "flask",
         "webview",
-        "fitz",
+        "waitress",
+        "cryptography",
+        "pypdf",
         "pytesseract",
         "PIL",
         "numpy",
@@ -62,7 +64,14 @@ def check_database():
         cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {r[0] for r in cur.fetchall()}
         conn.close()
-        expected = {"pipeline_runs", "candidates", "schedules", "email_log", "interview_tokens"}
+        expected = {
+            "pipeline_runs",
+            "candidates",
+            "schedules",
+            "email_log",
+            "interview_tokens",
+            "interview_sessions",
+        }
         if not expected.issubset(tables):
             print(f"FAILED (Missing tables: {expected - tables})")
             return False

@@ -128,20 +128,57 @@ Tests candidate-facing security:
 
 ---
 
+### `tests/test_csrf.py`
+Tests Cross-Site Request Forgery protections:
+- Rejection of unauthenticated state-changing methods lacking `X-CSRF-Token`
+- Validation of valid tokens on POST/PUT/DELETE
+- Exemption of tokenized candidate portal endpoints
+
+---
+
+### `tests/test_encryption_at_rest.py`
+Tests encryption mechanisms:
+- AES-Fernet encryption of sensitive keys (`ENC:...`)
+- Encryption of candidate PII in database records
+- Encryption of uploaded resume files on disk (`ARS_ENC:...`)
+- Decryption in memory during extraction
+
+---
+
+### `tests/test_pdf_extraction.py`
+Tests PDF parsing using `pypdf`:
+- Direct digital text extraction from standard PDFs
+- Scanned PDF fallback to OCR
+- Decryption of encrypted resume bytes during reading
+
+---
+
+### `tests/test_prompt_injection.py`
+Tests prompt sandboxing:
+- Neutralization of instruction override strings in candidate answers
+- Delimiter boundaries (`<candidate_answer>`) formatting
+
+---
+
+### `tests/test_data_minimization.py`
+Tests PII redaction:
+- Scrubbing of candidate phone numbers and email addresses before external AI prompt submission
+
+---
+
+### `tests/test_candidate_consent.py` and `tests/test_candidate_deletion.py`
+Tests candidate rights and GDPR-style data deletion:
+- Recording of candidate consent timestamp
+- Complete purging of candidate records and associated artifacts upon request
+
+---
+
 ### `tests/test_database.py`
 Tests the database ORM layer:
 - `init_db()` creates the schema correctly
 - `get_setting()` and `set_setting()` work for plain values
 - Encrypted values are stored with `ENC:` prefix and decrypted correctly
 - Unknown keys return the provided default
-
----
-
-### `tests/database_test.py`
-Extended database tests covering:
-- Concurrent write safety
-- Settings migration (old plain-text values are not broken by encryption changes)
-- All setting keys from `DEFAULT_SETTINGS` can be round-tripped
 
 ---
 
@@ -159,6 +196,13 @@ Unit tests for `src/ranking_engine.py`:
 
 ---
 
+### `tests/test_report_generator.py`
+Tests Material Design 3 monochrome PDF report generation:
+- PDF document generation with rubrics and candidate profile
+- File output saving and JSON companion creation
+
+---
+
 ### `tests/test_auto_pipeline.py`
 End-to-end pipeline test with mocked AI calls:
 - Upload → text extraction → NLP → ranking runs without errors
@@ -166,25 +210,20 @@ End-to-end pipeline test with mocked AI calls:
 
 ---
 
-### `tests/security_test.py`
-Security-specific tests:
-- `encrypt_secret` + `decrypt_secret` round-trip works
-- Different salt files produce different ciphertext
-- Corrupted ciphertext returns empty string (no crash)
-- Nonce pool correctly discards used nonces
+### `tests/test_tls_cert.py`
+Tests HTTPS setup:
+- Verification of self-signed TLS certificates for port 5000 candidate server
+
+---
+
+### `tests/test_voice_interview.py`
+Tests voice capabilities:
+- Offline Vosk STT transcript handling and TTS verification
 
 ---
 
 ### `tests/test_open_output_folder.py`
 Tests the output folder opener utility — verifies the folder path resolves correctly on the current OS.
-
----
-
-### `tests/scan_hardcodes.py`
-Not a pytest test — a standalone script that scans the codebase for hardcoded secrets (API keys, passwords, etc.) using regex patterns. Run it manually:
-```bash
-python tests/scan_hardcodes.py
-```
 
 ---
 

@@ -28,6 +28,8 @@ def test_auto_pipeline_starts_background_job(monkeypatch):
     with client.session_transaction() as sess:
         sess["logged_in"] = True
         sess["desktop_session"] = True
+        sess["_csrf_token"] = "csrf-pipeline-test"
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = "csrf-pipeline-test"
 
     response = client.post("/api/run-auto-pipeline")
 

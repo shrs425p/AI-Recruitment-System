@@ -43,7 +43,10 @@ crash.log
 .mypy_cache/
 .ruff_cache/
 .coverage
+coverage.xml
+test-results.xml
 htmlcov/
+
 
 # Build & Packaging Output
 build/
@@ -63,3 +66,5 @@ Thumbs.db
 installer_output/
 hardcoded_results.json
 hardcodes.json
+AUDIT_REPORT.md
+ROUTE_INVENTORY.md

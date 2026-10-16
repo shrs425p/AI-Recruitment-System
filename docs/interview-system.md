@@ -56,23 +56,22 @@ The token is associated with:
 
 ## Question Generation
 
-Questions are generated once at the start of the interview using the candidate's NLP profile.
+Questions are generated at the start of the interview by combining the verified job title, candidate domain, and extracted technical skills from the candidate's NLP profile.
+
+### Role Title & Skill Targeting
+The interview engine resolves the actual job title from the scheduling configuration or parsed job description. It explicitly avoids defaulting to generic placeholder titles ("Open Position"). The question generator receives:
+- Target Job Title (e.g. "Senior Python Developer", "Frontend Engineer")
+- Candidate Domain (e.g. "Software Engineering", "Data Science")
+- Extracted Technical Skills and Tools (e.g. Python, FastAPI, Docker, PostgreSQL)
 
 ### Question Plan
-- **5 technical questions** — specific to the candidate's domain, skills, and past experience
-- **3 behavioral questions** — STAR format (Situation, Task, Action, Result)
+- **5 technical questions** — tailored directly to the target role and the candidate's technology stack, graded in ascending complexity
+- **3 behavioral questions** — structured around real engineering scenarios using the STAR format (Situation, Task, Action, Result)
 
-The AI is given the candidate's full NLP JSON (skills, experience, projects, certifications) and the job title, then asked to generate questions that:
-- Match the candidate's actual domain and technology stack
-- Vary in difficulty (easy → medium → hard)
-- Are personalised — not generic
+If the candidate's NLP profile is not yet generated, the system falls back to questions derived directly from the job title and domain requirements.
 
-For example, a candidate with Python and FastAPI experience will get Python/API-specific technical questions, not generic "tell me about yourself" style questions.
-
-If the NLP profile is not available (the NLP stage was skipped), the system falls back to generic questions based on the job title.
-
-### Temperature
-Question generation uses `temperature=0.3` (slightly creative) compared to `0.0` for extraction tasks, so questions are varied rather than identical across candidates.
+### Temperature & Determinism
+Question generation uses `temperature=0.3` to ensure natural variety while maintaining role relevance. Subsequent answer evaluation strictly uses `temperature=0.0` for deterministic scoring.
 
 ---
 
