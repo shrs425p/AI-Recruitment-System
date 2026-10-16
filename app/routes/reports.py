@@ -25,11 +25,37 @@ def register_reports_routes(app):
     def reports():
         reports_files = sorted((OUTPUT_FOLDER / "reports").glob("report_*.json"), reverse=True)
         reports_data  = []
+
+        # Load interview transcripts to enrich reports with detailed proctoring logs if needed
+        interviews_map = {}
+        for int_f in sorted((OUTPUT_FOLDER / "interviews").glob("interview_*.json")):
+            try:
+                with open(int_f, encoding="utf-8") as f:
+                    idata = json.load(f)
+                    c_name = idata.get("candidate_name")
+                    if c_name:
+                        interviews_map[c_name] = idata
+            except Exception:
+                pass
+
         for rf in reports_files:
             try:
                 with open(rf, encoding="utf-8") as f:
                     rdata = json.load(f)
                     rdata["filename"] = rf.name  # Inject filename for reference
+                    rdata["_filename"] = rf.name
+
+                    c_name = rdata.get("candidate_name")
+                    if c_name in interviews_map:
+                        idata = interviews_map[c_name]
+                        if not rdata.get("responses") and idata.get("responses"):
+                            rdata["responses"] = idata["responses"]
+                        proctor_info = rdata.setdefault("proctoring", {})
+                        if not proctor_info.get("browser_log"):
+                            proctor_info["browser_log"] = idata.get("browser_log", [])
+                        if not proctor_info.get("webcam_log"):
+                            proctor_info["webcam_log"] = idata.get("webcam_log", [])
+
                     reports_data.append(rdata)
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)

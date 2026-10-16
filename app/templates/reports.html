@@ -112,16 +112,21 @@
 <!-- Individual Reports -->
 {% if reports %}
 <div style="margin-top:32px;">
-    <h2 style="font-size:18px; font-weight:600; margin-bottom:16px;">Individual Reports</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <h2 style="font-size:18px; font-weight:600; margin:0;">Individual Reports ({{ reports | length }})</h2>
+        <button class="btn btn-secondary" onclick="toggleAllDetails(this)" data-expanded="false" style="padding:6px 14px; font-size:12px; font-weight:600;">
+            <span id="expandAllText">Expand All Details ▾</span>
+        </button>
+    </div>
 
     {% for r in reports %}
-    <div class="report-card">
+    <div class="report-card" id="card-{{ loop.index }}">
         <div class="report-header">
             <div>
                 <div class="report-name">{{ r.candidate_name }}</div>
-                <div class="report-meta">{{ r.job_title }} &nbsp;·&nbsp; {{ r.interview_date }}</div>
+                <div class="report-meta">{{ r.job_title }} &nbsp;·&nbsp; {{ r.interview_date or r.generated_at }}</div>
             </div>
-            <div>
+            <div style="display:flex; align-items:center; gap:8px;">
                 {% set rec = r.ai_report.hire_recommendation | lower %}
                 {% if 'strongly' in rec %}
                 <span class="badge badge-green">Strongly Recommend</span>
@@ -165,13 +170,13 @@
         </div>
         {% endif %}
 
-        <!-- Strengths & Gaps -->
+        <!-- Strengths & Gaps High-Level -->
         <div class="grid-2">
             {% if r.ai_report.key_strengths %}
             <div>
-                <div
-                    style="font-size:11px; font-weight:600; color:var(--green); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
-                    Strengths</div>
+                <div style="font-size:11px; font-weight:600; color:var(--green); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
+                    Key Strengths
+                </div>
                 {% for s in r.ai_report.key_strengths[:3] %}
                 <div style="font-size:12px; color:var(--gray-800); margin-bottom:3px;">+ {{ s }}</div>
                 {% endfor %}
@@ -179,9 +184,9 @@
             {% endif %}
             {% if r.ai_report.key_gaps %}
             <div>
-                <div
-                    style="font-size:11px; font-weight:600; color:var(--red); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
-                    Gaps</div>
+                <div style="font-size:11px; font-weight:600; color:var(--red); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px;">
+                    Key Gaps
+                </div>
                 {% for g in r.ai_report.key_gaps[:3] %}
                 <div style="font-size:12px; color:var(--gray-800); margin-bottom:3px;">- {{ g }}</div>
                 {% endfor %}
@@ -189,23 +194,227 @@
             {% endif %}
         </div>
 
-        <!-- Proctoring -->
-        <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <span class="badge {% if r.proctoring.status == 'CLEAN' %}badge-green{% else %}badge-red{% endif %}">
+        <!-- Proctoring & Toggle Actions -->
+        <div style="margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px dashed var(--md-sys-color-outline-variant, #e5e7eb); padding-top:12px;">
+            <span class="badge {% if r.proctoring.status == 'CLEAN' or r.proctoring.status == 'PASSED' %}badge-green{% else %}badge-red{% endif %}">
                 {{ r.proctoring.status }}
             </span>
-            <span style="font-size:12px; color:var(--gray-400);">{{ r.proctoring.flagged_count }} proctoring
-                flag(s)</span>
+            <span style="font-size:12px; color:var(--gray-400);">{{ r.proctoring.flagged_count }} proctoring flag(s)</span>
             <span style="font-size:12px; color:var(--gray-400);">Risk: {{ r.ai_report.risk_level }}</span>
-            {% if r._filename %}
-            <button onclick="downloadPdf(this.dataset.file, this.dataset.name)"
-               data-file="{{ r._filename }}" data-name="{{ r.candidate_name|default('report') }}"
-               class="btn btn-primary" style="margin-left:auto; padding:6px 14px; font-size:12px; font-weight:600;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Download PDF
-            </button>
-            {% endif %}
+
+            <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                <button type="button" class="btn btn-secondary toggle-details-btn" onclick="toggleReportDetails('details-{{ loop.index }}', this)"
+                        style="padding:6px 14px; font-size:12px; font-weight:600;">
+                    <span>View Detailed Breakdown ▾</span>
+                </button>
+
+                {% if r._filename or r.filename %}
+                <button type="button" onclick="downloadPdf(this.dataset.file, this.dataset.name)"
+                   data-file="{{ r._filename or r.filename }}" data-name="{{ r.candidate_name|default('report') }}"
+                   class="btn btn-primary" style="padding:6px 14px; font-size:12px; font-weight:600;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download PDF
+                </button>
+                {% endif %}
+            </div>
         </div>
+
+        <!-- EXPANDABLE DETAILED REPORT CONTAINER -->
+        <div id="details-{{ loop.index }}" class="report-details-container" style="display:none; margin-top:20px; border-top:1px solid var(--md-sys-color-outline-variant, #e5e7eb); padding-top:20px;">
+
+            <!-- 1. AI Comprehensive Assessment & Recommendations -->
+            <div style="background:var(--md-sys-color-surface-container, #f9fafb); border-radius:8px; padding:16px; margin-bottom:18px; border:1px solid var(--md-sys-color-outline-variant, #e5e7eb);">
+                <div style="font-size:12.5px; font-weight:700; color:var(--md-sys-color-primary, #6366f1); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                    AI Assessment & Hiring Justification
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:12px;">
+                    {% if r.ai_report.technical_assessment %}
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-bottom:4px;">Technical Assessment</div>
+                        <div style="font-size:12.5px; color:var(--md-sys-color-on-surface); line-height:1.5;">{{ r.ai_report.technical_assessment }}</div>
+                    </div>
+                    {% endif %}
+                    {% if r.ai_report.behavioral_assessment %}
+                    <div>
+                        <div style="font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-bottom:4px;">Behavioral Assessment</div>
+                        <div style="font-size:12.5px; color:var(--md-sys-color-on-surface); line-height:1.5;">{{ r.ai_report.behavioral_assessment }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% if r.ai_report.hire_justification %}
+                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--md-sys-color-outline-variant, #e5e7eb);">
+                    <span style="font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase;">Hire Justification: </span>
+                    <span style="font-size:12.5px; color:var(--md-sys-color-on-surface);">{{ r.ai_report.hire_justification }}</span>
+                </div>
+                {% endif %}
+                {% if r.ai_report.suggested_next_steps %}
+                <div style="margin-top:10px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-bottom:4px;">Suggested Next Steps:</div>
+                    <ul style="margin:0; padding-left:18px; font-size:12px; color:var(--md-sys-color-on-surface);">
+                        {% for step in r.ai_report.suggested_next_steps %}
+                        <li style="margin-bottom:2px;">{{ step }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 2. Proctoring & Integrity Audit Details -->
+            <div style="background:var(--md-sys-color-surface-container, #f9fafb); border-radius:8px; padding:16px; margin-bottom:18px; border:1px solid var(--md-sys-color-outline-variant, #e5e7eb);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:12.5px; font-weight:700; color:var(--md-sys-color-on-surface); text-transform:uppercase; letter-spacing:0.5px;">
+                        Proctoring & Exam Integrity Audit
+                    </span>
+                    <span class="badge {% if r.proctoring.status == 'CLEAN' or r.proctoring.status == 'PASSED' %}badge-green{% else %}badge-red{% endif %}">
+                        {{ r.proctoring.status }} ({{ r.proctoring.flagged_count }} flags)
+                    </span>
+                </div>
+                {% if r.ai_report.proctoring_remarks %}
+                <div style="font-size:12.5px; color:var(--md-sys-color-on-surface-variant); margin-bottom:10px;">
+                    <strong>AI Proctor Remarks:</strong> {{ r.ai_report.proctoring_remarks }}
+                </div>
+                {% endif %}
+                {% set b_logs = r.proctoring.browser_log | default([]) %}
+                {% if b_logs %}
+                <div style="margin-top:8px;">
+                    <div style="font-size:11px; font-weight:700; color:var(--red, #ef4444); text-transform:uppercase; margin-bottom:6px;">Recorded Integrity Incidents ({{ b_logs | length }}):</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        {% for ev in b_logs %}
+                        <span class="badge badge-red" style="font-family:var(--font-mono); font-size:11px;">
+                            ⚠️ {{ ev.type }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div style="font-size:12px; color:var(--green, #10b981);">✓ No browser tab switches, paste events, or integrity violations recorded during the interview session.</div>
+                {% endif %}
+            </div>
+
+            <!-- 3. Complete Question-by-Question Deep Dive -->
+            {% if r.responses %}
+            <div style="margin-top:16px;">
+                <div style="font-size:14px; font-weight:700; margin-bottom:12px; color:var(--md-sys-color-on-surface); text-transform:uppercase; letter-spacing:0.5px;">
+                    Question-by-Question Deep Dive ({{ r.responses | length }} Questions)
+                </div>
+
+                {% for q in r.responses %}
+                <div style="background:var(--md-sys-color-surface-container-lowest, #ffffff); border:1px solid var(--md-sys-color-outline-variant, #e5e7eb); border-radius:8px; padding:16px; margin-bottom:14px;">
+                    <!-- Question Header -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="rank-badge" style="background:var(--md-sys-color-primary, #6366f1); color:#fff; border-radius:4px; padding:2px 8px; font-size:11.5px; font-weight:700;">
+                                Q{{ q.question_num }}
+                            </span>
+                            <span style="font-size:13px; font-weight:600; color:var(--md-sys-color-on-surface);">
+                                [{{ q.type }}] {{ q.topic }}
+                            </span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            {% if q.answer_flags %}
+                                {% for fl in q.answer_flags %}
+                                <span class="badge badge-red" style="font-size:11px;">⚠️ {{ fl }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="badge badge-green" style="font-size:11px;">✓ Clean</span>
+                            {% endif %}
+                            <span class="badge badge-blue" style="font-size:12px; font-weight:700;">
+                                Score: {{ q.score }}/10
+                            </span>
+                            {% if q.time_taken %}
+                            <span style="font-size:11px; color:var(--gray-500); font-family:var(--font-mono);">
+                                ⏱ {{ q.time_taken }}s
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- The Question Asked -->
+                    <div style="background:var(--md-sys-color-surface-container-low, #f3f4f6); border-left:3px solid var(--md-sys-color-primary, #6366f1); padding:10px 14px; border-radius:0 6px 6px 0; margin-bottom:10px;">
+                        <div style="font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-bottom:2px;">Question:</div>
+                        <div style="font-size:13px; font-weight:500; color:var(--md-sys-color-on-surface); line-height:1.5;">
+                            {{ q.question }}
+                        </div>
+                    </div>
+
+                    <!-- Candidate's Answer -->
+                    <div style="background:var(--md-sys-color-surface-container, #f9fafb); border-left:3px solid var(--gray-400, #9ca3af); padding:12px 14px; border-radius:0 6px 6px 0; margin-bottom:12px;">
+                        <div style="font-size:11px; font-weight:700; color:var(--gray-500); text-transform:uppercase; margin-bottom:4px;">Candidate's Answer:</div>
+                        <div style="font-size:12.5px; color:var(--md-sys-color-on-surface); line-height:1.6; white-space:pre-line;">
+                            {{ q.answer }}
+                        </div>
+                    </div>
+
+                    <!-- Why AI Rated Him That Score (Score Rubric Breakdown) -->
+                    {% if q.evaluation %}
+                    <div style="background:var(--md-sys-color-surface-container-low, #f8fafc); border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:6px; padding:12px; margin-bottom:12px;">
+                        <div style="font-size:11px; font-weight:700; color:var(--md-sys-color-primary, #6366f1); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">
+                            Why AI Rated This Score (Rubric Breakdown):
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:8px; margin-bottom:10px;">
+                            <div style="background:#fff; border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:4px; padding:6px 10px; text-align:center;">
+                                <div style="font-size:10px; color:var(--gray-500); text-transform:uppercase;">Relevance</div>
+                                <div style="font-size:14px; font-weight:700; font-family:var(--font-mono); color:var(--md-sys-color-on-surface);">{{ q.evaluation.relevance }}/3</div>
+                            </div>
+                            <div style="background:#fff; border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:4px; padding:6px 10px; text-align:center;">
+                                <div style="font-size:10px; color:var(--gray-500); text-transform:uppercase;">Depth</div>
+                                <div style="font-size:14px; font-weight:700; font-family:var(--font-mono); color:var(--md-sys-color-on-surface);">{{ q.evaluation.depth }}/3</div>
+                            </div>
+                            <div style="background:#fff; border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:4px; padding:6px 10px; text-align:center;">
+                                <div style="font-size:10px; color:var(--gray-500); text-transform:uppercase;">Clarity</div>
+                                <div style="font-size:14px; font-weight:700; font-family:var(--font-mono); color:var(--md-sys-color-on-surface);">{{ q.evaluation.clarity }}/2</div>
+                            </div>
+                            <div style="background:#fff; border:1px solid var(--md-sys-color-outline-variant, #e2e8f0); border-radius:4px; padding:6px 10px; text-align:center;">
+                                <div style="font-size:10px; color:var(--gray-500); text-transform:uppercase;">Correctness</div>
+                                <div style="font-size:14px; font-weight:700; font-family:var(--font-mono); color:var(--md-sys-color-on-surface);">{{ q.evaluation.correctness }}/2</div>
+                            </div>
+                        </div>
+                        {% if q.evaluation.feedback %}
+                        <div style="font-size:12px; color:var(--md-sys-color-on-surface); line-height:1.5;">
+                            <strong>AI Explanation:</strong> {{ q.evaluation.feedback }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Candidate Strengths & Gaps on this Question -->
+                    {% if q.evaluation and (q.evaluation.strong_points or q.evaluation.weak_points) %}
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+                        {% if q.evaluation.strong_points %}
+                        <div style="background:rgba(34, 197, 94, 0.06); border:1px solid rgba(34, 197, 94, 0.2); border-radius:6px; padding:10px 12px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--green, #16a34a); text-transform:uppercase; margin-bottom:4px;">
+                                Strengths on this Question:
+                            </div>
+                            {% for sp in q.evaluation.strong_points %}
+                            <div style="font-size:11.5px; color:var(--md-sys-color-on-surface); margin-bottom:2px;">
+                                + {{ sp }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if q.evaluation.weak_points %}
+                        <div style="background:rgba(239, 68, 68, 0.06); border:1px solid rgba(239, 68, 68, 0.2); border-radius:6px; padding:10px 12px;">
+                            <div style="font-size:11px; font-weight:700; color:var(--red, #dc2626); text-transform:uppercase; margin-bottom:4px;">
+                                Where Candidate Lags (Gaps):
+                            </div>
+                            {% for wp in q.evaluation.weak_points %}
+                            <div style="font-size:11.5px; color:var(--md-sys-color-on-surface); margin-bottom:2px;">
+                                - {{ wp }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        </div>
+        <!-- END EXPANDABLE DETAILED REPORT CONTAINER -->
+
     </div>
     {% endfor %}
     {% elif not summary %}
@@ -225,6 +434,33 @@
 
     {% block scripts %}
     <script>
+        function toggleReportDetails(containerId, btn) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            const isHidden = el.style.display === 'none' || el.style.display === '';
+            el.style.display = isHidden ? 'block' : 'none';
+            if (btn) {
+                const span = btn.querySelector('span') || btn;
+                span.textContent = isHidden ? 'Hide Detailed Breakdown ▴' : 'View Detailed Breakdown ▾';
+            }
+        }
+
+        function toggleAllDetails(btn) {
+            const containers = document.querySelectorAll('.report-details-container');
+            const isExpanding = btn.dataset.expanded !== 'true';
+            containers.forEach(el => {
+                el.style.display = isExpanding ? 'block' : 'none';
+            });
+            btn.dataset.expanded = isExpanding ? 'true' : 'false';
+            const textEl = document.getElementById('expandAllText') || btn;
+            textEl.textContent = isExpanding ? 'Collapse All Details ▴' : 'Expand All Details ▾';
+
+            // Also synchronize individual card toggle buttons
+            document.querySelectorAll('.toggle-details-btn span').forEach(sp => {
+                sp.textContent = isExpanding ? 'Hide Detailed Breakdown ▴' : 'View Detailed Breakdown ▾';
+            });
+        }
+
         async function downloadPdf(filename, candidateName) {
             try {
                 const res = await fetch('/api/save-report-pdf/' + encodeURIComponent(filename));
