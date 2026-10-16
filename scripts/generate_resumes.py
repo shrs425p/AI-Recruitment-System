@@ -1,8 +1,10 @@
 import argparse
 import datetime as dt
 import os
-import random
+import secrets
 import sys
+
+rng = secrets.SystemRandom()
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
@@ -606,12 +608,12 @@ def add_months(date_value, months):
 
 
 def random_company():
-    return f"{random.choice(COMPANY_PREFIXES)} {random.choice(COMPANY_SUFFIXES)}"
+    return f"{rng.choice(COMPANY_PREFIXES)} {rng.choice(COMPANY_SUFFIXES)}"
 
 
 def unique_name(used):
     for _ in range(5000):
-        name = f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+        name = f"{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}"
         if name not in used:
             used.add(name)
             return name
@@ -620,14 +622,14 @@ def unique_name(used):
 
 def build_context(role_data):
     def pick(key, fallback):
-        return random.choice(role_data.get(key, fallback))
+        return rng.choice(role_data.get(key, fallback))
 
     return {
-        "metric_pct": str(random.choice([8, 10, 12, 15, 18, 22, 25, 30])),
-        "metric_pct2": str(random.choice([6, 9, 11, 14, 16, 20, 24, 28])),
-        "metric_num": str(random.choice([12, 15, 18, 20, 24, 30, 40, 55])),
-        "metric_days": str(random.choice([2, 3, 4, 5, 7])),
-        "metric_weeks": str(random.choice([2, 3, 4, 6, 8])),
+        "metric_pct": str(rng.choice([8, 10, 12, 15, 18, 22, 25, 30])),
+        "metric_pct2": str(rng.choice([6, 9, 11, 14, 16, 20, 24, 28])),
+        "metric_num": str(rng.choice([12, 15, 18, 20, 24, 30, 40, 55])),
+        "metric_days": str(rng.choice([2, 3, 4, 5, 7])),
+        "metric_weeks": str(rng.choice([2, 3, 4, 6, 8])),
         "kpi": pick("kpi", ["quality", "throughput", "retention", "conversion"]),
         "tool": pick("tools", ["Excel", "Google Sheets"]),
         "tool2": pick("tools", ["Jira", "Asana"]),
@@ -640,12 +642,12 @@ def build_context(role_data):
         "platform": pick("platforms", ["web", "mobile", "internal tools"]),
         "campaign": pick("campaigns", ["product launch", "nurture program", "paid search"]),
         "region": pick("regions", ["North America", "EMEA", "APAC"]),
-        "budget": random.choice(["$1.2M", "$2.5M", "$3.8M", "$5.0M"]),
-        "revenue": random.choice(["$450K", "$900K", "$1.4M", "$2.2M"]),
-        "users": random.choice(["15k", "30k", "50k", "120k"]),
-        "volume": random.choice(["120+", "250+", "400+", "750+"]),
-        "timeframe": random.choice(["2 weeks", "4 weeks", "6 weeks", "1 quarter"]),
-        "customer": random.choice(["enterprise", "mid-market", "SMB"]),
+        "budget": rng.choice(["$1.2M", "$2.5M", "$3.8M", "$5.0M"]),
+        "revenue": rng.choice(["$450K", "$900K", "$1.4M", "$2.2M"]),
+        "users": rng.choice(["15k", "30k", "50k", "120k"]),
+        "volume": rng.choice(["120+", "250+", "400+", "750+"]),
+        "timeframe": rng.choice(["2 weeks", "4 weeks", "6 weeks", "1 quarter"]),
+        "customer": rng.choice(["enterprise", "mid-market", "SMB"]),
     }
 
 
@@ -656,7 +658,7 @@ def pick_seniority_mix(count):
     }
     counts["senior"] = count - counts["junior"] - counts["mid"]
     mix = ["junior"] * counts["junior"] + ["mid"] * counts["mid"] + ["senior"] * counts["senior"]
-    random.shuffle(mix)
+    rng.shuffle(mix)
     return mix
 
 
@@ -670,10 +672,10 @@ def build_experience(seniority):
 
 def experience_years(seniority):
     if seniority == "junior":
-        return random.choice([1, 2, 3])
+        return rng.choice([1, 2, 3])
     if seniority == "mid":
-        return random.choice([4, 5, 6, 7, 8])
-    return random.choice([9, 10, 11, 12, 13, 14, 15])
+        return rng.choice([4, 5, 6, 7, 8])
+    return rng.choice([9, 10, 11, 12, 13, 14, 15])
 
 
 def date_ranges(num_roles, seniority):
@@ -688,14 +690,14 @@ def date_ranges(num_roles, seniority):
         durations = (14, 28)
 
     for idx in range(num_roles):
-        months = random.randint(*durations)
+        months = rng.randint(*durations)
         start_date = add_months(end_date, -months)
-        if idx == 0 and random.random() < 0.7:
+        if idx == 0 and rng.random() < 0.7:
             end_label = "Present"
         else:
             end_label = month_year(end_date)
         ranges.append((month_year(start_date), end_label))
-        end_date = add_months(start_date, -random.choice(gap_months))
+        end_date = add_months(start_date, -rng.choice(gap_months))
     return ranges
 
 
@@ -724,22 +726,22 @@ def add_bullets(pdf, bullets, indent=4):
 def render_resume(index, role_key, seniority, output_dir, used_names):
     role_data = ROLE_TEMPLATES[role_key]
     name = unique_name(used_names)
-    city_state = random.choice(CITIES)
+    city_state = rng.choice(CITIES)
     ctx = build_context(role_data)
     years = experience_years(seniority)
 
-    summary_template = random.choice(SUMMARY_TEMPLATES[seniority])
+    summary_template = rng.choice(SUMMARY_TEMPLATES[seniority])
     summary = summary_template.format(label=role_data["label"], years=years, kpi=ctx["kpi"])
-    summary += " " + random.choice(
+    summary += " " + rng.choice(
         [
-            f"Skilled in {random.choice(role_data['skills'])} and {random.choice(role_data['skills'])}.",
+            f"Skilled in {rng.choice(role_data['skills'])} and {rng.choice(role_data['skills'])}.",
             f"Known for improving {ctx['kpi']} and delivering on tight timelines.",
             f"Comfortable partnering with {ctx['stakeholder']} to drive outcomes.",
         ]
     )
 
-    title = random.choice(role_data["titles"][seniority])
-    skills = sorted(set(random.sample(role_data["skills"], k=8)))
+    title = rng.choice(role_data["titles"][seniority])
+    skills = sorted(set(rng.sample(role_data["skills"], k=8)))
 
     pdf = FPDF("P", "mm", "Letter")
     pdf.set_auto_page_break(auto=True, margin=12)
@@ -767,9 +769,9 @@ def render_resume(index, role_key, seniority, output_dir, used_names):
     date_labels = date_ranges(exp_count, seniority)
 
     for idx in range(exp_count):
-        job_title = random.choice(role_data["titles"][seniority if idx == 0 else "mid"]) if seniority != "junior" else random.choice(role_data["titles"]["junior"])
+        job_title = rng.choice(role_data["titles"][seniority if idx == 0 else "mid"]) if seniority != "junior" else rng.choice(role_data["titles"]["junior"])
         company = random_company()
-        location = f"{random.choice(CITIES)[0]}, {random.choice(CITIES)[1]}"
+        location = f"{rng.choice(CITIES)[0]}, {rng.choice(CITIES)[1]}"
         start_label, end_label = date_labels[idx]
 
         pdf.set_font("Helvetica", "B", 10)
@@ -777,28 +779,28 @@ def render_resume(index, role_key, seniority, output_dir, used_names):
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 5, f"{start_label} - {end_label}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-        bullets = [random.choice(role_data["bullets"]).format_map(ctx) for _ in range(random.randint(3, 5))]
+        bullets = [rng.choice(role_data["bullets"]).format_map(ctx) for _ in range(rng.randint(3, 5))]
         add_bullets(pdf, bullets)
 
     add_section(pdf, "PROJECTS")
     for _ in range(2):
-        project = random.choice(role_data["projects"])
+        project = rng.choice(role_data["projects"])
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(0, 5, project, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 10)
-        project_bullets = [random.choice(PROJECT_BULLETS).format_map(ctx) for _ in range(2)]
+        project_bullets = [rng.choice(PROJECT_BULLETS).format_map(ctx) for _ in range(2)]
         add_bullets(pdf, project_bullets)
 
     add_section(pdf, "EDUCATION")
-    degree = "B.S." if seniority != "senior" else random.choice(["B.S.", "M.S.", "MBA"])
-    major = random.choice(role_data["majors"])
-    grad_year = random.choice([2024, 2023, 2022, 2021, 2020])
+    degree = "B.S." if seniority != "senior" else rng.choice(["B.S.", "M.S.", "MBA"])
+    major = rng.choice(role_data["majors"])
+    grad_year = rng.choice([2024, 2023, 2022, 2021, 2020])
     if seniority == "mid":
-        grad_year = random.choice([2018, 2017, 2016, 2015, 2014])
+        grad_year = rng.choice([2018, 2017, 2016, 2015, 2014])
     if seniority == "senior":
-        grad_year = random.choice([2012, 2011, 2010, 2009, 2008])
+        grad_year = rng.choice([2012, 2011, 2010, 2009, 2008])
 
-    university = random.choice(UNIVERSITIES)
+    university = rng.choice(UNIVERSITIES)
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(0, 5, f"{degree} in {major}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", "", 10)
@@ -806,7 +808,7 @@ def render_resume(index, role_key, seniority, output_dir, used_names):
     pdf.ln(1)
 
     add_section(pdf, "CERTIFICATIONS")
-    certs = random.sample(role_data["certs"], k=min(2, len(role_data["certs"])))
+    certs = rng.sample(role_data["certs"], k=min(2, len(role_data["certs"])))
     if not certs:
         certs = ["Professional Development Coursework"]
     add_bullets(pdf, certs, indent=2)
@@ -818,7 +820,7 @@ def render_resume(index, role_key, seniority, output_dir, used_names):
 
 def main():
     args = parse_args()
-    random.seed(args.seed)
+    rng.seed(args.seed)
 
     output_dir = args.output
     if not os.path.isabs(output_dir):
