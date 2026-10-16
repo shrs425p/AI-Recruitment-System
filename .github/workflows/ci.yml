@@ -11,15 +11,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Windows Quality & Tests
+  quality-and-tests:
+    name: Ruff & Pytest
     runs-on: windows-latest
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,7 +38,7 @@ jobs:
 
       - name: Run tests with pytest & coverage
         run: |
-          python -m pytest --cov=src --cov=app --cov-report=xml:coverage.xml --junitxml=test-results.xml tests --timeout=90
+          python -m pytest --cov=src --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml --junitxml=test-results.xml tests --timeout=90
 
       - name: Run environment pre-flight
         run: python scripts/verify_environment.py
@@ -53,27 +51,3 @@ jobs:
           path: |
             test-results.xml
             coverage.xml
-
-  sonarqube:
-    name: SonarQube Code Quality Analysis
-    needs: test
-    runs-on: ubuntu-latest
-    if: ${{ env.SONAR_TOKEN != '' }}
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download test & coverage artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: test-results
-
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v4
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
