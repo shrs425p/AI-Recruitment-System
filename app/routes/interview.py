@@ -265,6 +265,7 @@ def register_candidate_interview_routes(app):
         interview_session[session_id]["pending_question"] = first_q
         interview_session[session_id]["pending_topic"]    = INTERVIEW_PLAN[0][1]
         interview_session[session_id]["pending_q_type"]   = INTERVIEW_PLAN[0][0]
+        interview_session[session_id]["question_issued_at"] = time.time()
         save_interview_session(session_id, interview_session[session_id])
 
         return jsonify({
@@ -284,7 +285,6 @@ def register_candidate_interview_routes(app):
         data       = request.get_json(silent=True) or {}
         answer     = data.get("answer", "").strip()
         q_num      = int(data.get("question_num", 1))
-        time_taken = int(data.get("time_taken", 30))
 
         session_data, error = _get_candidate_session(data)
         if error:
@@ -297,6 +297,20 @@ def register_candidate_interview_routes(app):
         topic    = session_data.get("pending_topic", "General")
         q_type   = session_data.get("pending_q_type", "TECHNICAL")
 
+        now = time.time()
+        issued_at = session_data.get("question_issued_at") or session_data.get("started_at") or now
+        server_time_taken = max(0.5, round(now - issued_at, 1))
+
+        # Server-side verification of answer latency bounds and typing speed
+        server_proctor_flags = []
+        if server_time_taken < 2.0 and len(answer.split()) > 5:
+            server_proctor_flags.append("INSTANT_PASTE_DETECTED")
+        elif len(answer) > 80 and (len(answer) / server_time_taken) > 25.0:
+            server_proctor_flags.append("UNREALISTIC_TYPING_SPEED")
+
+        if server_time_taken > 300.0:
+            server_proctor_flags.append("PROLONGED_RESPONSE_DELAY")
+
         evaluation = evaluate_answer(
             question=question,
             answer=answer,
@@ -304,18 +318,23 @@ def register_candidate_interview_routes(app):
             domain=topic,
         )
         score = evaluation.get("total", 0)
-        answer_flags = proctor_check(q_num, answer, time_taken)
+        answer_flags = proctor_check(q_num, answer, server_time_taken)
+        all_flags = list(dict.fromkeys(answer_flags.get("flags", []) + server_proctor_flags))
+        answer_flags["flags"] = all_flags
+        answer_flags["flagged"] = len(all_flags) > 0
+        answer_flags["server_verified_time"] = server_time_taken
 
         session_data["responses"].append({
-            "question_num": q_num,
-            "type":         q_type,
-            "topic":        topic,
-            "question":     question,
-            "answer":       answer,
-            "score":        score,
-            "evaluation":   evaluation,
-            "answer_flags": answer_flags.get("flags", []),
-            "time_taken":   time_taken
+            "question_num":        q_num,
+            "type":                q_type,
+            "topic":               topic,
+            "question":            question,
+            "answer":              answer,
+            "score":               score,
+            "evaluation":          evaluation,
+            "answer_flags":        all_flags,
+            "time_taken":          int(server_time_taken),
+            "server_verified_time": server_time_taken,
         })
 
         if q_num >= len(INTERVIEW_PLAN):
@@ -347,6 +366,7 @@ def register_candidate_interview_routes(app):
         session_data["pending_question"] = next_q
         session_data["pending_topic"]    = next_topic
         session_data["pending_q_type"]   = next_q_type
+        session_data["question_issued_at"] = time.time()
         save_interview_session(session_data.get("session_id", data.get("session_id")), session_data)
 
         return jsonify({
