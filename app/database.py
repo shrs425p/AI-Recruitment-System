@@ -260,7 +260,10 @@ def get_runs(run_type=None, limit=20):
 # ─── Candidate helpers ───
 
 def upsert_candidate(run_id, name, email="", source_file="", score=0, skills=None):
-    """Insert or update a candidate within a run. Returns the candidate id."""
+    """Insert or update a candidate within a run. Encrypts email PII at rest. Returns the candidate id."""
+    from src.security import encrypt_secret
+    stored_email = encrypt_secret(email) if email else ""
+
     conn = get_connection()
     try:
         cur = conn.execute(
@@ -271,13 +274,13 @@ def upsert_candidate(run_id, name, email="", source_file="", score=0, skills=Non
         if row:
             conn.execute(
                 "UPDATE candidates SET email=?, source_file=?, score=?, skills=? WHERE id=?",
-                (email, source_file, score, skills_json, row["id"]),
+                (stored_email, source_file, score, skills_json, row["id"]),
             )
             cid = row["id"]
         else:
             cur = conn.execute(
                 "INSERT INTO candidates (run_id, name, email, source_file, score, skills) VALUES (?,?,?,?,?,?)",
-                (run_id, name, email, source_file, score, skills_json),
+                (run_id, name, stored_email, source_file, score, skills_json),
             )
             cid = cur.lastrowid
         conn.commit()
@@ -286,7 +289,7 @@ def upsert_candidate(run_id, name, email="", source_file="", score=0, skills=Non
         conn.close()
 
 def get_candidate_by_name(name, run_id=None):
-    """Return candidate row or None. If run_id given, scoped to that run."""
+    """Return candidate row or None with transparently decrypted PII. If run_id given, scoped to that run."""
     conn = get_connection()
     try:
         if run_id:
@@ -297,12 +300,18 @@ def get_candidate_by_name(name, run_id=None):
             row = conn.execute(
                 "SELECT * FROM candidates WHERE name=? ORDER BY id DESC LIMIT 1", (name,)
             ).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        from src.security import decrypt_secret
+        cand_dict = dict(row)
+        if cand_dict.get("email"):
+            cand_dict["email"] = decrypt_secret(cand_dict["email"])
+        return cand_dict
     finally:
         conn.close()
 
 def get_all_candidates(run_id=None):
-    """Return candidates as a list of dicts. If run_id given, scoped to that run."""
+    """Return candidates as a list of dicts with transparently decrypted PII. If run_id given, scoped to that run."""
     conn = get_connection()
     try:
         if run_id:
@@ -311,7 +320,14 @@ def get_all_candidates(run_id=None):
             ).fetchall()
         else:
             rows = conn.execute("SELECT * FROM candidates ORDER BY score DESC").fetchall()
-        return [dict(r) for r in rows]
+        from src.security import decrypt_secret
+        results = []
+        for r in rows:
+            d = dict(r)
+            if d.get("email"):
+                d["email"] = decrypt_secret(d["email"])
+            results.append(d)
+        return results
     finally:
         conn.close()
 
@@ -390,12 +406,14 @@ def mark_email_sent(schedule_id):
         conn.close()
 
 def log_email(run_id, schedule_id, recipient, subject, status="SENT", error=""):
-    """Log an email send attempt."""
+    """Log an email send attempt. Encrypts recipient email address at rest."""
+    from src.security import encrypt_secret
+    stored_recipient = encrypt_secret(recipient) if recipient else ""
     conn = get_connection()
     try:
         conn.execute(
             "INSERT INTO email_log (run_id, schedule_id, recipient, subject, status, error) VALUES (?,?,?,?,?,?)",
-            (run_id, schedule_id, recipient, subject, status, error),
+            (run_id, schedule_id, stored_recipient, subject, status, error),
         )
         conn.commit()
     finally:

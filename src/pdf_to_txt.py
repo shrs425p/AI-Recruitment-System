@@ -12,6 +12,7 @@ import pytesseract  # Python wrapper for the Tesseract OCR engine
 from PIL import Image  # Pillow — open PNG/JPG image files
 
 from src.common import data_path, install_path
+from src.security import decrypt_bytes
 
 logger = logging.getLogger("ars.pdf_to_txt")
 
@@ -42,18 +43,32 @@ WATCH_INTERVAL_SECONDS  = 5
 # EXTRACT DIRECT TEXT FROM DIGITAL PDF
 # ─────────────────────────────────────────────
 
-def extract_direct_text(pdf_path):
+def extract_direct_text(pdf_input):
     """
     Extract embedded text from a digital PDF using PyMuPDF (fitz).
 
     This is fast (~milliseconds) because it reads text already stored in the
     PDF rather than running OCR.  Works for PDFs created by Word, LaTeX, etc.
 
+    Accepts a file path (str or Path) or raw bytes. Transparently decrypts
+    encrypted files at rest if needed.
+
     Returns:
         str — extracted text (may be empty for scanned PDFs).
     """
     try:
-        with fitz.open(pdf_path) as doc:
+        if isinstance(pdf_input, (bytes, bytearray)):
+            decrypted = decrypt_bytes(pdf_input)
+            doc = fitz.open(stream=decrypted, filetype="pdf")
+        else:
+            path = Path(pdf_input)
+            if not path.exists():
+                return ""
+            raw = path.read_bytes()
+            decrypted = decrypt_bytes(raw)
+            doc = fitz.open(stream=decrypted, filetype="pdf")
+
+        with doc:
             text = ""
             for page in doc:
                 # get_text("text") returns plain text without layout styling
@@ -115,10 +130,12 @@ def process_file(file_path: Path, output_path: Path):
 
     try:
         full_text = ""
+        raw_bytes = file_path.read_bytes()
+        file_bytes = decrypt_bytes(raw_bytes)
 
         if file_path.suffix.lower() == '.pdf':
             # Try cheap direct extraction first
-            extracted_text = extract_direct_text(str(file_path))
+            extracted_text = extract_direct_text(file_bytes)
 
             if len(extracted_text) > MIN_DIGITAL_TEXT_LENGTH:
                 # PDF has proper embedded text — use it directly (fast path)
@@ -127,7 +144,7 @@ def process_file(file_path: Path, output_path: Path):
             else:
                 # Likely a scanned PDF — render pages to images via PyMuPDF then OCR
                 # matrix with zoom=3 gives ~300 dpi (72 * 3 ≈ 216–300 effective)
-                with fitz.open(str(file_path)) as doc:
+                with fitz.open(stream=file_bytes, filetype="pdf") as doc:
                     for page in doc:
                         pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
                         img = Image.open(io.BytesIO(pix.tobytes("png")))
@@ -136,7 +153,7 @@ def process_file(file_path: Path, output_path: Path):
 
         else:
             # PNG / JPG — always OCR because there is no embedded text layer
-            full_text = pytesseract.image_to_string(Image.open(file_path))
+            full_text = pytesseract.image_to_string(Image.open(io.BytesIO(file_bytes)))
             logger.info("(Image OCR)")
 
         # Clean up the raw text regardless of how it was extracted

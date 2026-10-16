@@ -84,3 +84,29 @@ def decrypt_secret(ciphertext: str) -> str:
     except Exception:
         # Fallback if decryption fails (e.g. invalid key/corrupted token)
         return ""
+
+
+def encrypt_bytes(data: bytes) -> bytes:
+    """Encrypt raw binary data using AES-Fernet with an ARS_ENC: magic prefix."""
+    if not data or not isinstance(data, (bytes, bytearray)):
+        return b""
+    if data.startswith(b"ARS_ENC:"):
+        return bytes(data)
+    fernet = _get_fernet()
+    encrypted = fernet.encrypt(bytes(data))
+    return b"ARS_ENC:" + encrypted
+
+
+def decrypt_bytes(data: bytes) -> bytes:
+    """Decrypt an ARS_ENC: prefixed binary token back to original bytes."""
+    if not data or not isinstance(data, (bytes, bytearray)):
+        return b""
+    if not data.startswith(b"ARS_ENC:"):
+        return bytes(data)
+    try:
+        raw_payload = data[8:]
+        fernet = _get_fernet()
+        return fernet.decrypt(raw_payload)
+    except Exception:
+        return b""
+

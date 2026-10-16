@@ -122,7 +122,9 @@ def test_upload_rejects_unsupported_files_and_preserves_duplicates(tmp_path, mon
     assert data["count"] == 1
     assert len(data["rejected"]) == 1
     assert (resumes_dir / "resume.pdf").read_bytes() == b"original"
-    assert (resumes_dir / "resume_1.pdf").read_bytes() == b"new resume"
+    assert (resumes_dir / "resume_1.pdf").read_bytes().startswith(b"ARS_ENC:")
+    from src.security import decrypt_bytes
+    assert decrypt_bytes((resumes_dir / "resume_1.pdf").read_bytes()) == b"new resume"
 
 
 def test_email_template_customization(monkeypatch):

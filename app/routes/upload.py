@@ -1,11 +1,14 @@
+import io
+import mimetypes
 from pathlib import Path
 
-from flask import jsonify, render_template, request, send_from_directory
+from flask import jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from app.core import OUTPUT_FOLDER, RESUMES_FOLDER
 from app.utils import login_required
 from src.pdf_to_txt import process_file as pdf_process_file
+from src.security import decrypt_bytes, encrypt_bytes
 
 ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 
@@ -47,7 +50,9 @@ def register_upload_routes(app):
                     rejected.append({"filename": file.filename, "error": "Only PDF, PNG, JPG, and JPEG files are allowed."})
                     continue
                 safe_name = _available_filename(RESUMES_FOLDER, safe_name)
-                file.save(RESUMES_FOLDER / safe_name)
+                file_content = file.read()
+                encrypted_content = encrypt_bytes(file_content)
+                (RESUMES_FOLDER / safe_name).write_bytes(encrypted_content)
                 saved.append(safe_name)
         return jsonify({"success": bool(saved), "saved": saved, "rejected": rejected, "count": len(saved)})
 
@@ -58,7 +63,19 @@ def register_upload_routes(app):
         file_path = (RESUMES_FOLDER / safe_name).resolve()
         if not file_path.exists() or not file_path.is_relative_to(RESUMES_FOLDER.resolve()):
             return jsonify({"error": "Resume file not found"}), 404
-        return send_from_directory(RESUMES_FOLDER, safe_name)
+
+        raw_bytes = file_path.read_bytes()
+        decrypted_bytes = decrypt_bytes(raw_bytes)
+        mime_type, _ = mimetypes.guess_type(safe_name)
+        if not mime_type:
+            mime_type = "application/pdf" if safe_name.lower().endswith(".pdf") else "application/octet-stream"
+
+        return send_file(
+            io.BytesIO(decrypted_bytes),
+            mimetype=mime_type,
+            as_attachment=False,
+            download_name=safe_name,
+        )
 
     @app.route("/api/process-pdfs", methods=["POST"])
     @login_required
