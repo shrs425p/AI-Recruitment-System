@@ -95,6 +95,30 @@ def _question_payload(question_text: str, q_num: int):
     return {"question": question_text, "type": q_type, "topic": topic, "question_num": q_num}
 
 
+def is_token_valid_and_active(token: str, max_age_hours: int = 72) -> tuple[bool, dict | None, str]:
+    """Validate interview token existence, one-time status, and expiration.
+    Returns (is_valid, token_data, rejection_reason).
+    """
+    if not token or not isinstance(token, str):
+        return False, None, "Interview token is missing or invalid."
+    token_data = get_interview_token(token)
+    if not token_data:
+        return False, None, "Invalid or nonexistent interview link."
+    if token_data.get("used") == 1:
+        return False, token_data, "This interview has already been completed or the token was used."
+    created_str = token_data.get("created_at")
+    if created_str:
+        try:
+            from datetime import datetime, timezone
+            created_dt = datetime.fromisoformat(created_str.replace("Z", ""))
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            if (now - created_dt).total_seconds() > (max_age_hours * 3600):
+                return False, token_data, "This interview link has expired. Please contact HR for a new link."
+        except Exception as e:
+            logger.warning("Failed parsing token created_at: %s", e)
+    return True, token_data, ""
+
+
 def register_interview_routes(app):
     @app.route("/interview")
     @login_required
@@ -140,16 +164,16 @@ def register_interview_routes(app):
 
     @app.route("/candidate-interview/<token>")
     def candidate_interview(token):
-        token_data = get_interview_token(token)
-        if not token_data or token_data.get("used") == 1:
+        valid, token_data, reason = is_token_valid_and_active(token)
+        if not valid or not token_data:
             from flask import render_template_string
-            return render_template_string("""
-            <html><head><title>Interview Expired</title>
-            <style>body{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}</style>
+            return render_template_string(f"""
+            <html><head><title>Interview Link Inactive</title>
+            <style>body{{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}}</style>
             </head><body>
             <div style="text-align:center; padding:40px; background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
             <h2 style="color:#ef4444; margin-top:0;">Invalid or Expired Link</h2>
-            <p style="color:#6b7280;">This interview has already been completed or the link is invalid.</p>
+            <p style="color:#6b7280;">{reason}</p>
             </div>
             </body></html>
             """), 403
@@ -171,9 +195,9 @@ def register_interview_routes(app):
         data  = request.json or {}
         token = data.get("token")
 
-        token_data = get_interview_token(token)
-        if not token_data or token_data.get("used") == 1:
-            return jsonify({"error": "Unauthorized"}), 401
+        valid, token_data, reason = is_token_valid_and_active(token)
+        if not valid or not token_data:
+            return jsonify({"error": reason or "Unauthorized"}), 401
         if token in active_token_sessions and active_token_sessions[token] in interview_session:
             return jsonify({"error": "Interview already in progress for this token."}), 409
 
@@ -402,6 +426,7 @@ def register_interview_routes(app):
             return "127.0.0.1"
 
     @app.route("/api/generate-interview-links", methods=["POST"])
+    @login_required
     def api_generate_interview_links():
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         if not schedule_files:
@@ -541,6 +566,7 @@ def register_interview_routes(app):
 
 
     @app.route("/api/interview-links", methods=["GET"])
+    @login_required
     def api_interview_links():
         tokens = get_all_tokens()
         host_url = request.host_url
