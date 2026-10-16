@@ -31,6 +31,7 @@ def register_nlp_routes(app):
         return render_template("nlp.html", txt_count=txt_count, nlp_count=nlp_count)
 
     @app.route("/api/process-nlp", methods=["POST"])
+    @login_required
     def api_process_nlp():
         input_path  = OUTPUT_FOLDER / "txt"
         output_path = OUTPUT_FOLDER / "nlp"
@@ -97,6 +98,7 @@ def register_nlp_routes(app):
         return jsonify(results)
 
     @app.route("/api/privacy-setup", methods=["POST"])
+    @login_required
     def api_privacy_setup():
         global privacy_setup_thread
         if privacy_setup_status["running"]:
@@ -146,10 +148,12 @@ def register_nlp_routes(app):
         return jsonify({"success": True})
 
     @app.route("/api/privacy-status", methods=["GET"])
+    @login_required
     def api_privacy_status():
         return jsonify(privacy_setup_status)
 
     @app.route("/api/privacy-cancel", methods=["POST"])
+    @login_required
     def api_privacy_cancel():
         privacy_setup.cancel_setup()
         privacy_setup_status["running"] = False

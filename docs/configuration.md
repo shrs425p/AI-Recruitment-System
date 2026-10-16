@@ -178,14 +178,18 @@ Used for sending scheduling emails to candidates.
 
 ---
 
-## Encrypted Keys
+## Encrypted Keys & Data at Rest
 
-The following keys are automatically encrypted before being saved to the database. They are decrypted in memory when needed and never written in plain text to disk.
+The application enforces encryption at rest across three layers using AES-Fernet with keys derived from `%LOCALAPPDATA%\AI Recruitment System\.secret_salt`:
 
-```
-ANTHROPIC_KEY, GEMINI_KEY, GROQ_KEY, OPENAI_KEY,
-NVIDIA_KEY, OPENROUTER_KEY, GITHUB_KEY, OLLAMA_CLOUD_KEY,
-SMTP_PASSWORD, FLASK_SECRET_KEY
-```
+1. **Configuration Credentials (`app_settings` table):**
+   The following keys are encrypted before storage and marked with an `ENC:` prefix:
+   ```
+   ANTHROPIC_KEY, GEMINI_KEY, GROQ_KEY, OPENAI_KEY,
+   NVIDIA_KEY, OPENROUTER_KEY, GITHUB_KEY, OLLAMA_CLOUD_KEY,
+   SMTP_PASSWORD, FLASK_SECRET_KEY
+   ```
+2. **Candidate PII:** Candidate contact fields (names, email addresses, phone numbers) written to SQLite are encrypted at rest.
+3. **Resume Files:** Uploaded resumes stored in `data/resumes/` are encrypted at rest with the `ARS_ENC:` magic prefix.
 
-Encrypted values are stored with an `ENC:` prefix in the database. If you see `ENC:...` in the `app_settings` table, that is an encrypted value — do not modify it manually.
+If you see `ENC:...` in the `app_settings` table, that is an encrypted value — do not modify it manually.

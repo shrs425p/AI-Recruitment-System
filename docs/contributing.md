@@ -206,4 +206,6 @@ pytest -k "test_login"          # specific test by name
 - **Don't hardcode paths.** Use `data_path()` and `resource_path()` from `src/common.py`.
 - **Don't write sensitive values unencrypted.** Use `app.database.set_setting(key, value, is_encrypted=True)` for keys in `SENSITIVE_KEYS`.
 - **Don't forget `@login_required`** on new HR-only routes.
+- **Don't forget CSRF protection.** State-changing HR endpoints (`POST`, `PUT`, `DELETE`) require `X-CSRF-Token` validation.
+- **Maintain permissive licensing.** Use MIT, BSD, or Apache-2.0 licensed packages; avoid AGPL dependencies.
 - **Don't write to the project directory at runtime.** Write to `data_path()` locations in `APP_DATA_DIR` — the project directory may be read-only in installed builds.

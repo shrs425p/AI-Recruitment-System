@@ -1,0 +1,23 @@
+# Gitleaks configuration for AI-Recruitment-System
+# Defines allowlist rules for test fixtures and documentation examples
+
+[allowlist]
+description = "Global allowlist for documentation placeholders, tests, and binary assets"
+paths = [
+    '''models/.*''',
+    '''Inno Setup 6/.*''',
+    '''docs/.*''',
+    '''tests/.*''',
+]
+stopwords = [
+    "sk-...",
+    "sk-ant-...",
+    "AIza...",
+    "gsk_...",
+    "nvapi-...",
+    "ghp_...",
+    "sk-or-...",
+    "sk-ant-testkey",
+    "gsk_testkey",
+    "AIzaSyTestKey123",
+]

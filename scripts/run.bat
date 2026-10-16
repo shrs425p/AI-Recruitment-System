@@ -24,7 +24,7 @@ if errorlevel 1 (
 set "REBUILD_VENV=0"
 if not exist "venv\Scripts\python.exe" set "REBUILD_VENV=1"
 if "%REBUILD_VENV%"=="0" (
-    venv\Scripts\python.exe -c "import flask, webview, waitress" >nul 2>&1
+    venv\Scripts\python.exe -c "import flask, webview, waitress, cryptography, pypdf" >nul 2>&1
     if errorlevel 1 set "REBUILD_VENV=1"
 )
 

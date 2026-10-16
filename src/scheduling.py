@@ -370,7 +370,15 @@ def run_scheduling():
         return
 
     # ── Step 2: Get job title and HR name ──
-    job_title = input("\n> Enter Job Title for this interview round: ").strip() or "Open Position"
+    default_title = "Open Position"
+    ranking_files = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
+    if ranking_files:
+        try:
+            with open(ranking_files[0], encoding="utf-8") as rf:
+                default_title = json.load(rf).get("job_description", {}).get("job_title") or default_title
+        except Exception:
+            pass
+    job_title = input(f"\n> Enter Job Title for this interview round [{default_title}]: ").strip() or default_title
     hr_name   = input("> Enter Hiring Manager Name               : ").strip() or "Hiring Manager"
 
     # ── Step 3: Get HR availability ──

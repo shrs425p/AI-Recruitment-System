@@ -821,10 +821,25 @@
                     </div>
                 </div>
 
+                <div class="consent-card" style="margin-top:20px; padding:16px; border:1px solid var(--gray-200); border-radius:8px; background:var(--gray-50); text-align:left;">
+                    <h4 style="margin-top:0; margin-bottom:8px; font-size:0.95rem; color:var(--gray-800);">Privacy Notice &amp; Candidate Consent</h4>
+                    <div style="font-size:0.8rem; color:var(--gray-600); line-height:1.4; max-height:140px; overflow-y:auto; margin-bottom:12px; padding:8px; background:#fff; border-radius:4px; border:1px solid var(--gray-200);">
+                        <p style="margin:0 0 6px 0;"><strong>1. Data Collected:</strong> Live camera video feed for facial presence/focus detection, audio inputs and voice transcriptions, text responses, and resume assessment metrics.</p>
+                        <p style="margin:0 0 6px 0;"><strong>2. Purpose:</strong> Automated technical evaluation, competency screening, and proctoring integrity verification for the {{ job_title }} role.</p>
+                        <p style="margin:0 0 6px 0;"><strong>3. Retention &amp; Erasure:</strong> Evaluation data is retained strictly for the duration of the recruitment evaluation cycle. You have the right to request deletion of your records at any time ("Right to be Forgotten").</p>
+                        <p style="margin:0 0 6px 0;"><strong>4. AI Processing Notice:</strong> Spoken and written responses are analyzed using artificial intelligence models (local Ollama or secure cloud LLMs) to assist evaluation. AI assessments are advisory; no candidate is automatically rejected without human HR oversight.</p>
+                        <p style="margin:0;"><strong>5. Voluntary Participation &amp; Withdrawal:</strong> Participation is entirely voluntary. You may withdraw consent and terminate the session at any time without penalty.</p>
+                    </div>
+                    <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-size:0.82rem; color:var(--gray-700);">
+                        <input type="checkbox" id="consentCheckbox" onchange="toggleConsent()" style="margin-top:2px;">
+                        <span>I have read, understood, and consent to the data collection, camera/microphone proctoring, and AI processing terms outlined above.</span>
+                    </label>
+                </div>
+
                 <div style="text-align:center; margin-top:24px;">
-                    <button class="btn btn-primary" style="font-size:1rem; padding:14px 36px;"
+                    <button class="btn btn-primary" id="startInterviewBtn" style="font-size:1rem; padding:14px 36px;" disabled
                         onclick="startInterview()">
-                        I Understand — Start Interview
+                        I Understand &amp; Consent — Start Interview
                     </button>
                 </div>
             </div>
@@ -1003,16 +1018,26 @@
         function withSession(payload) {
             return Object.assign({ session_id: sessionId, session_key: sessionKey }, payload || {});
         }
+        function toggleConsent() {
+            const cb = document.getElementById('consentCheckbox');
+            const btn = document.getElementById('startInterviewBtn');
+            if (btn) btn.disabled = !cb.checked;
+        }
 
         // ───────── START INTERVIEW ─────────
         async function startInterview() {
+            const consentCheckbox = document.getElementById('consentCheckbox');
+            if (!consentCheckbox || !consentCheckbox.checked) {
+                showToast('You must agree to the privacy and consent terms to proceed.', 'error');
+                return;
+            }
             document.getElementById('rulesSection').classList.remove('active');
             showOverlay('Generating interview questions with AI…');
 
             const res = await fetch('/api/candidate/interview/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: TOKEN })
+                body: JSON.stringify({ token: TOKEN, consent: true })
             });
             hideOverlay();
 

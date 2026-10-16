@@ -272,11 +272,6 @@
         display: block;
     }
 
-    .about-card ol li:hover,
-    .about-card ul li:hover {
-        /* No card hover effect for human document layout */
-    }
-
     .about-card ol li::before {
         counter-increment: about-counter;
         content: "0" counter(about-counter);
@@ -291,10 +286,6 @@
         position: absolute;
         left: 0;
         top: 6px;
-    }
-
-    .about-card ul li {
-        /* Removed green border for human layout */
     }
 
     .about-card ul li::before {
@@ -334,6 +325,7 @@
 <!-- ════════════════════════════════════════════ -->
 <div class="settings-section active" id="tab-general">
     <form method="POST" action="/settings" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- Security -->
         <div class="card">
@@ -485,6 +477,7 @@
 <!-- ════════════════════════════════════════════ -->
 <div class="settings-section" id="tab-ai">
     <form method="POST" action="/settings" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- hidden fields to preserve General tab values when submitting from AI tab -->
         <input type="hidden" name="theme" value="{{ cfg.THEME }}">
@@ -1091,6 +1084,7 @@
 <!-- ════════════════════════════════════════════ -->
 <div class="settings-section" id="tab-email">
     <form method="POST" action="/settings" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- hidden fields to preserve other tab values -->
         <input type="hidden" name="theme" value="{{ cfg.THEME }}">

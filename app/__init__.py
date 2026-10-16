@@ -1,9 +1,10 @@
+import hmac
 import os
 import secrets
 import threading
 from datetime import timedelta
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, session
 
 import config
 from app.utils import protect_hr_routes
@@ -55,6 +56,62 @@ def register_error_handlers(app: Flask):
         return _error_response(500, "An internal server error occurred.")
 
 
+def register_csrf_protection(app: Flask):
+    """Enforce CSRF protection on state-changing endpoints for authenticated HR sessions."""
+
+    @app.before_request
+    def ensure_csrf_token():
+        if "_csrf_token" not in session:
+            session["_csrf_token"] = secrets.token_hex(32)
+
+    @app.context_processor
+    def inject_csrf_token():
+        def get_csrf_token():
+            if "_csrf_token" not in session:
+                session["_csrf_token"] = secrets.token_hex(32)
+            return session["_csrf_token"]
+        return {"csrf_token": get_csrf_token}
+
+    @app.before_request
+    def validate_csrf():
+        # Only validate state-changing methods
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            return None
+        # Only protect /api/ endpoints
+        if not request.path.startswith("/api/"):
+            return None
+        # Allowlist candidate-facing endpoints and desktop login bootstrap
+        is_candidate_api = request.path.startswith("/api/candidate/") and request.method != "DELETE" and not request.path.split("/")[-1].isdigit()
+        if is_candidate_api or request.path in ("/api/desktop-login", "/api/health"):
+            return None
+        # If an HR session is active, require a valid X-CSRF-Token
+        if session.get("logged_in"):
+            expected = session.get("_csrf_token")
+            provided = request.headers.get("X-CSRF-Token")
+            if not expected or not provided or not hmac.compare_digest(provided, expected):
+                return jsonify({"error": "CSRF token missing or invalid", "code": 403}), 403
+        return None
+
+
+def _apply_security_headers(response):
+    response.headers.setdefault("Cache-Control", "no-store")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'self';"
+    )
+    response.headers.setdefault("Content-Security-Policy", csp)
+    return response
+
+
 def create_app():
     templates_dir = str(APP_RESOURCE_DIR / "app" / "templates")
     static_dir = str(APP_RESOURCE_DIR / "app" / "static")
@@ -68,21 +125,20 @@ def create_app():
     app.config.update(
         MAX_CONTENT_LENGTH=_max_upload_size(),
         SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=False,  # Plain HTTP on loopback (127.0.0.1:5001) for HR desktop UI
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+        WTF_CSRF_ENABLED=True,
         _NONCE_POOL=set(),
         _NONCE_LOCK=threading.Lock(),
     )
     register_error_handlers(app)
     protect_hr_routes(app)
+    register_csrf_protection(app)
 
     @app.after_request
     def add_security_headers(response):
-        response.headers.setdefault("Cache-Control", "no-store")
-        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-        return response
+        return _apply_security_headers(response)
 
     @app.context_processor
     def inject_config():
@@ -112,6 +168,51 @@ def create_app():
     register_reports_routes(app)
     register_settings_routes(app)
     register_logs_routes(app)
+
+    return app
+
+
+def create_candidate_app():
+    """Create a lightweight Flask app containing ONLY candidate-facing routes.
+
+    This app is exposed to the local network (LAN) over HTTPS so candidates can
+    take interviews. It has NO HR routes (uploads, ranking, reports, settings, etc.),
+    ensuring that even if an attacker on the LAN attempts to call HR endpoints,
+    Flask returns 404 Not Found.
+    """
+    templates_dir = str(APP_RESOURCE_DIR / "app" / "templates")
+    static_dir = str(APP_RESOURCE_DIR / "app" / "static")
+
+    app = Flask("ARS_Candidate", template_folder=templates_dir, static_folder=static_dir)  # NOSONAR
+    app.secret_key = (
+        os.environ.get("FLASK_SECRET_KEY")
+        or getattr(config, "FLASK_SECRET_KEY", "")
+        or secrets.token_hex(32)
+    )
+    app.config.update(
+        MAX_CONTENT_LENGTH=_max_upload_size(),
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=True,  # Candidate portal is served strictly over HTTPS
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=4),
+        WTF_CSRF_ENABLED=True,
+    )
+    register_error_handlers(app)
+    register_csrf_protection(app)
+
+    @app.after_request
+    def add_security_headers(response):
+        return _apply_security_headers(response)
+
+    @app.context_processor
+    def inject_config():
+        return {"cfg": config, "config": config}
+
+    from app.routes.health import register_health_routes
+    from app.routes.interview import register_candidate_interview_routes
+
+    register_health_routes(app)
+    register_candidate_interview_routes(app)
 
     return app
 

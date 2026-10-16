@@ -133,11 +133,10 @@ main.py
 
 [2] TEXT EXTRACTION (pdf_to_txt.py)
   For digital PDFs:
-    PyMuPDF extracts embedded text directly (fast, ~ms)
+    pypdf extracts embedded text directly (fast, ~ms)
     If extracted text < 800 characters → treated as scanned → OCR
   For scanned PDFs / images:
-    PyMuPDF renders each page to a 300 DPI PNG
-    Tesseract OCR reads the PNG and extracts text
+    Tesseract OCR extracts text from embedded images and image files
   Output: .txt file in data/output/txt/
 
 [3] NLP EXTRACTION (nlp_extractor.py)
@@ -184,11 +183,11 @@ main.py
 
 [7] REPORT GENERATION (report_generator.py)
   Loads interview transcript JSON
-  Generates PDF with:
-    Candidate profile summary
-    Score breakdown (per question + overall)
-    Proctor summary (violations, face detection results)
-    Full Q&A transcript
+  Generates Material Design 3 monochrome PDF report with:
+    Candidate profile summary and combined score
+    Executive AI HR assessment, key strengths, and key gaps
+    Proctor integrity summary (face flags, tab switches, copy-paste)
+    Detailed question-by-question breakdown (prompt, category, score, 4-part rubrics, verbatim answer, AI feedback)
   Output: report_<candidate>_<timestamp>.pdf in data/output/reports/
 ```
 

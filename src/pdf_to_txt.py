@@ -7,11 +7,12 @@ import sys  # Used for sys.exit() in the watcher
 import time  # Used for sleep() in the polling loop
 from pathlib import Path  # Modern cross-platform path handling
 
-import fitz  # PyMuPDF — extract text + render pages to images
 import pytesseract  # Python wrapper for the Tesseract OCR engine
 from PIL import Image  # Pillow — open PNG/JPG image files
+from pypdf import PdfReader  # Pure-Python PDF parsing (BSD-3 licensed)
 
 from src.common import data_path, install_path
+from src.security import decrypt_bytes
 
 logger = logging.getLogger("ars.pdf_to_txt")
 
@@ -42,23 +43,35 @@ WATCH_INTERVAL_SECONDS  = 5
 # EXTRACT DIRECT TEXT FROM DIGITAL PDF
 # ─────────────────────────────────────────────
 
-def extract_direct_text(pdf_path):
+def extract_direct_text(pdf_input):
     """
-    Extract embedded text from a digital PDF using PyMuPDF (fitz).
+    Extract embedded text from a digital PDF using pypdf.
 
     This is fast (~milliseconds) because it reads text already stored in the
-    PDF rather than running OCR.  Works for PDFs created by Word, LaTeX, etc.
+    PDF rather than running OCR. Works for PDFs created by Word, LaTeX, etc.
+
+    Accepts a file path (str or Path) or raw bytes. Transparently decrypts
+    encrypted files at rest if needed.
 
     Returns:
         str — extracted text (may be empty for scanned PDFs).
     """
     try:
-        with fitz.open(pdf_path) as doc:
-            text = ""
-            for page in doc:
-                # get_text("text") returns plain text without layout styling
-                text += page.get_text("text") + "\n"
-            return text.strip()
+        if isinstance(pdf_input, (bytes, bytearray)):
+            decrypted = decrypt_bytes(pdf_input)
+        else:
+            path = Path(pdf_input)
+            if not path.exists():
+                return ""
+            decrypted = decrypt_bytes(path.read_bytes())
+
+        reader = PdfReader(io.BytesIO(decrypted))
+        text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        return text.strip()
     except Exception as e:
         logger.info(f"> [extract_direct_text] Error: {e}")
         return ""
@@ -115,28 +128,40 @@ def process_file(file_path: Path, output_path: Path):
 
     try:
         full_text = ""
+        raw_bytes = file_path.read_bytes()
+        file_bytes = decrypt_bytes(raw_bytes)
 
         if file_path.suffix.lower() == '.pdf':
             # Try cheap direct extraction first
-            extracted_text = extract_direct_text(str(file_path))
+            extracted_text = extract_direct_text(file_bytes)
 
             if len(extracted_text) > MIN_DIGITAL_TEXT_LENGTH:
                 # PDF has proper embedded text — use it directly (fast path)
                 full_text = extracted_text
                 logger.info("(Direct Text)")
             else:
-                # Likely a scanned PDF — render pages to images via PyMuPDF then OCR
-                # matrix with zoom=3 gives ~300 dpi (72 * 3 ≈ 216–300 effective)
-                with fitz.open(str(file_path)) as doc:
-                    for page in doc:
-                        pix = page.get_pixmap(matrix=fitz.Matrix(3, 3))
-                        img = Image.open(io.BytesIO(pix.tobytes("png")))
-                        full_text += pytesseract.image_to_string(img) + "\n"
-                logger.info("(OCR Fallback)")
+                # Scanned PDF or mixed pages — extract page images via pypdf and OCR
+                ocr_text = ""
+                try:
+                    reader = PdfReader(io.BytesIO(file_bytes))
+                    for page in reader.pages:
+                        page_direct = page.extract_text() or ""
+                        if page_direct.strip():
+                            ocr_text += page_direct + "\n"
+                        for img_file in page.images:
+                            try:
+                                ocr_text += pytesseract.image_to_string(img_file.image) + "\n"
+                            except Exception as err:
+                                logger.info(f"> OCR image extraction failed for page item: {err}")
+                except Exception as e:
+                    logger.info(f"> [pypdf OCR Fallback] Error reading pages: {e}")
+
+                full_text = ocr_text if ocr_text.strip() else extracted_text
+                logger.info("(OCR Fallback)" if full_text else "(No Text Found)")
 
         else:
             # PNG / JPG — always OCR because there is no embedded text layer
-            full_text = pytesseract.image_to_string(Image.open(file_path))
+            full_text = pytesseract.image_to_string(Image.open(io.BytesIO(file_bytes)))
             logger.info("(Image OCR)")
 
         # Clean up the raw text regardless of how it was extracted

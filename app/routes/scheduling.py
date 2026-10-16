@@ -1,7 +1,5 @@
-import logging
-
-logger = logging.getLogger(__name__)
 import json
+import logging
 import time
 from datetime import datetime
 
@@ -19,6 +17,8 @@ from src.scheduling import (
     load_top_candidates,
     save_schedule_summary,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_schedule_slots(raw_slots):
@@ -85,9 +85,29 @@ def register_scheduling_routes(app):
                                cal_status=cal_status)
 
     @app.route("/api/schedule", methods=["POST"])
+    @login_required
     def api_schedule():
-        data      = request.json
-        job_title = data.get("job_title", "Open Position")
+        data      = request.json or {}
+        job_title = (data.get("job_title") or "").strip()
+        if not job_title or job_title == "Open Position":
+            ranking_path = OUTPUT_FOLDER / "ranking"
+            rfiles = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
+            if rfiles:
+                try:
+                    with open(rfiles[0], encoding="utf-8") as rf:
+                        job_title = json.load(rf).get("job_description", {}).get("job_title") or job_title
+                except Exception:
+                    pass
+        if not job_title or job_title == "Open Position":
+            jd_files = sorted((OUTPUT_FOLDER / "jd").glob("jd_*.json"), reverse=True)
+            if jd_files:
+                try:
+                    with open(jd_files[0], encoding="utf-8") as jf:
+                        job_title = json.load(jf).get("job_title") or job_title
+                except Exception:
+                    pass
+        if not job_title:
+            job_title = "Open Position"
         hr_name   = data.get("hr_name", "Hiring Manager")
         hr_email  = data.get("hr_email", "")
         slots_raw = data.get("slots", [])
@@ -154,6 +174,7 @@ def register_scheduling_routes(app):
         return jsonify({"success": True, "scheduled": scheduled, "rejected_slots": rejected_slots})
 
     @app.route("/api/update-slot", methods=["POST"])
+    @login_required
     def api_update_slot():
         data           = request.json
         candidate_name = data.get("candidate_name")
@@ -181,15 +202,18 @@ def register_scheduling_routes(app):
         return jsonify({"success": True})
 
     @app.route("/api/calendar/status", methods=["GET"])
+    @login_required
     def api_calendar_status():
         return jsonify(check_calendar_auth())
 
     @app.route("/api/calendar/auth", methods=["POST"])
+    @login_required
     def api_calendar_auth():
         result = trigger_auth_flow()
         return jsonify(result)
 
     @app.route("/api/calendar/free-slots", methods=["GET"])
+    @login_required
     def api_calendar_free_slots():
         days = request.args.get("days", 14)
         try:
@@ -200,6 +224,7 @@ def register_scheduling_routes(app):
         return jsonify(result)
 
     @app.route("/api/calendar/create-events", methods=["POST"])
+    @login_required
     def api_calendar_create_events():
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         if not schedule_files:
@@ -227,9 +252,6 @@ def register_scheduling_routes(app):
     @login_required
     def api_send_emails():
         import config as cfg
-        from app.database import (
-            get_confirmed_not_emailed, log_email, mark_email_sent, get_latest_schedule
-        )
         from src.email_sender import send_interview_email
 
         smtp_host     = getattr(cfg, "SMTP_HOST", "").strip()

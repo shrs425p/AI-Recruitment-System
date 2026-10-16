@@ -9,8 +9,20 @@ from datetime import datetime, timedelta
 
 from flask import jsonify, redirect, render_template, url_for
 
-from app.core import OUTPUT_FOLDER, RESUMES_FOLDER, _save_tasks, pipeline_tasks
-from app.database import create_interview_token, create_run, finish_run, upsert_candidate
+from app.core import (
+    OUTPUT_FOLDER,
+    RESUMES_FOLDER,
+    _save_tasks,
+    pipeline_tasks,
+    purge_candidate_files,
+)
+from app.database import (
+    create_interview_token,
+    create_run,
+    delete_candidate,
+    finish_run,
+    upsert_candidate,
+)
 from app.database import save_schedule as db_save_schedule
 from app.folder_opener import open_folder
 from app.utils import login_required
@@ -18,8 +30,14 @@ from src.nlp_extractor import process_file_async
 
 # Imports for auto-pipeline
 from src.pdf_to_txt import process_file as pdf_process_file
-from src.ranking_engine import build_jd_prompt, call_ai, load_candidates, save_leaderboard_txt, save_scores_json, score_candidate
-from src.shortlist_report import save_shortlist_report
+from src.ranking_engine import (
+    build_jd_prompt,
+    call_ai,
+    load_candidates,
+    save_leaderboard_txt,
+    save_scores_json,
+    score_candidate,
+)
 from src.report_generator import (
     calculate_combined_score,
     generate_ai_report,
@@ -160,7 +178,7 @@ def _run_ranking_stage(results):
         if not jd_data:
             results["ranking"] = {"success": False, "message": "Failed to parse saved JD.", "count": 0}
             return
-            
+
         # Fallback if AI returned empty template
         if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
             from src.ranking_engine import _extract_title_fallback
@@ -250,7 +268,27 @@ def _run_scheduling_stage(results):
         except Exception as e:
             logger.warning('Caught exception: %s', e, exc_info=True)
 
-    job_title = latest_schedule.get("job_title", "Open Position") if latest_schedule else "Open Position"
+    job_title = "Open Position"
+    ranking_files = sorted(output_ranking_path.glob("ranking_scores*.json"), reverse=True)
+    if ranking_files:
+        try:
+            with open(ranking_files[0], encoding="utf-8") as f:
+                r_data = json.load(f)
+                job_title = r_data.get("job_description", {}).get("job_title") or job_title
+        except Exception as e:
+            logger.warning("Caught exception reading ranking job_title: %s", e)
+
+    if (not job_title or job_title == "Open Position") and latest_schedule:
+        job_title = latest_schedule.get("job_title", "Open Position")
+
+    if not job_title or job_title == "Open Position":
+        jd_files = sorted((OUTPUT_FOLDER / "jd").glob("jd_*.json"), reverse=True)
+        if jd_files:
+            try:
+                with open(jd_files[0], encoding="utf-8") as f:
+                    job_title = json.load(f).get("job_title") or job_title
+            except Exception:
+                pass
     slots_raw = []
     if latest_schedule:
         all_slots = []
@@ -414,6 +452,16 @@ def register_dashboard_routes(app):
             try:
                 with open(ranking_files[0], encoding="utf-8") as f:
                     latest_ranking = json.load(f)
+                if latest_ranking and isinstance(latest_ranking, dict) and "ranked_candidates" in latest_ranking:
+                    try:
+                        from app.database import get_candidate_by_name
+                        for c in latest_ranking["ranked_candidates"]:
+                            c_name = c.get("candidate_name", "")
+                            cand_row = get_candidate_by_name(c_name)
+                            if cand_row:
+                                c["id"] = cand_row["id"]
+                    except Exception:
+                        pass
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)
 
@@ -435,6 +483,7 @@ def register_dashboard_routes(app):
                                db_connected=db_connected)
 
     @app.route("/api/stats", methods=["GET"])
+    @login_required
     def api_stats():
         pdf_count  = len([f for f in RESUMES_FOLDER.iterdir()
                           if f.is_file() and f.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg"]])
@@ -460,10 +509,12 @@ def register_dashboard_routes(app):
         })
 
     @app.route("/api/task-status", methods=["GET"])
+    @login_required
     def api_task_status():
         return jsonify(pipeline_tasks)
 
     @app.route("/api/reset-pipeline", methods=["POST"])
+    @login_required
     def api_reset_pipeline():
         from app import database
         database.delete_all_tokens()
@@ -480,13 +531,14 @@ def register_dashboard_routes(app):
                             shutil.rmtree(f)
                     except Exception as e:
                         logger.warning('Caught exception: %s', e, exc_info=True)
-                        
+
 
         pipeline_tasks.clear()
         _save_tasks()
         return jsonify({"success": True, "message": "Database reset completed safely."})
 
     @app.route("/api/open-output-folder", methods=["POST"])
+    @login_required
     def api_open_output_folder():
         try:
             folder_path = open_folder(OUTPUT_FOLDER)
@@ -524,3 +576,20 @@ def register_dashboard_routes(app):
             "message": "Auto-pipeline started.",
             "task": pipeline_tasks["auto_pipeline"],
         }), 202
+
+    @app.route("/api/candidate/<int:candidate_id>", methods=["DELETE"])
+    @login_required
+    def api_delete_candidate(candidate_id):
+        cand_info = delete_candidate(candidate_id)
+        if not cand_info:
+            return jsonify({"error": "Candidate not found", "code": 404}), 404
+
+        purge_candidate_files(cand_info)
+        # Log deletion event without storing candidate PII
+        logger.info("Candidate ID %s and associated assets purged by HR", candidate_id)
+        return jsonify({
+            "success": True,
+            "id": candidate_id,
+            "message": "Candidate and all associated data purged successfully.",
+        })
+

@@ -3,6 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 import hmac
 import json
+import os
 import re
 import secrets
 import time
@@ -36,11 +37,19 @@ SESSION_TTL_SECONDS = 7200  # 2 hours
 
 
 def _cleanup_expired_sessions():
-    """Remove expired interview sessions from memory."""
+    """Remove expired interview sessions from memory and SQLite."""
+    try:
+        from app.database import cleanup_expired_interview_sessions
+
+        cleanup_expired_interview_sessions(SESSION_TTL_SECONDS)
+    except Exception as e:
+        logger.warning("Failed cleaning expired DB sessions: %s", e)
+
     now = time.time()
     expired = [
-        sid for sid, sess in interview_session.items()
-        if now - sess.get("created_at", now) > SESSION_TTL_SECONDS
+        sid
+        for sid, sess in interview_session.items()
+        if now - (sess.get("started_at") or sess.get("created_at", now)) > SESSION_TTL_SECONDS
     ]
     for sid in expired:
         token = interview_session[sid].get("token")
@@ -50,7 +59,14 @@ def _cleanup_expired_sessions():
 
 
 def _save_sessions():
-    pass # In-memory session tracking
+    """Persist all active in-memory sessions to SQLite."""
+    try:
+        from app.database import save_interview_session
+
+        for sid, sess in interview_session.items():
+            save_interview_session(sid, sess)
+    except Exception as e:
+        logger.warning("Failed persisting sessions: %s", e)
 
 
 def _client_fingerprint():
@@ -67,13 +83,34 @@ def _session_key_from_request(data):
 def _get_candidate_session(data):
     _cleanup_expired_sessions()
     session_id = data.get("session_id")
-    if session_id not in interview_session:
+    if not session_id:
+        return None, (jsonify({"error": "Missing session_id"}), 400)
+
+    session_data = interview_session.get(session_id)
+    if not session_data:
+        # Attempt recovery from SQLite (e.g. following process restart)
+        from app.database import get_interview_session
+
+        session_data = get_interview_session(session_id)
+        if session_data:
+            interview_session[session_id] = session_data
+            token = session_data.get("token")
+            if token:
+                active_token_sessions[token] = session_id
+
+    if not session_data:
         return None, (jsonify({"error": "Session expired or invalid"}), 404)
 
-    session_data = interview_session[session_id]
     now = time.time()
-    if now - session_data.get("created_at", now) > SESSION_TTL_SECONDS:
+    session_start = session_data.get("started_at") or session_data.get("created_at", now)
+    if now - session_start > SESSION_TTL_SECONDS:
         interview_session.pop(session_id, None)
+        try:
+            from app.database import delete_interview_session
+
+            delete_interview_session(session_id)
+        except Exception:
+            pass
         return None, (jsonify({"error": "Session expired"}), 404)
 
     provided_key = _session_key_from_request(data)
@@ -95,61 +132,131 @@ def _question_payload(question_text: str, q_num: int):
     return {"question": question_text, "type": q_type, "topic": topic, "question_num": q_num}
 
 
-def register_interview_routes(app):
-    @app.route("/interview")
-    @login_required
-    def interview():
-        from src.voice_interview import check_microphone, check_tts
-        from src.webcam_proctor import check_webcam_available
+def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
+    """Resolve true job_title, domain, and candidate skills, avoiding 'Open Position' fallbacks."""
+    job_title = (token_data.get("job_title") or "").strip()
+    domain = ""
+    skills = []
 
-        tokens = get_all_tokens()
+    source_file = token_data.get("source_file", "")
+    nlp_path = OUTPUT_FOLDER / "nlp"
+    nlp_candidates = []
+    if source_file:
+        nlp_candidates.extend([nlp_path / f"{source_file}.json", nlp_path / f"{source_file}_nlp.json"])
+    c_name = token_data.get("candidate_name", "").lower()
+    if nlp_path.exists():
+        for f in nlp_path.glob("*_nlp.json"):
+            nlp_candidates.append(f)
 
-        # Load the latest schedule to find confirmed candidates
-        schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
-        candidates = []
+    for nf in nlp_candidates:
+        if nf.exists():
+            try:
+                with open(nf, encoding="utf-8") as f:
+                    ndata = json.load(f)
+                name = ndata.get("personal_info", {}).get("name", "").lower()
+                if not c_name or name == c_name or c_name in name:
+                    domain = ndata.get("domain", "")
+                    sdict = ndata.get("skills", {})
+                    if isinstance(sdict, dict):
+                        tech = sdict.get("technical_skills") or []
+                        tools = sdict.get("tools_and_technologies") or []
+                        skills = list(tech) + [t for t in tools if t not in tech]
+                    elif isinstance(sdict, list):
+                        skills = sdict
+                    break
+            except Exception:
+                pass
+
+    if not job_title or job_title in ("Open Position", "Interview"):
+        ranking_path = OUTPUT_FOLDER / "ranking"
+        rfiles = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
+        if rfiles:
+            try:
+                with open(rfiles[0], encoding="utf-8") as f:
+                    rdata = json.load(f)
+                    jd = rdata.get("job_description", {})
+                    job_title = jd.get("job_title") or job_title
+                    if not domain:
+                        domain = jd.get("domain") or domain
+            except Exception:
+                pass
+
+        if not job_title or job_title in ("Open Position", "Interview"):
+            jd_path = OUTPUT_FOLDER / "jd"
+            jfiles = sorted(jd_path.glob("jd_*.json"), reverse=True)
+            if jfiles:
+                try:
+                    with open(jfiles[0], encoding="utf-8") as f:
+                        jd_data = json.load(f)
+                        job_title = jd_data.get("job_title") or job_title
+                        if not domain:
+                            domain = jd_data.get("domain") or domain
+                except Exception:
+                    pass
+
+    if not job_title or job_title in ("Open Position", "Interview"):
         job_title = "Open Position"
 
-        if schedule_files:
-            try:
-                with open(schedule_files[0], encoding="utf-8") as f:
-                    sdata = json.load(f)
-                    job_title = sdata.get("job_title", job_title)
-                    for entry in sdata.get("schedule", []):
-                        if entry.get("status") == "CONFIRMED":
-                            candidates.append(entry)
-            except Exception as e:
-                logger.error(f"Failed to load schedule: {e}")
+    return job_title, domain, skills
 
-        # Hardware checks
-        mic = check_microphone().get("available", False)
-        tts = check_tts().get("available", False)
-        cam = check_webcam_available().get("available", False)
 
-        return render_template("interview.html",
-                               candidates=candidates,
-                               job_title=job_title,
-                               mic_available=mic,
-                               tts_available=tts,
-                               webcam_available=cam,
-                               tokens=tokens)
+def is_token_valid_and_active(token: str, max_age_hours: int = 72) -> tuple[bool, dict | None, str]:
+    """Validate interview token existence, one-time status, and expiration.
+    Returns (is_valid, token_data, rejection_reason).
+    """
+    if not token or not isinstance(token, str):
+        return False, None, "Interview token is missing or invalid."
+    token_data = get_interview_token(token)
+    if not token_data:
+        return False, None, "Invalid or nonexistent interview link."
+    if token_data.get("used") == 1:
+        return False, token_data, "This interview has already been completed or the token was used."
+    created_str = token_data.get("created_at")
+    if created_str:
+        try:
+            from datetime import datetime, timezone
+            clean_str = created_str.replace("Z", "+00:00")
+            created_dt = datetime.fromisoformat(clean_str)
+            if created_dt.tzinfo is None:
+                created_dt = created_dt.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            if (now - created_dt).total_seconds() > (max_age_hours * 3600):
+                return False, token_data, "This interview link has expired. Please contact HR for a new link."
+        except Exception as e:
+            logger.warning("Failed parsing token created_at: %s", e)
+    return True, token_data, ""
 
-    @app.route("/rules")
-    @login_required
-    def rules():
-        return render_template("rules.html")
+
+def _get_lan_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        probe_target = os.environ.get("ROUTING_PROBE_HOST", "dns.google")
+        s.connect((probe_target, 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def register_candidate_interview_routes(app):
+    """Register strictly candidate-facing interview routes."""
+    if "candidate_interview" in app.view_functions:
+        return
 
     @app.route("/candidate-interview/<token>")
     def candidate_interview(token):
-        token_data = get_interview_token(token)
-        if not token_data or token_data.get("used") == 1:
+        valid, token_data, reason = is_token_valid_and_active(token)
+        if not valid or not token_data:
             from flask import render_template_string
-            return render_template_string("""
-            <html><head><title>Interview Expired</title>
-            <style>body{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}</style>
+            return render_template_string(f"""
+            <html><head><title>Interview Link Inactive</title>
+            <style>body{{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}}</style>
             </head><body>
             <div style="text-align:center; padding:40px; background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
             <h2 style="color:#ef4444; margin-top:0;">Invalid or Expired Link</h2>
-            <p style="color:#6b7280;">This interview has already been completed or the link is invalid.</p>
+            <p style="color:#6b7280;">{reason}</p>
             </div>
             </body></html>
             """), 403
@@ -168,31 +275,53 @@ def register_interview_routes(app):
         if not rate_limiter.is_allowed(client_ip):
             return jsonify({"error": "Rate limit exceeded. Please wait before retrying."}), 429
 
-        data  = request.json or {}
+        data = request.json or {}
         token = data.get("token")
+        consent = data.get("consent")
 
-        token_data = get_interview_token(token)
-        if not token_data or token_data.get("used") == 1:
-            return jsonify({"error": "Unauthorized"}), 401
+        valid, token_data, reason = is_token_valid_and_active(token)
+        if not valid or not token_data:
+            return jsonify({"error": reason or "Unauthorized"}), 401
+
+        if not consent:
+            return jsonify({
+                "error": "Candidate consent is required to proceed with the interview.",
+                "code": 400,
+            }), 400
+
+        from app.database import get_active_session_by_token, save_interview_session
+
         if token in active_token_sessions and active_token_sessions[token] in interview_session:
             return jsonify({"error": "Interview already in progress for this token."}), 409
 
+        existing_sid, existing_sess = get_active_session_by_token(token)
+        if existing_sid and existing_sess:
+            now = time.time()
+            if now - (existing_sess.get("started_at") or existing_sess.get("created_at", now)) < SESSION_TTL_SECONDS:
+                return jsonify({"error": "Interview already in progress for this token."}), 409
+
+        job_title, domain, skills = _resolve_candidate_job_context(token_data)
         session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
         interview_session[session_id] = {
-            "token":          token,
-            "session_key":    session_key,
-            "remote_addr":    fingerprint["remote_addr"],
-            "user_agent":     fingerprint["user_agent"],
-            "candidate_name": token_data["candidate_name"],
-            "source_file":    token_data["source_file"],
-            "job_title":      token_data["job_title"],
-            "ranking_score":  token_data["score"],
-            "responses":      [],
-            "started_at":     time.time(),
-            "webcam_log":     [],
-            "browser_log":    [],
+            "session_id":        session_id,
+            "token":             token,
+            "session_key":       session_key,
+            "remote_addr":       fingerprint["remote_addr"],
+            "user_agent":        fingerprint["user_agent"],
+            "candidate_name":    token_data["candidate_name"],
+            "source_file":       token_data["source_file"],
+            "job_title":         job_title,
+            "domain":            domain,
+            "skills":            skills,
+            "ranking_score":     token_data["score"],
+            "consent_given":     True,
+            "consent_timestamp": time.time(),
+            "responses":         [],
+            "started_at":        time.time(),
+            "webcam_log":        [],
+            "browser_log":       [],
         }
         active_token_sessions[token] = session_id
 
@@ -200,32 +329,37 @@ def register_interview_routes(app):
 
         first_q = generate_interview_question(
             candidate_name=token_data["candidate_name"],
-            job_title=token_data["job_title"],
+            job_title=job_title,
             topic=INTERVIEW_PLAN[0][1],
             q_num=1,
             q_type=INTERVIEW_PLAN[0][0],
-            transcript=""
+            transcript="",
+            skills=skills,
+            domain=domain
         )
-        # Store server-issued question so the answer handler can use it
-        # rather than trusting the client-supplied question text.
         interview_session[session_id]["pending_question"] = first_q
         interview_session[session_id]["pending_topic"]    = INTERVIEW_PLAN[0][1]
         interview_session[session_id]["pending_q_type"]   = INTERVIEW_PLAN[0][0]
+        interview_session[session_id]["question_issued_at"] = time.time()
+        save_interview_session(session_id, interview_session[session_id])
 
         return jsonify({
-            "success":    True,
-            "session_id": session_id,
+            "success":     True,
+            "session_id":  session_id,
             "session_key": session_key,
-            "first_q":    first_q,
-            "questions":  [_question_payload(first_q, 1)],
+            "first_q":     first_q,
+            "questions":   [_question_payload(first_q, 1)],
         })
 
     @app.route("/api/candidate/interview/answer", methods=["POST"])
     def api_candidate_interview_answer():
-        data           = request.get_json(silent=True) or {}
-        answer         = data.get("answer", "").strip()
-        q_num          = int(data.get("question_num", 1))
-        time_taken     = int(data.get("time_taken", 30))
+        client_ip = request.remote_addr or "127.0.0.1"
+        if not rate_limiter.is_allowed(client_ip):
+            return jsonify({"error": "Rate limit exceeded. Please wait before retrying."}), 429
+
+        data       = request.get_json(silent=True) or {}
+        answer     = data.get("answer", "").strip()
+        q_num      = int(data.get("question_num", 1))
 
         session_data, error = _get_candidate_session(data)
         if error:
@@ -234,44 +368,61 @@ def register_interview_routes(app):
         if q_num != expected_q_num:
             return jsonify({"error": f"Expected question {expected_q_num}, got {q_num}"}), 409
 
-        # Use server-issued question/topic/type — never trust client-supplied values.
         question = session_data.get("pending_question", "")
         topic    = session_data.get("pending_topic", "General")
         q_type   = session_data.get("pending_q_type", "TECHNICAL")
 
+        now = time.time()
+        issued_at = session_data.get("question_issued_at") or session_data.get("started_at") or now
+        server_time_taken = max(0.5, round(now - issued_at, 1))
+
+        # Server-side verification of answer latency bounds and typing speed
+        server_proctor_flags = []
+        if server_time_taken < 2.0 and len(answer.split()) > 5:
+            server_proctor_flags.append("INSTANT_PASTE_DETECTED")
+        elif len(answer) > 80 and (len(answer) / server_time_taken) > 25.0:
+            server_proctor_flags.append("UNREALISTIC_TYPING_SPEED")
+
+        if server_time_taken > 300.0:
+            server_proctor_flags.append("PROLONGED_RESPONSE_DELAY")
+
         evaluation = evaluate_answer(
             question=question,
             answer=answer,
-            job_title=session_data["job_title"],
-            domain=topic,
+            job_title=session_data.get("job_title", "Technical Role"),
+            domain=session_data.get("domain") or topic,
         )
         score = evaluation.get("total", 0)
-        answer_flags = proctor_check(q_num, answer, time_taken)
+        answer_flags = proctor_check(q_num, answer, server_time_taken)
+        all_flags = list(dict.fromkeys(answer_flags.get("flags", []) + server_proctor_flags))
+        answer_flags["flags"] = all_flags
+        answer_flags["flagged"] = len(all_flags) > 0
+        answer_flags["server_verified_time"] = server_time_taken
 
         session_data["responses"].append({
-            "question_num": q_num,
-            "type":         q_type,
-            "topic":        topic,
-            "question":     question,
-            "answer":       answer,
-            "score":        score,
-            "evaluation":   evaluation,
-            "answer_flags": answer_flags.get("flags", []),
-            "time_taken":   time_taken
+            "question_num":        q_num,
+            "type":                q_type,
+            "topic":               topic,
+            "question":            question,
+            "answer":              answer,
+            "score":               score,
+            "evaluation":          evaluation,
+            "answer_flags":        all_flags,
+            "time_taken":          int(server_time_taken),
+            "server_verified_time": server_time_taken,
         })
 
         if q_num >= len(INTERVIEW_PLAN):
             return jsonify({
-                "success": True,
-                "done": True,
+                "success":    True,
+                "done":       True,
                 "evaluation": evaluation,
-                "proctor": answer_flags,
+                "proctor":    answer_flags,
             })
 
         next_q_num  = q_num + 1
         next_q_type, next_topic = INTERVIEW_PLAN[next_q_num - 1]
 
-        # Build transcripts
         t_str = ""
         for r in session_data["responses"]:
             t_str += f"Q: {r['question']}\nA: {r['answer']}\n\n"
@@ -282,39 +433,44 @@ def register_interview_routes(app):
             topic=next_topic,
             q_num=next_q_num,
             q_type=next_q_type,
-            transcript=t_str
+            transcript=t_str,
+            skills=session_data.get("skills", []),
+            domain=session_data.get("domain", "")
         )
 
-        # Store the next server-issued question in session state.
+        from app.database import save_interview_session
+
         session_data["pending_question"] = next_q
         session_data["pending_topic"]    = next_topic
         session_data["pending_q_type"]   = next_q_type
+        session_data["question_issued_at"] = time.time()
+        save_interview_session(session_data.get("session_id", data.get("session_id")), session_data)
 
         return jsonify({
-            "success":    True,
-            "done":       False,
-            "next_q":     next_q,
+            "success":       True,
+            "done":          False,
+            "next_q":        next_q,
             "next_question": _question_payload(next_q, next_q_num),
-            "q_num":      next_q_num,
-            "q_type":     next_q_type,
-            "topic":      next_topic,
-            "evaluation": evaluation,
-            "proctor": answer_flags,
+            "q_num":         next_q_num,
+            "q_type":        next_q_type,
+            "topic":         next_topic,
+            "evaluation":    evaluation,
+            "proctor":       answer_flags,
         })
 
     @app.route("/api/candidate/interview/finish", methods=["POST"])
     def api_candidate_interview_finish():
-        data       = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True) or {}
         session_data, error = _get_candidate_session(data)
         if error:
             return error
         session_id = data.get("session_id")
-        token        = session_data["token"]
+        token      = session_data["token"]
 
-        from app.database import mark_token_used
+        from app.database import delete_interview_session, mark_token_used
         mark_token_used(token)
+        delete_interview_session(session_id)
 
-        # Stop proctoring and fetch proctor summary
         summary = stop_proctoring(session_id)
         session_data["webcam_log"] = summary.get("events", [])
 
@@ -325,15 +481,14 @@ def register_interview_routes(app):
         session_data["flagged_count"] = flagged
 
         total_score = sum(r["score"] for r in session_data["responses"])
-        max_score = len(session_data["responses"]) * 10
+        max_score   = len(session_data["responses"]) * 10
         score_pct   = round((total_score / max_score) * 100, 1) if max_score else 0.0
 
         session_data["total_score"] = total_score
-        session_data["max_score"] = max_score
-        session_data["percentage"] = score_pct
-        session_data["ended_at"] = time.time()
+        session_data["max_score"]   = max_score
+        session_data["percentage"]  = score_pct
+        session_data["ended_at"]    = time.time()
 
-        # Save transcript JSON to interviews output
         int_output = OUTPUT_FOLDER / "interviews"
         int_output.mkdir(exist_ok=True)
 
@@ -357,12 +512,12 @@ def register_interview_routes(app):
         return jsonify({
             "success": True,
             "result": {
-                "total_score": total_score,
-                "max_score": max_score,
-                "percentage": score_pct,
-                "technical_pct": round((technical_score / technical_max) * 100, 1) if technical_max else 0,
-                "behavioral_pct": round((behavioral_score / behavioral_max) * 100, 1) if behavioral_max else 0,
-                "flagged_count": flagged,
+                "total_score":       total_score,
+                "max_score":         max_score,
+                "percentage":        score_pct,
+                "technical_pct":     round((technical_score / technical_max) * 100, 1) if technical_max else 0,
+                "behavioral_pct":    round((behavioral_score / behavioral_max) * 100, 1) if behavioral_max else 0,
+                "flagged_count":     flagged,
                 "proctoring_status": session_data["proctoring_status"],
             },
         })
@@ -374,11 +529,13 @@ def register_interview_routes(app):
         if error:
             return error
         event = {
-            "type": data.get("type", "BROWSER_FLAG"),
-            "detail": data.get("detail", ""),
+            "type":      data.get("type", "BROWSER_FLAG"),
+            "detail":    data.get("detail", ""),
             "timestamp": time.time(),
         }
         session_data.setdefault("browser_log", []).append(event)
+        from app.database import save_interview_session
+        save_interview_session(data.get("session_id"), session_data)
         return jsonify({"success": True, "event": event})
 
     @app.route("/api/candidate/proctor/analyze-frame", methods=["POST"])
@@ -387,21 +544,56 @@ def register_interview_routes(app):
         _, error = _get_candidate_session(data)
         if error:
             return error
-        # Process face detection frame
         return jsonify({"success": True, "face_count": 1, "flag_count": 0, "flags": []})
 
-    def _get_lan_ip():
-        import socket
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except Exception:
-            return "127.0.0.1"
+
+def register_hr_interview_routes(app):
+    """Register HR-only interview management routes."""
+    if "interview" in app.view_functions:
+        return
+
+    @app.route("/interview")
+    @login_required
+    def interview():
+        from src.voice_interview import check_microphone, check_tts
+        from src.webcam_proctor import check_webcam_available
+
+        tokens = get_all_tokens()
+
+        schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
+        candidates = []
+        job_title = "Open Position"
+
+        if schedule_files:
+            try:
+                with open(schedule_files[0], encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    job_title = sdata.get("job_title", job_title)
+                    for entry in sdata.get("schedule", []):
+                        if entry.get("status") == "CONFIRMED":
+                            candidates.append(entry)
+            except Exception as e:
+                logger.error(f"Failed to load schedule: {e}")
+
+        mic = check_microphone().get("available", False)
+        tts = check_tts().get("available", False)
+        cam = check_webcam_available().get("available", False)
+
+        return render_template("interview.html",
+                               candidates=candidates,
+                               job_title=job_title,
+                               mic_available=mic,
+                               tts_available=tts,
+                               webcam_available=cam,
+                               tokens=tokens)
+
+    @app.route("/rules")
+    @login_required
+    def rules():
+        return render_template("rules.html")
 
     @app.route("/api/generate-interview-links", methods=["POST"])
+    @login_required
     def api_generate_interview_links():
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         if not schedule_files:
@@ -428,17 +620,17 @@ def register_interview_routes(app):
             if entry.get("status") == "CONFIRMED":
                 cand_name = entry["candidate_name"]
                 if cand_name in cand_to_token:
-                    # reuse token
                     token_record = cand_to_token[cand_name]
                     token = token_record["token"]
                     used = token_record["used"]
-                else:
                     token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+                    cand_ctx = {"candidate_name": cand_name, "source_file": entry["source_file"], "job_title": sdata.get("job_title", "")}
+                    resolved_title, _, _ = _resolve_candidate_job_context(cand_ctx)
                     create_interview_token(
                         token=token,
                         candidate_name=cand_name,
                         source_file=entry["source_file"],
-                        job_title=sdata.get("job_title", "Interview"),
+                        job_title=resolved_title,
                         rank=entry.get("rank", 0),
                         score=entry.get("score", 0)
                     )
@@ -455,13 +647,11 @@ def register_interview_routes(app):
     @app.route("/api/send-interview-links", methods=["POST"])
     @login_required
     def api_send_interview_links():
-        # 1. Generate/get links
         links_res = api_generate_interview_links().get_json()
         if "error" in links_res:
             return jsonify({"error": links_res["error"]}), 400
         links = links_res.get("links", [])
 
-        # 2. Prepare email config
         import config as cfg
         smtp_host = getattr(cfg, "SMTP_HOST", "").strip()
         smtp_port = int(getattr(cfg, "SMTP_PORT", 587) or 587)
@@ -473,7 +663,6 @@ def register_interview_routes(app):
         if not smtp_host or not smtp_email or not smtp_password:
             return jsonify({"error": "SMTP not configured. Go to Settings → Email."}), 400
 
-        # Load schedule to get slot info
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         try:
             with open(schedule_files[0], encoding="utf-8") as f:
@@ -493,8 +682,7 @@ def register_interview_routes(app):
             cand_name = link_data["candidate_name"]
             url = link_data["url"]
             email = link_data.get("email", "")
-            
-            # Lookup email from NLP if missing
+
             if not email:
                 nlp_path = OUTPUT_FOLDER / "nlp"
                 if nlp_path.exists():
@@ -539,8 +727,8 @@ def register_interview_routes(app):
 
         return jsonify({"success": True, "links": links, "sent": sent, "failed": failed, "errors": errors})
 
-
     @app.route("/api/interview-links", methods=["GET"])
+    @login_required
     def api_interview_links():
         tokens = get_all_tokens()
         host_url = request.host_url
@@ -560,6 +748,7 @@ def register_interview_routes(app):
         return jsonify({"links": links})
 
     @app.route("/api/interviews/list", methods=["GET"])
+    @login_required
     def api_interviews_list():
         int_files = (OUTPUT_FOLDER / "interviews").glob("*.json")
         list_ints = []
@@ -571,3 +760,9 @@ def register_interview_routes(app):
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)
         return jsonify(list_ints)
+
+
+def register_interview_routes(app):
+    """Register all interview routes (candidate + HR)."""
+    register_candidate_interview_routes(app)
+    register_hr_interview_routes(app)

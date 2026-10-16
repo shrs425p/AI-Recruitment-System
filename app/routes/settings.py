@@ -21,7 +21,7 @@ def _get_about_html() -> str:
         "<p>This platform is an advanced AI research and development project focused on transforming traditional recruitment workflows. It leverages state-of-the-art machine learning models and fluid, data-dense user interfaces to explore how automation can streamline candidate evaluation, from initial resume parsing to final technical interviews.</p>"
         "<h3>Core Architecture &amp; Features</h3>"
         "<ol>"
-        "<li><strong>Intelligent Data Import:</strong> Advanced extraction pipeline utilizing PyMuPDF for digital documents and Tesseract OCR for image-based or scanned resumes, ensuring high-fidelity data capture.</li>"
+        "<li><strong>Intelligent Data Import:</strong> Advanced extraction pipeline utilizing pypdf for digital documents and Tesseract OCR for image-based or scanned resumes, ensuring high-fidelity data capture.</li>"
         "<li><strong>AI Skills Analysis:</strong> Employs sophisticated Natural Language Processing (NLP) models to parse unstructured text, accurately identifying key technical skills, educational background, and domain expertise.</li>"
         "<li><strong>Algorithmic Fit Scoring:</strong> A dynamic scoring engine that matches extracted candidate profiles against highly configurable role templates, delivering objective and explainable match scores.</li>"
         "<li><strong>Automated Coordination:</strong> Integrated calendar management system capable of auto-generating iCalendar (.ics) invitations and streamlining interview scheduling without manual overhead.</li>"
@@ -129,10 +129,12 @@ def register_settings_routes(app):
         return render_template("settings.html", cfg=cfg, about_html=_get_about_html())
 
     @app.route("/about")
+    @login_required
     def about_page():
         return render_template("about.html", about_html=_get_about_html())
 
     @app.route("/api/toggle-theme", methods=["POST"])
+    @login_required
     def api_toggle_theme():
         cfg.THEME = "dark" if cfg.THEME == "light" else "light"
         import main
@@ -140,6 +142,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "theme": cfg.THEME})
 
     @app.route("/api/change-theme", methods=["POST"])
+    @login_required
     def api_change_theme():
         data = request.json or {}
         theme = data.get("theme", "light")
@@ -149,6 +152,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "theme": cfg.THEME})
 
     @app.route("/api/change-palette", methods=["POST"])
+    @login_required
     def api_change_palette():
         data = request.json or {}
         palette = data.get("palette", "lavender")
@@ -158,6 +162,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "palette": cfg.COLOR_PALETTE})
 
     @app.route("/api/toggle-ai-mode", methods=["POST"])
+    @login_required
     def api_toggle_ai_mode():
         current = getattr(cfg, "APP_MODE", "privacy")
         cfg.APP_MODE = "cloud" if current == "privacy" else "privacy"
@@ -166,6 +171,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "mode": cfg.APP_MODE})
 
     @app.route("/api/ollama/models", methods=["GET"])
+    @login_required
     def api_ollama_models():
         try:
             from src.common import _ollama
@@ -177,6 +183,7 @@ def register_settings_routes(app):
             return jsonify({"error": str(e), "models": []})
 
     @app.route("/api/provider-models", methods=["POST"])
+    @login_required
     def api_provider_models():
         data = request.json or {}
         provider = data.get("provider", "")
@@ -185,57 +192,67 @@ def register_settings_routes(app):
         if not key and provider != "ollama_cloud":
             return jsonify({"success": False, "error": "API Key is required to fetch models."})
 
-        import urllib.request
         import json
+        import urllib.request
 
         models = []
         try:
             if provider == "openai":
                 req = urllib.request.Request("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", []) if "gpt" in m["id"] or "o1" in m["id"]]
             elif provider == "groq":
                 req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", [])]
             elif provider == "gemini":
                 req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}")
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["name"].replace("models/", "") for m in resp_data.get("models", []) if "gemini" in m["name"]]
             elif provider == "anthropic":
                 # Anthropic's model API is limited, returning standard hardcoded ones + test key validation
-                req = urllib.request.Request("https://api.anthropic.com/v1/messages", 
+                req = urllib.request.Request("https://api.anthropic.com/v1/messages",
                     headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
                     data=json.dumps({"model":"claude-3-haiku-20240307","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode())
                 try:
-                    urllib.request.urlopen(req, timeout=5)
+                    urllib.request.urlopen(req, timeout=5)  # nosec B310
                     models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
                 except urllib.error.HTTPError as e:
-                    if e.code == 401: raise Exception("Invalid API Key")
+                    if e.code == 401:
+                        raise Exception("Invalid API Key")
                     models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
             elif provider == "openrouter":
                 req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", [])]
             elif provider == "nvidia":
                 req = urllib.request.Request("https://integrate.api.nvidia.com/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", [])]
             elif provider == "github":
                 # Fallback to standard github models
                 models = ["gpt-4o", "gpt-4o-mini", "meta-llama-3-70b-instruct", "meta-llama-3-8b-instruct"]
             elif provider == "ollama_cloud":
-                base = key if key else "http://localhost:11434"
+                base = (key or "").strip()
+                if not base:
+                    return jsonify({"success": False, "error": "Ollama Cloud URL is required."}), 400
+                from urllib.parse import urlparse
+                parsed = urlparse(base)
+                if parsed.scheme != "https":
+                    return jsonify({"success": False, "error": "Ollama Cloud URL must use HTTPS."}), 400
                 url = f"{base.rstrip('/')}/api/tags"
                 req = urllib.request.Request(url)
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    resp_data = json.loads(resp.read().decode())
-                    models = [m["name"] for m in resp_data.get("models", [])]
+                try:
+                    with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+                        resp_data = json.loads(resp.read().decode())
+                        models = [m["name"] for m in resp_data.get("models", [])]
+                except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
+                    return jsonify({"success": False, "error": f"Failed to connect to Ollama Cloud: {e}"}), 400
         except urllib.error.HTTPError as e:
             return jsonify({"success": False, "error": f"API Key rejected or error (HTTP {e.code})"})
         except Exception as e:

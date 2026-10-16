@@ -61,9 +61,9 @@ Each stage produces output files that feed into the next stage. You can stop and
 
 ### How It Decides Between Direct Extraction and OCR
 
-1. PyMuPDF tries to extract embedded text from the PDF directly (fast — milliseconds)
+1. `pypdf` extracts embedded text from the PDF directly (fast — milliseconds). Resumes encrypted at rest are decrypted in memory transparently.
 2. If the extracted text is **fewer than 800 characters**, the PDF is treated as a scanned document
-3. For scanned PDFs: PyMuPDF renders each page to a 300 DPI image, then Tesseract OCR reads it
+3. For scanned PDFs: embedded images are extracted and processed using Tesseract OCR
 4. For image files (PNG/JPG): Tesseract OCR reads them directly
 
 ### Text Cleaning
@@ -257,10 +257,9 @@ See [Interview System](interview-system.md) for full details.
 **Output:** PDF report in `data/output/reports/`
 
 ### Report Contents
-- Candidate profile summary (name, domain, experience, education)
-- Per-question scores and AI feedback
-- Overall interview score and recommendation
-- Proctoring summary (total flags, face detection events, tab switches, copy-paste violations)
-- Full Q&A transcript
+- Candidate profile summary (name, target job title, domain, experience, education, combined score)
+- AI HR executive assessment (overall summary, technical/behavioral breakdown, key strengths, key gaps, hire recommendation)
+- Proctoring integrity summary (total flags, face absence, multiple faces, tab switches, copy-paste events)
+- Detailed question-by-question evaluation (prompt, category, score out of 10, 4-part rubrics, verbatim answer, AI feedback, response time)
 
-Reports are generated using `fpdf2` and saved as PDF files.
+Reports are styled in a clean Material Design 3 monochrome aesthetic using `fpdf2` and saved as PDF files.
