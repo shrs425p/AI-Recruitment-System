@@ -122,7 +122,7 @@ def test_candidate_happy_path_with_valid_token(monkeypatch):
     assert res.status_code == 200
 
     # 2. Start interview
-    start_res = client.post("/api/candidate/interview/start", json={"token": token})
+    start_res = client.post("/api/candidate/interview/start", json={"token": token, "consent": True})
     assert start_res.status_code == 200
     start_data = start_res.get_json()
     assert start_data["success"] is True

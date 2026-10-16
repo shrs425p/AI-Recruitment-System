@@ -171,10 +171,18 @@ def register_candidate_interview_routes(app):
 
         data = request.json or {}
         token = data.get("token")
+        consent = data.get("consent")
 
         valid, token_data, reason = is_token_valid_and_active(token)
         if not valid or not token_data:
             return jsonify({"error": reason or "Unauthorized"}), 401
+
+        if not consent:
+            return jsonify({
+                "error": "Candidate consent is required to proceed with the interview.",
+                "code": 400,
+            }), 400
+
         if token in active_token_sessions and active_token_sessions[token] in interview_session:
             return jsonify({"error": "Interview already in progress for this token."}), 409
 
@@ -182,18 +190,20 @@ def register_candidate_interview_routes(app):
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
         interview_session[session_id] = {
-            "token":          token,
-            "session_key":    session_key,
-            "remote_addr":    fingerprint["remote_addr"],
-            "user_agent":     fingerprint["user_agent"],
-            "candidate_name": token_data["candidate_name"],
-            "source_file":    token_data["source_file"],
-            "job_title":      token_data["job_title"],
-            "ranking_score":  token_data["score"],
-            "responses":      [],
-            "started_at":     time.time(),
-            "webcam_log":     [],
-            "browser_log":    [],
+            "token":             token,
+            "session_key":       session_key,
+            "remote_addr":       fingerprint["remote_addr"],
+            "user_agent":        fingerprint["user_agent"],
+            "candidate_name":    token_data["candidate_name"],
+            "source_file":       token_data["source_file"],
+            "job_title":         token_data["job_title"],
+            "ranking_score":     token_data["score"],
+            "consent_given":     True,
+            "consent_timestamp": time.time(),
+            "responses":         [],
+            "started_at":        time.time(),
+            "webcam_log":        [],
+            "browser_log":       [],
         }
         active_token_sessions[token] = session_id
 
