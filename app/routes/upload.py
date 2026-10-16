@@ -61,6 +61,7 @@ def register_upload_routes(app):
         return send_from_directory(RESUMES_FOLDER, safe_name)
 
     @app.route("/api/process-pdfs", methods=["POST"])
+    @login_required
     def api_process_pdfs():
         input_path  = RESUMES_FOLDER
         output_path = OUTPUT_FOLDER / "txt"
