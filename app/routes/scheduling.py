@@ -87,8 +87,27 @@ def register_scheduling_routes(app):
     @app.route("/api/schedule", methods=["POST"])
     @login_required
     def api_schedule():
-        data      = request.json
-        job_title = data.get("job_title", "Open Position")
+        data      = request.json or {}
+        job_title = (data.get("job_title") or "").strip()
+        if not job_title or job_title == "Open Position":
+            ranking_path = OUTPUT_FOLDER / "ranking"
+            rfiles = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
+            if rfiles:
+                try:
+                    with open(rfiles[0], encoding="utf-8") as rf:
+                        job_title = json.load(rf).get("job_description", {}).get("job_title") or job_title
+                except Exception:
+                    pass
+        if not job_title or job_title == "Open Position":
+            jd_files = sorted((OUTPUT_FOLDER / "jd").glob("jd_*.json"), reverse=True)
+            if jd_files:
+                try:
+                    with open(jd_files[0], encoding="utf-8") as jf:
+                        job_title = json.load(jf).get("job_title") or job_title
+                except Exception:
+                    pass
+        if not job_title:
+            job_title = "Open Position"
         hr_name   = data.get("hr_name", "Hiring Manager")
         hr_email  = data.get("hr_email", "")
         slots_raw = data.get("slots", [])

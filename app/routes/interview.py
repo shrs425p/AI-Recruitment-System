@@ -131,6 +131,74 @@ def _question_payload(question_text: str, q_num: int):
     return {"question": question_text, "type": q_type, "topic": topic, "question_num": q_num}
 
 
+def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
+    """Resolve true job_title, domain, and candidate skills, avoiding 'Open Position' fallbacks."""
+    job_title = (token_data.get("job_title") or "").strip()
+    domain = ""
+    skills = []
+
+    source_file = token_data.get("source_file", "")
+    nlp_path = OUTPUT_FOLDER / "nlp"
+    nlp_candidates = []
+    if source_file:
+        nlp_candidates.extend([nlp_path / f"{source_file}.json", nlp_path / f"{source_file}_nlp.json"])
+    c_name = token_data.get("candidate_name", "").lower()
+    if nlp_path.exists():
+        for f in nlp_path.glob("*_nlp.json"):
+            nlp_candidates.append(f)
+
+    for nf in nlp_candidates:
+        if nf.exists():
+            try:
+                with open(nf, encoding="utf-8") as f:
+                    ndata = json.load(f)
+                name = ndata.get("personal_info", {}).get("name", "").lower()
+                if not c_name or name == c_name or c_name in name:
+                    domain = ndata.get("domain", "")
+                    sdict = ndata.get("skills", {})
+                    if isinstance(sdict, dict):
+                        tech = sdict.get("technical_skills") or []
+                        tools = sdict.get("tools_and_technologies") or []
+                        skills = list(tech) + [t for t in tools if t not in tech]
+                    elif isinstance(sdict, list):
+                        skills = sdict
+                    break
+            except Exception:
+                pass
+
+    if not job_title or job_title in ("Open Position", "Interview"):
+        ranking_path = OUTPUT_FOLDER / "ranking"
+        rfiles = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
+        if rfiles:
+            try:
+                with open(rfiles[0], encoding="utf-8") as f:
+                    rdata = json.load(f)
+                    jd = rdata.get("job_description", {})
+                    job_title = jd.get("job_title") or job_title
+                    if not domain:
+                        domain = jd.get("domain") or domain
+            except Exception:
+                pass
+
+        if not job_title or job_title in ("Open Position", "Interview"):
+            jd_path = OUTPUT_FOLDER / "jd"
+            jfiles = sorted(jd_path.glob("jd_*.json"), reverse=True)
+            if jfiles:
+                try:
+                    with open(jfiles[0], encoding="utf-8") as f:
+                        jd_data = json.load(f)
+                        job_title = jd_data.get("job_title") or job_title
+                        if not domain:
+                            domain = jd_data.get("domain") or domain
+                except Exception:
+                    pass
+
+    if not job_title or job_title in ("Open Position", "Interview"):
+        job_title = "Open Position"
+
+    return job_title, domain, skills
+
+
 def is_token_valid_and_active(token: str, max_age_hours: int = 72) -> tuple[bool, dict | None, str]:
     """Validate interview token existence, one-time status, and expiration.
     Returns (is_valid, token_data, rejection_reason).
@@ -230,6 +298,7 @@ def register_candidate_interview_routes(app):
             if now - (existing_sess.get("started_at") or existing_sess.get("created_at", now)) < SESSION_TTL_SECONDS:
                 return jsonify({"error": "Interview already in progress for this token."}), 409
 
+        job_title, domain, skills = _resolve_candidate_job_context(token_data)
         session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
@@ -241,7 +310,9 @@ def register_candidate_interview_routes(app):
             "user_agent":        fingerprint["user_agent"],
             "candidate_name":    token_data["candidate_name"],
             "source_file":       token_data["source_file"],
-            "job_title":         token_data["job_title"],
+            "job_title":         job_title,
+            "domain":            domain,
+            "skills":            skills,
             "ranking_score":     token_data["score"],
             "consent_given":     True,
             "consent_timestamp": time.time(),
@@ -256,11 +327,13 @@ def register_candidate_interview_routes(app):
 
         first_q = generate_interview_question(
             candidate_name=token_data["candidate_name"],
-            job_title=token_data["job_title"],
+            job_title=job_title,
             topic=INTERVIEW_PLAN[0][1],
             q_num=1,
             q_type=INTERVIEW_PLAN[0][0],
-            transcript=""
+            transcript="",
+            skills=skills,
+            domain=domain
         )
         interview_session[session_id]["pending_question"] = first_q
         interview_session[session_id]["pending_topic"]    = INTERVIEW_PLAN[0][1]
@@ -314,8 +387,8 @@ def register_candidate_interview_routes(app):
         evaluation = evaluate_answer(
             question=question,
             answer=answer,
-            job_title=session_data["job_title"],
-            domain=topic,
+            job_title=session_data.get("job_title", "Technical Role"),
+            domain=session_data.get("domain") or topic,
         )
         score = evaluation.get("total", 0)
         answer_flags = proctor_check(q_num, answer, server_time_taken)
@@ -358,7 +431,9 @@ def register_candidate_interview_routes(app):
             topic=next_topic,
             q_num=next_q_num,
             q_type=next_q_type,
-            transcript=t_str
+            transcript=t_str,
+            skills=session_data.get("skills", []),
+            domain=session_data.get("domain", "")
         )
 
         from app.database import save_interview_session
@@ -546,13 +621,14 @@ def register_hr_interview_routes(app):
                     token_record = cand_to_token[cand_name]
                     token = token_record["token"]
                     used = token_record["used"]
-                else:
                     token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+                    cand_ctx = {"candidate_name": cand_name, "source_file": entry["source_file"], "job_title": sdata.get("job_title", "")}
+                    resolved_title, _, _ = _resolve_candidate_job_context(cand_ctx)
                     create_interview_token(
                         token=token,
                         candidate_name=cand_name,
                         source_file=entry["source_file"],
-                        job_title=sdata.get("job_title", "Interview"),
+                        job_title=resolved_title,
                         rank=entry.get("rank", 0),
                         score=entry.get("score", 0)
                     )

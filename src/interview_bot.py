@@ -458,22 +458,40 @@ def run_interview_bot():
     logger.info(f"{'='*55}")
 
 
-def generate_interview_question(candidate_name: str, job_title: str, topic: str, q_num: int, q_type: str, transcript: str = "") -> str:
-    """Generate a single personalized interview question based on candidate, job title, topic, and transcript history."""
+def generate_interview_question(
+    candidate_name: str,
+    job_title: str,
+    topic: str,
+    q_num: int,
+    q_type: str,
+    transcript: str = "",
+    skills: list | None = None,
+    domain: str = ""
+) -> str:
+    """Generate a single personalized interview question based on candidate, job title, domain, skills, topic, and transcript history."""
     system_msg = "You are a professional HR interviewer. Return ONLY the question text itself. Do not include any intro, outro, greeting, or conversational filler."
+
+    skills_str = ", ".join(skills) if skills else ""
+    domain_str = domain or "Technical Engineering"
 
     prompt = (
         f"Candidate: {candidate_name}\n"
         f"Job Title: {job_title}\n"
+        f"Domain: {domain_str}\n"
+    )
+    if skills_str:
+        prompt += f"Candidate Technical Skills: {skills_str}\n"
+
+    prompt += (
         f"Question Number: {q_num}\n"
         f"Type: {q_type}\n"
         f"Topic: {topic}\n"
     )
     if transcript:
         prompt += f"\nConversation History so far:\n{transcript}\n"
-        prompt += "\nBased on the history and the current topic, ask the next logical, deep, and engaging interview question."
+        prompt += f"\nBased on the history and the current topic ({topic}), ask the next logical, deep, and engaging interview question specifically tailored for the {job_title} role."
     else:
-        prompt += f"\nAsk an introductory question testing their alignment and interest in the {job_title} role, specializing in {topic}."
+        prompt += f"\nAsk an introductory question testing their background, alignment, and interest in the {job_title} position ({domain_str}), specializing in {topic}."
 
     try:
         from src.common import call_ollama
@@ -491,9 +509,10 @@ def generate_interview_question(candidate_name: str, job_title: str, topic: str,
     if q_num == 1:
         return f"Welcome, {candidate_name}. To start off, please introduce yourself and tell us what interests you most about the {job_title} position."
     elif q_type == "TECHNICAL":
-        return f"Can you explain a complex technical challenge you faced when working with {topic}, and how you solved it?"
+        topic_context = f"{topic} in the context of {job_title}"
+        return f"Can you explain a complex technical challenge you faced when working with {topic_context}, and how you solved it?"
     else:
-        return "Can you tell me about a time when you had to work on a team to solve a difficult problem? What was your role and the outcome?"
+        return f"Can you tell me about a time when you had to collaborate with a team to solve a difficult problem relevant to {job_title}? What was your role and the outcome?"
 
 
 if __name__ == "__main__":

@@ -268,7 +268,27 @@ def _run_scheduling_stage(results):
         except Exception as e:
             logger.warning('Caught exception: %s', e, exc_info=True)
 
-    job_title = latest_schedule.get("job_title", "Open Position") if latest_schedule else "Open Position"
+    job_title = "Open Position"
+    ranking_files = sorted(output_ranking_path.glob("ranking_scores*.json"), reverse=True)
+    if ranking_files:
+        try:
+            with open(ranking_files[0], encoding="utf-8") as f:
+                r_data = json.load(f)
+                job_title = r_data.get("job_description", {}).get("job_title") or job_title
+        except Exception as e:
+            logger.warning("Caught exception reading ranking job_title: %s", e)
+
+    if (not job_title or job_title == "Open Position") and latest_schedule:
+        job_title = latest_schedule.get("job_title", "Open Position")
+
+    if not job_title or job_title == "Open Position":
+        jd_files = sorted((OUTPUT_FOLDER / "jd").glob("jd_*.json"), reverse=True)
+        if jd_files:
+            try:
+                with open(jd_files[0], encoding="utf-8") as f:
+                    job_title = json.load(f).get("job_title") or job_title
+            except Exception:
+                pass
     slots_raw = []
     if latest_schedule:
         all_slots = []
