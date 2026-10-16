@@ -85,6 +85,7 @@ def register_scheduling_routes(app):
                                cal_status=cal_status)
 
     @app.route("/api/schedule", methods=["POST"])
+    @login_required
     def api_schedule():
         data      = request.json
         job_title = data.get("job_title", "Open Position")
@@ -154,6 +155,7 @@ def register_scheduling_routes(app):
         return jsonify({"success": True, "scheduled": scheduled, "rejected_slots": rejected_slots})
 
     @app.route("/api/update-slot", methods=["POST"])
+    @login_required
     def api_update_slot():
         data           = request.json
         candidate_name = data.get("candidate_name")
@@ -181,15 +183,18 @@ def register_scheduling_routes(app):
         return jsonify({"success": True})
 
     @app.route("/api/calendar/status", methods=["GET"])
+    @login_required
     def api_calendar_status():
         return jsonify(check_calendar_auth())
 
     @app.route("/api/calendar/auth", methods=["POST"])
+    @login_required
     def api_calendar_auth():
         result = trigger_auth_flow()
         return jsonify(result)
 
     @app.route("/api/calendar/free-slots", methods=["GET"])
+    @login_required
     def api_calendar_free_slots():
         days = request.args.get("days", 14)
         try:
@@ -200,6 +205,7 @@ def register_scheduling_routes(app):
         return jsonify(result)
 
     @app.route("/api/calendar/create-events", methods=["POST"])
+    @login_required
     def api_calendar_create_events():
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         if not schedule_files:
@@ -227,9 +233,6 @@ def register_scheduling_routes(app):
     @login_required
     def api_send_emails():
         import config as cfg
-        from app.database import (
-            get_confirmed_not_emailed, log_email, mark_email_sent, get_latest_schedule
-        )
         from src.email_sender import send_interview_email
 
         smtp_host     = getattr(cfg, "SMTP_HOST", "").strip()

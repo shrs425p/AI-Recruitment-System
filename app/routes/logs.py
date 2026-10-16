@@ -13,6 +13,7 @@ def register_logs_routes(app):
         return render_template("logs.html")
 
     @app.route("/stream-logs")
+    @login_required
     def stream_logs():
         def generate():
             history = get_log_history()

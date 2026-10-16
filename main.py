@@ -46,12 +46,13 @@ def _handle_unhandled_exception(exc_type, exc_value, exc_tb):
 
 sys.excepthook = _handle_unhandled_exception
 
-# Create the flask app
-from app import create_app
+# Create the flask apps
+from app import create_app, create_candidate_app
 from app.core import add_log_line, log_queue
 from src.common import APP_DATA_DIR
 
 app = create_app()
+candidate_app = create_candidate_app()
 
 
 # Logging Setup
@@ -85,8 +86,8 @@ def _load_config():
     """On startup, read all previously saved settings from the SQLite database
     and apply them back to the live config object so they survive a restart."""
     try:
-        from app.database import get_all_settings
         import config as cfg
+        from app.database import get_all_settings
         saved = get_all_settings()
         if not saved:
             # Fresh install or wiped DB — write current defaults so they persist
@@ -220,9 +221,34 @@ def _debug_mode() -> bool:
 
 def run_flask_https():
     cert_path, key_path = _ensure_ssl_cert()
+    # ARS_CANDIDATE_HOST defaults to 0.0.0.0 so candidates can connect over the LAN.
+    # This is intentional: candidate_app isolates candidate-only routes.
     candidate_host = os.environ.get("ARS_CANDIDATE_HOST", "0.0.0.0")
-    app.run(host=candidate_host, port=CANDIDATE_PORT, debug=_debug_mode(), use_reloader=False,
-            ssl_context=(cert_path, key_path))
+
+    import ssl
+
+    from waitress.server import TcpWSGIServer
+
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+
+    bind_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    bind_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    bind_sock.bind((candidate_host, CANDIDATE_PORT))
+    bind_sock.listen(128)
+
+    ssl_sock = ctx.wrap_socket(bind_sock, server_side=True)
+    _threads = _env_port("ARS_SERVER_THREADS", 8)
+    server = TcpWSGIServer(
+        candidate_app,
+        _sock=ssl_sock,
+        bind_socket=False,
+        url_scheme="https",
+        threads=_threads,
+        ident=f"{APP_NAME}_Candidate",
+    )
+    server.run()
+
 
 def run_flask_http_local():
     from waitress import serve as waitress_serve
@@ -230,6 +256,7 @@ def run_flask_http_local():
     # request server. Waitress avoids Flask's development server and debugger.
     _threads = _env_port("ARS_SERVER_THREADS", 8)  # env override for concurrency tuning
     waitress_serve(app, host="127.0.0.1", port=DESKTOP_PORT, threads=_threads, ident=APP_NAME)
+
 
 def main():
     from app.database import init_db
@@ -243,6 +270,8 @@ def main():
 
     app.config["CANDIDATE_PORT"] = CANDIDATE_PORT
     app.config["DESKTOP_PORT"] = DESKTOP_PORT
+    candidate_app.config["CANDIDATE_PORT"] = CANDIDATE_PORT
+    candidate_app.config["DESKTOP_PORT"] = DESKTOP_PORT
 
     t_https = threading.Thread(target=run_flask_https, daemon=True)
     t_https.start()
@@ -255,10 +284,10 @@ def main():
     class Api:
         def __init__(self):
             self._is_maximized = False
-            
+
         def minimize(self):
             webview.windows[0].minimize()
-            
+
         def maximize(self):
             w = webview.windows[0]
             if self._is_maximized:
@@ -267,7 +296,7 @@ def main():
             else:
                 w.maximize()
                 self._is_maximized = True
-                
+
         def close(self):
             webview.windows[0].close() if hasattr(webview.windows[0], 'close') else webview.windows[0].destroy()
         def get_auth_nonce(self):

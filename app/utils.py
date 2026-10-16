@@ -1,7 +1,7 @@
 import ipaddress
 from functools import wraps
 
-from flask import jsonify, request, session
+from flask import jsonify, redirect, request, session
 
 PUBLIC_PATH_PREFIXES = (
     "/candidate-interview/",
@@ -26,12 +26,15 @@ def is_public_candidate_path(path: str) -> bool:
 
 def _auth_failure_response():
     if request.path.startswith("/api/"):
-        return jsonify({"error": "Not found", "code": 404}), 404
-    # Return a completely blank response to hide the system from unauthorized browsers
-    return "", 404
+        return jsonify({"error": "Unauthorized", "code": 401}), 401
+    try:
+        from flask import url_for
+        return redirect(url_for("login"))
+    except Exception:
+        return redirect("/login")
 
 def hr_access_allowed() -> bool:
-    if session.get("logged_in") and session.get("desktop_session"):
+    if session.get("logged_in") and (session.get("desktop_session") or session.get("username")):
         return True
     return False
 

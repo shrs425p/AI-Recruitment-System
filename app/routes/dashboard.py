@@ -18,8 +18,14 @@ from src.nlp_extractor import process_file_async
 
 # Imports for auto-pipeline
 from src.pdf_to_txt import process_file as pdf_process_file
-from src.ranking_engine import build_jd_prompt, call_ai, load_candidates, save_leaderboard_txt, save_scores_json, score_candidate
-from src.shortlist_report import save_shortlist_report
+from src.ranking_engine import (
+    build_jd_prompt,
+    call_ai,
+    load_candidates,
+    save_leaderboard_txt,
+    save_scores_json,
+    score_candidate,
+)
 from src.report_generator import (
     calculate_combined_score,
     generate_ai_report,
@@ -160,7 +166,7 @@ def _run_ranking_stage(results):
         if not jd_data:
             results["ranking"] = {"success": False, "message": "Failed to parse saved JD.", "count": 0}
             return
-            
+
         # Fallback if AI returned empty template
         if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
             from src.ranking_engine import _extract_title_fallback
@@ -435,6 +441,7 @@ def register_dashboard_routes(app):
                                db_connected=db_connected)
 
     @app.route("/api/stats", methods=["GET"])
+    @login_required
     def api_stats():
         pdf_count  = len([f for f in RESUMES_FOLDER.iterdir()
                           if f.is_file() and f.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg"]])
@@ -460,10 +467,12 @@ def register_dashboard_routes(app):
         })
 
     @app.route("/api/task-status", methods=["GET"])
+    @login_required
     def api_task_status():
         return jsonify(pipeline_tasks)
 
     @app.route("/api/reset-pipeline", methods=["POST"])
+    @login_required
     def api_reset_pipeline():
         from app import database
         database.delete_all_tokens()
@@ -480,13 +489,14 @@ def register_dashboard_routes(app):
                             shutil.rmtree(f)
                     except Exception as e:
                         logger.warning('Caught exception: %s', e, exc_info=True)
-                        
+
 
         pipeline_tasks.clear()
         _save_tasks()
         return jsonify({"success": True, "message": "Database reset completed safely."})
 
     @app.route("/api/open-output-folder", methods=["POST"])
+    @login_required
     def api_open_output_folder():
         try:
             folder_path = open_folder(OUTPUT_FOLDER)

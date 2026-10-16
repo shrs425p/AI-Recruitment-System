@@ -110,8 +110,11 @@ def is_token_valid_and_active(token: str, max_age_hours: int = 72) -> tuple[bool
     if created_str:
         try:
             from datetime import datetime, timezone
-            created_dt = datetime.fromisoformat(created_str.replace("Z", ""))
-            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            clean_str = created_str.replace("Z", "+00:00")
+            created_dt = datetime.fromisoformat(clean_str)
+            if created_dt.tzinfo is None:
+                created_dt = created_dt.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
             if (now - created_dt).total_seconds() > (max_age_hours * 3600):
                 return False, token_data, "This interview link has expired. Please contact HR for a new link."
         except Exception as e:
@@ -119,48 +122,22 @@ def is_token_valid_and_active(token: str, max_age_hours: int = 72) -> tuple[bool
     return True, token_data, ""
 
 
-def register_interview_routes(app):
-    @app.route("/interview")
-    @login_required
-    def interview():
-        from src.voice_interview import check_microphone, check_tts
-        from src.webcam_proctor import check_webcam_available
+def _get_lan_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
-        tokens = get_all_tokens()
 
-        # Load the latest schedule to find confirmed candidates
-        schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
-        candidates = []
-        job_title = "Open Position"
-
-        if schedule_files:
-            try:
-                with open(schedule_files[0], encoding="utf-8") as f:
-                    sdata = json.load(f)
-                    job_title = sdata.get("job_title", job_title)
-                    for entry in sdata.get("schedule", []):
-                        if entry.get("status") == "CONFIRMED":
-                            candidates.append(entry)
-            except Exception as e:
-                logger.error(f"Failed to load schedule: {e}")
-
-        # Hardware checks
-        mic = check_microphone().get("available", False)
-        tts = check_tts().get("available", False)
-        cam = check_webcam_available().get("available", False)
-
-        return render_template("interview.html",
-                               candidates=candidates,
-                               job_title=job_title,
-                               mic_available=mic,
-                               tts_available=tts,
-                               webcam_available=cam,
-                               tokens=tokens)
-
-    @app.route("/rules")
-    @login_required
-    def rules():
-        return render_template("rules.html")
+def register_candidate_interview_routes(app):
+    """Register strictly candidate-facing interview routes."""
+    if "candidate_interview" in app.view_functions:
+        return
 
     @app.route("/candidate-interview/<token>")
     def candidate_interview(token):
@@ -192,7 +169,7 @@ def register_interview_routes(app):
         if not rate_limiter.is_allowed(client_ip):
             return jsonify({"error": "Rate limit exceeded. Please wait before retrying."}), 429
 
-        data  = request.json or {}
+        data = request.json or {}
         token = data.get("token")
 
         valid, token_data, reason = is_token_valid_and_active(token)
@@ -230,26 +207,28 @@ def register_interview_routes(app):
             q_type=INTERVIEW_PLAN[0][0],
             transcript=""
         )
-        # Store server-issued question so the answer handler can use it
-        # rather than trusting the client-supplied question text.
         interview_session[session_id]["pending_question"] = first_q
         interview_session[session_id]["pending_topic"]    = INTERVIEW_PLAN[0][1]
         interview_session[session_id]["pending_q_type"]   = INTERVIEW_PLAN[0][0]
 
         return jsonify({
-            "success":    True,
-            "session_id": session_id,
+            "success":     True,
+            "session_id":  session_id,
             "session_key": session_key,
-            "first_q":    first_q,
-            "questions":  [_question_payload(first_q, 1)],
+            "first_q":     first_q,
+            "questions":   [_question_payload(first_q, 1)],
         })
 
     @app.route("/api/candidate/interview/answer", methods=["POST"])
     def api_candidate_interview_answer():
-        data           = request.get_json(silent=True) or {}
-        answer         = data.get("answer", "").strip()
-        q_num          = int(data.get("question_num", 1))
-        time_taken     = int(data.get("time_taken", 30))
+        client_ip = request.remote_addr or "127.0.0.1"
+        if not rate_limiter.is_allowed(client_ip):
+            return jsonify({"error": "Rate limit exceeded. Please wait before retrying."}), 429
+
+        data       = request.get_json(silent=True) or {}
+        answer     = data.get("answer", "").strip()
+        q_num      = int(data.get("question_num", 1))
+        time_taken = int(data.get("time_taken", 30))
 
         session_data, error = _get_candidate_session(data)
         if error:
@@ -258,7 +237,6 @@ def register_interview_routes(app):
         if q_num != expected_q_num:
             return jsonify({"error": f"Expected question {expected_q_num}, got {q_num}"}), 409
 
-        # Use server-issued question/topic/type — never trust client-supplied values.
         question = session_data.get("pending_question", "")
         topic    = session_data.get("pending_topic", "General")
         q_type   = session_data.get("pending_q_type", "TECHNICAL")
@@ -286,16 +264,15 @@ def register_interview_routes(app):
 
         if q_num >= len(INTERVIEW_PLAN):
             return jsonify({
-                "success": True,
-                "done": True,
+                "success":    True,
+                "done":       True,
                 "evaluation": evaluation,
-                "proctor": answer_flags,
+                "proctor":    answer_flags,
             })
 
         next_q_num  = q_num + 1
         next_q_type, next_topic = INTERVIEW_PLAN[next_q_num - 1]
 
-        # Build transcripts
         t_str = ""
         for r in session_data["responses"]:
             t_str += f"Q: {r['question']}\nA: {r['answer']}\n\n"
@@ -309,36 +286,34 @@ def register_interview_routes(app):
             transcript=t_str
         )
 
-        # Store the next server-issued question in session state.
         session_data["pending_question"] = next_q
         session_data["pending_topic"]    = next_topic
         session_data["pending_q_type"]   = next_q_type
 
         return jsonify({
-            "success":    True,
-            "done":       False,
-            "next_q":     next_q,
+            "success":       True,
+            "done":          False,
+            "next_q":        next_q,
             "next_question": _question_payload(next_q, next_q_num),
-            "q_num":      next_q_num,
-            "q_type":     next_q_type,
-            "topic":      next_topic,
-            "evaluation": evaluation,
-            "proctor": answer_flags,
+            "q_num":         next_q_num,
+            "q_type":        next_q_type,
+            "topic":         next_topic,
+            "evaluation":    evaluation,
+            "proctor":       answer_flags,
         })
 
     @app.route("/api/candidate/interview/finish", methods=["POST"])
     def api_candidate_interview_finish():
-        data       = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True) or {}
         session_data, error = _get_candidate_session(data)
         if error:
             return error
         session_id = data.get("session_id")
-        token        = session_data["token"]
+        token      = session_data["token"]
 
         from app.database import mark_token_used
         mark_token_used(token)
 
-        # Stop proctoring and fetch proctor summary
         summary = stop_proctoring(session_id)
         session_data["webcam_log"] = summary.get("events", [])
 
@@ -349,15 +324,14 @@ def register_interview_routes(app):
         session_data["flagged_count"] = flagged
 
         total_score = sum(r["score"] for r in session_data["responses"])
-        max_score = len(session_data["responses"]) * 10
+        max_score   = len(session_data["responses"]) * 10
         score_pct   = round((total_score / max_score) * 100, 1) if max_score else 0.0
 
         session_data["total_score"] = total_score
-        session_data["max_score"] = max_score
-        session_data["percentage"] = score_pct
-        session_data["ended_at"] = time.time()
+        session_data["max_score"]   = max_score
+        session_data["percentage"]  = score_pct
+        session_data["ended_at"]    = time.time()
 
-        # Save transcript JSON to interviews output
         int_output = OUTPUT_FOLDER / "interviews"
         int_output.mkdir(exist_ok=True)
 
@@ -381,12 +355,12 @@ def register_interview_routes(app):
         return jsonify({
             "success": True,
             "result": {
-                "total_score": total_score,
-                "max_score": max_score,
-                "percentage": score_pct,
-                "technical_pct": round((technical_score / technical_max) * 100, 1) if technical_max else 0,
-                "behavioral_pct": round((behavioral_score / behavioral_max) * 100, 1) if behavioral_max else 0,
-                "flagged_count": flagged,
+                "total_score":       total_score,
+                "max_score":         max_score,
+                "percentage":        score_pct,
+                "technical_pct":     round((technical_score / technical_max) * 100, 1) if technical_max else 0,
+                "behavioral_pct":    round((behavioral_score / behavioral_max) * 100, 1) if behavioral_max else 0,
+                "flagged_count":     flagged,
                 "proctoring_status": session_data["proctoring_status"],
             },
         })
@@ -398,8 +372,8 @@ def register_interview_routes(app):
         if error:
             return error
         event = {
-            "type": data.get("type", "BROWSER_FLAG"),
-            "detail": data.get("detail", ""),
+            "type":      data.get("type", "BROWSER_FLAG"),
+            "detail":    data.get("detail", ""),
             "timestamp": time.time(),
         }
         session_data.setdefault("browser_log", []).append(event)
@@ -411,19 +385,53 @@ def register_interview_routes(app):
         _, error = _get_candidate_session(data)
         if error:
             return error
-        # Process face detection frame
         return jsonify({"success": True, "face_count": 1, "flag_count": 0, "flags": []})
 
-    def _get_lan_ip():
-        import socket
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except Exception:
-            return "127.0.0.1"
+
+def register_hr_interview_routes(app):
+    """Register HR-only interview management routes."""
+    if "interview" in app.view_functions:
+        return
+
+    @app.route("/interview")
+    @login_required
+    def interview():
+        from src.voice_interview import check_microphone, check_tts
+        from src.webcam_proctor import check_webcam_available
+
+        tokens = get_all_tokens()
+
+        schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
+        candidates = []
+        job_title = "Open Position"
+
+        if schedule_files:
+            try:
+                with open(schedule_files[0], encoding="utf-8") as f:
+                    sdata = json.load(f)
+                    job_title = sdata.get("job_title", job_title)
+                    for entry in sdata.get("schedule", []):
+                        if entry.get("status") == "CONFIRMED":
+                            candidates.append(entry)
+            except Exception as e:
+                logger.error(f"Failed to load schedule: {e}")
+
+        mic = check_microphone().get("available", False)
+        tts = check_tts().get("available", False)
+        cam = check_webcam_available().get("available", False)
+
+        return render_template("interview.html",
+                               candidates=candidates,
+                               job_title=job_title,
+                               mic_available=mic,
+                               tts_available=tts,
+                               webcam_available=cam,
+                               tokens=tokens)
+
+    @app.route("/rules")
+    @login_required
+    def rules():
+        return render_template("rules.html")
 
     @app.route("/api/generate-interview-links", methods=["POST"])
     @login_required
@@ -453,7 +461,6 @@ def register_interview_routes(app):
             if entry.get("status") == "CONFIRMED":
                 cand_name = entry["candidate_name"]
                 if cand_name in cand_to_token:
-                    # reuse token
                     token_record = cand_to_token[cand_name]
                     token = token_record["token"]
                     used = token_record["used"]
@@ -480,13 +487,11 @@ def register_interview_routes(app):
     @app.route("/api/send-interview-links", methods=["POST"])
     @login_required
     def api_send_interview_links():
-        # 1. Generate/get links
         links_res = api_generate_interview_links().get_json()
         if "error" in links_res:
             return jsonify({"error": links_res["error"]}), 400
         links = links_res.get("links", [])
 
-        # 2. Prepare email config
         import config as cfg
         smtp_host = getattr(cfg, "SMTP_HOST", "").strip()
         smtp_port = int(getattr(cfg, "SMTP_PORT", 587) or 587)
@@ -498,7 +503,6 @@ def register_interview_routes(app):
         if not smtp_host or not smtp_email or not smtp_password:
             return jsonify({"error": "SMTP not configured. Go to Settings → Email."}), 400
 
-        # Load schedule to get slot info
         schedule_files = sorted((OUTPUT_FOLDER / "scheduling").glob("schedule_*.json"), reverse=True)
         try:
             with open(schedule_files[0], encoding="utf-8") as f:
@@ -518,8 +522,7 @@ def register_interview_routes(app):
             cand_name = link_data["candidate_name"]
             url = link_data["url"]
             email = link_data.get("email", "")
-            
-            # Lookup email from NLP if missing
+
             if not email:
                 nlp_path = OUTPUT_FOLDER / "nlp"
                 if nlp_path.exists():
@@ -564,7 +567,6 @@ def register_interview_routes(app):
 
         return jsonify({"success": True, "links": links, "sent": sent, "failed": failed, "errors": errors})
 
-
     @app.route("/api/interview-links", methods=["GET"])
     @login_required
     def api_interview_links():
@@ -598,3 +600,9 @@ def register_interview_routes(app):
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)
         return jsonify(list_ints)
+
+
+def register_interview_routes(app):
+    """Register all interview routes (candidate + HR)."""
+    register_candidate_interview_routes(app)
+    register_hr_interview_routes(app)

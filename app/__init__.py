@@ -115,3 +115,50 @@ def create_app():
 
     return app
 
+
+def create_candidate_app():
+    """Create a lightweight Flask app containing ONLY candidate-facing routes.
+
+    This app is exposed to the local network (LAN) over HTTPS so candidates can
+    take interviews. It has NO HR routes (uploads, ranking, reports, settings, etc.),
+    ensuring that even if an attacker on the LAN attempts to call HR endpoints,
+    Flask returns 404 Not Found.
+    """
+    templates_dir = str(APP_RESOURCE_DIR / "app" / "templates")
+    static_dir = str(APP_RESOURCE_DIR / "app" / "static")
+
+    app = Flask("ARS_Candidate", template_folder=templates_dir, static_folder=static_dir)
+    app.secret_key = (
+        os.environ.get("FLASK_SECRET_KEY")
+        or getattr(config, "FLASK_SECRET_KEY", "")
+        or secrets.token_hex(32)
+    )
+    app.config.update(
+        MAX_CONTENT_LENGTH=_max_upload_size(),
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SECURE=True,  # Candidate portal is served strictly over HTTPS
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=4),
+    )
+    register_error_handlers(app)
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers.setdefault("Cache-Control", "no-store")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        return response
+
+    @app.context_processor
+    def inject_config():
+        return {"cfg": config, "config": config}
+
+    from app.routes.health import register_health_routes
+    from app.routes.interview import register_candidate_interview_routes
+
+    register_health_routes(app)
+    register_candidate_interview_routes(app)
+
+    return app
+

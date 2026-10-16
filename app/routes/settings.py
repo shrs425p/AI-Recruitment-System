@@ -129,10 +129,12 @@ def register_settings_routes(app):
         return render_template("settings.html", cfg=cfg, about_html=_get_about_html())
 
     @app.route("/about")
+    @login_required
     def about_page():
         return render_template("about.html", about_html=_get_about_html())
 
     @app.route("/api/toggle-theme", methods=["POST"])
+    @login_required
     def api_toggle_theme():
         cfg.THEME = "dark" if cfg.THEME == "light" else "light"
         import main
@@ -140,6 +142,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "theme": cfg.THEME})
 
     @app.route("/api/change-theme", methods=["POST"])
+    @login_required
     def api_change_theme():
         data = request.json or {}
         theme = data.get("theme", "light")
@@ -149,6 +152,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "theme": cfg.THEME})
 
     @app.route("/api/change-palette", methods=["POST"])
+    @login_required
     def api_change_palette():
         data = request.json or {}
         palette = data.get("palette", "lavender")
@@ -158,6 +162,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "palette": cfg.COLOR_PALETTE})
 
     @app.route("/api/toggle-ai-mode", methods=["POST"])
+    @login_required
     def api_toggle_ai_mode():
         current = getattr(cfg, "APP_MODE", "privacy")
         cfg.APP_MODE = "cloud" if current == "privacy" else "privacy"
@@ -166,6 +171,7 @@ def register_settings_routes(app):
         return jsonify({"success": True, "mode": cfg.APP_MODE})
 
     @app.route("/api/ollama/models", methods=["GET"])
+    @login_required
     def api_ollama_models():
         try:
             from src.common import _ollama
@@ -177,6 +183,7 @@ def register_settings_routes(app):
             return jsonify({"error": str(e), "models": []})
 
     @app.route("/api/provider-models", methods=["POST"])
+    @login_required
     def api_provider_models():
         data = request.json or {}
         provider = data.get("provider", "")
@@ -185,8 +192,8 @@ def register_settings_routes(app):
         if not key and provider != "ollama_cloud":
             return jsonify({"success": False, "error": "API Key is required to fetch models."})
 
-        import urllib.request
         import json
+        import urllib.request
 
         models = []
         try:
@@ -207,14 +214,15 @@ def register_settings_routes(app):
                     models = [m["name"].replace("models/", "") for m in resp_data.get("models", []) if "gemini" in m["name"]]
             elif provider == "anthropic":
                 # Anthropic's model API is limited, returning standard hardcoded ones + test key validation
-                req = urllib.request.Request("https://api.anthropic.com/v1/messages", 
+                req = urllib.request.Request("https://api.anthropic.com/v1/messages",
                     headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
                     data=json.dumps({"model":"claude-3-haiku-20240307","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode())
                 try:
                     urllib.request.urlopen(req, timeout=5)
                     models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
                 except urllib.error.HTTPError as e:
-                    if e.code == 401: raise Exception("Invalid API Key")
+                    if e.code == 401:
+                        raise Exception("Invalid API Key")
                     models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
             elif provider == "openrouter":
                 req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"})

@@ -104,7 +104,7 @@ def register_ranking_routes(app):
         jd_data = call_ai(build_jd_prompt(jd_text))
         if not jd_data:
             return jsonify({"error": "Failed to parse JD"}), 500
-            
+
         # Fallback if AI returned empty template
         if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
             from src.ranking_engine import _extract_title_fallback
