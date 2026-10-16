@@ -83,6 +83,7 @@ def register_ranking_routes(app):
         return jsonify({"success": True})
 
     @app.route("/api/rank", methods=["POST"])
+    @login_required
     def api_rank():
         data    = request.json
         jd_text = data.get("jd_text", "").strip()
