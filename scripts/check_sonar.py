@@ -30,6 +30,20 @@ def main():
     except Exception as e:
         print(f"Quality gate error: {e}")
 
+    # 1b. Overall Code Measures
+    try:
+        metrics = "reliability_rating,security_rating,sqale_rating,duplicated_lines_density,bugs,vulnerabilities,code_smells,security_hotspots"
+        m_data = get_json(f"measures/component?component={PROJECT_KEY}&branch={branch}&metricKeys={metrics}")
+        rating_map = {"1.0": "A", "2.0": "B", "3.0": "C", "4.0": "D", "5.0": "E", "1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
+        print("\nOverall Code Measures:")
+        for m in m_data.get("component", {}).get("measures", []):
+            val = m.get("value", "")
+            if "rating" in m.get("metric", ""):
+                val = f"{val} ({rating_map.get(str(val), val)})"
+            print(f"  - {m['metric']}: {val}")
+    except Exception as e:
+        print(f"Measures error: {e}")
+
     # 2. Issues
     page = 1
     total_issues = 0
