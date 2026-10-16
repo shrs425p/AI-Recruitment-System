@@ -359,7 +359,10 @@ def clean_pdf_text(text) -> str:
 
 
 class EvaluationReportPDF(FPDF):
-    """Custom FPDF document layout for HR evaluation reports."""
+    """
+    Minimalist, Material Design 3 (Material You) Monochrome PDF report.
+    Clean black & white / grayscale palette, subtle borders, high contrast.
+    """
     def __init__(self, candidate_name="Candidate", job_title="Job"):
         super().__init__(orientation="P", unit="mm", format="A4")
         self.candidate_name = clean_pdf_text(candidate_name)
@@ -369,36 +372,39 @@ class EvaluationReportPDF(FPDF):
 
     def header(self):
         if self.page_no() > 1:
-            self.set_font("Helvetica", "I", 8)
-            self.set_text_color(128, 128, 128)
-            self.cell(0, 5, f"Post-Interview Evaluation Report | {self.candidate_name} ({self.job_title})", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            self.set_draw_color(226, 232, 240)
+            self.set_font("Helvetica", "", 8)
+            self.set_text_color(120, 120, 120)
+            self.cell(0, 5, f"AI RECRUITMENT SYSTEM  |  {self.candidate_name.upper()}  -  {self.job_title.upper()}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            self.set_draw_color(220, 220, 220)
+            self.set_line_width(0.2)
             self.line(15, self.get_y(), 195, self.get_y())
             self.ln(3)
 
     def footer(self):
         self.set_y(-12)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(140, 140, 140)
-        self.cell(90, 8, "Confidential - AI Recruitment System", align="L")
+        self.set_font("Helvetica", "", 8)
+        self.set_text_color(130, 130, 130)
+        self.set_draw_color(225, 225, 225)
+        self.set_line_width(0.2)
+        self.line(15, self.get_y() - 1, 195, self.get_y() - 1)
+        self.cell(90, 8, "Confidential - AI Recruitment System  |  Fairness & Integrity Audited", align="L")
         self.cell(90, 8, f"Page {self.page_no()} of {{nb}}", align="R")
 
     def section_heading(self, title):
         self.ln(3)
-        self.set_fill_color(241, 245, 249)
-        self.set_draw_color(99, 102, 241)
-        self.set_line_width(0.6)
-        self.set_font("Helvetica", "B", 10.5)
-        self.set_text_color(30, 41, 59)
-        self.cell(0, 6.5, f"  {clean_pdf_text(title)}", fill=True, border="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        self.set_line_width(0.2)
-        self.ln(2)
+        self.set_font("Helvetica", "B", 9.5)
+        self.set_text_color(20, 20, 20)
+        self.cell(0, 5, clean_pdf_text(title.upper()), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        self.set_draw_color(210, 210, 210)
+        self.set_line_width(0.3)
+        self.line(15, self.get_y(), 195, self.get_y())
+        self.ln(3)
 
-    def write_para(self, label, text, bold_label=True, text_color=(30, 41, 59)):
+    def write_para(self, label, text, bold_label=True, text_color=(35, 35, 35)):
         self.set_x(self.l_margin)
         if label:
             self.set_font("Helvetica", "B" if bold_label else "", 8.5)
-            self.set_text_color(71, 85, 105)
+            self.set_text_color(80, 80, 80)
             self.cell(0, 4.2, clean_pdf_text(label), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         self.set_font("Helvetica", "", 8.5)
         self.set_text_color(*text_color)
@@ -407,145 +413,197 @@ class EvaluationReportPDF(FPDF):
 
 
 def generate_evaluation_pdf(report: dict, output_file: Path | None = None) -> FPDF:
-    """Generate a structured, professional multi-page PDF evaluation report."""
+    """Generate a structured, minimalist Material Design 3 monochrome PDF evaluation report."""
     candidate_name = report.get("candidate_name", "Unknown Candidate")
     job_title = report.get("job_title", "Open Position") or "Open Position"
     pdf = EvaluationReportPDF(candidate_name, job_title)
     pdf.alias_nb_pages()
     pdf.add_page()
 
-    # 1. Header Banner
-    pdf.set_fill_color(30, 41, 59)
-    pdf.rect(15, 15, 180, 22, style="F")
-    pdf.set_xy(15, 18)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(180, 7, "POST-INTERVIEW EVALUATION REPORT", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    # 1. Minimalist Top Header (Clean Black & White Material Style)
+    pdf.set_xy(15, 16)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 4.5, "AI RECRUITMENT SYSTEM  /  EVALUATION SUITE", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(0, 8, "Post-Interview Evaluation Report", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
     pdf.set_font("Helvetica", "", 8.5)
-    pdf.set_text_color(203, 213, 225)
-    pdf.cell(180, 5, "AI-Assisted Recruitment & Performance Assessment System", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_text_color(110, 110, 110)
+    pdf.cell(0, 4.5, "Automated technical scoring, rubric diagnostics, integrity proctoring & hiring assessment.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    # Hairline divider
+    pdf.ln(1)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.set_line_width(0.3)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(3)
 
-    # 2. Metadata Grid
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(71, 85, 105)
-    pdf.cell(30, 5, "Candidate Name:")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(15, 23, 42)
-    pdf.cell(62, 5, clean_pdf_text(candidate_name))
+    # 2. Metadata Grid (Clean Material You Key-Value Layout)
+    y_meta = pdf.get_y()
+    pdf.set_fill_color(250, 250, 250)
+    pdf.set_draw_color(225, 225, 225)
+    pdf.rect(15, y_meta, 180, 16, style="FD")
 
+    pdf.set_xy(18, y_meta + 2)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(28, 4.5, "CANDIDATE")
     pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(71, 85, 105)
-    pdf.cell(24, 5, "Job Title:")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(15, 23, 42)
-    pdf.cell(64, 5, clean_pdf_text(job_title), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(60, 4.5, clean_pdf_text(candidate_name))
 
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(71, 85, 105)
-    pdf.cell(30, 5, "Generated At:")
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(24, 4.5, "JOB TITLE")
     pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(15, 23, 42)
-    pdf.cell(62, 5, clean_pdf_text(report.get("generated_at", report.get("interview_date", "N/A"))))
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(64, 4.5, clean_pdf_text(job_title), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(71, 85, 105)
-    pdf.cell(24, 5, "Domain:")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(15, 23, 42)
-    pdf.cell(64, 5, clean_pdf_text(report.get("domain", "General Engineering") or "General"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_xy(18, y_meta + 7.5)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(28, 4.5, "EVALUATION DATE")
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(60, 4.5, clean_pdf_text(report.get("generated_at", report.get("interview_date", "N/A"))))
 
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(24, 4.5, "DOMAIN")
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(64, 4.5, clean_pdf_text(report.get("domain", "General Engineering") or "General"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.set_xy(18, y_meta + 12)
     pdf.set_font("Helvetica", "I", 7.5)
-    pdf.set_text_color(100, 116, 139)
-    pdf.cell(0, 4.5, "Fairness Audit: Scoring based on technical competence and role criteria. Protected characteristics isolated.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.ln(1)
+    pdf.set_text_color(130, 130, 130)
+    pdf.cell(174, 3.5, "Fairness Audit: Scoring based on technical competence and role alignment. Protected demographic characteristics isolated.", align="L")
 
-    # 3. Score Overview Matrix
+    pdf.set_xy(15, y_meta + 18)
+
+    # 3. Score Overview Matrix (Minimalist Material Stat Chips)
     pdf.section_heading("EXECUTIVE SCORE SUMMARY")
     scores = report.get("scores") or {}
     proctoring = report.get("proctoring") or {}
     ai_report = report.get("ai_report") or {}
+    responses = report.get("responses") or []
 
     combined = scores.get("combined_score", 0)
     ranking = scores.get("ranking_score", 0)
     interview_pct = scores.get("interview_pct", 0)
     interview_score = scores.get("interview_score", 0)
     interview_max = scores.get("interview_max", 50)
-    tech_pct = scores.get("technical_pct", 0)
-    behav_pct = scores.get("behavioral_pct", 0)
     proc_status = proctoring.get("status", "UNKNOWN")
     proc_flags = proctoring.get("flagged_count", 0)
 
-    # Score Cards Row
-    col_w = 30
-    h_box = 14
+    # Compute technical / behavioral numbers dynamically
+    tech_resp = [r for r in responses if r.get("type", "").upper() == "TECHNICAL"]
+    behav_resp = [r for r in responses if r.get("type", "").upper() == "BEHAVIORAL"]
+
+    if tech_resp:
+        tech_score = sum(r.get("score", 0) for r in tech_resp)
+        tech_max = len(tech_resp) * 10
+        tech_pct = round((tech_score / tech_max) * 100, 1) if tech_max else 0
+        tech_sub = f"{tech_score}/{tech_max} pts"
+    elif scores.get("technical_max"):
+        tech_score = scores.get("technical_score", 0)
+        tech_max = scores.get("technical_max", 0)
+        tech_pct = scores.get("technical_pct", 0)
+        tech_sub = f"{tech_score}/{tech_max} pts"
+    else:
+        tech_pct = scores.get("technical_pct", 0)
+        tech_sub = "Technical"
+
+    if behav_resp:
+        behav_score = sum(r.get("score", 0) for r in behav_resp)
+        behav_max = len(behav_resp) * 10
+        behav_pct = round((behav_score / behav_max) * 100, 1) if behav_max else 0
+        behav_sub = f"{behav_score}/{behav_max} pts"
+    elif scores.get("behavioral_max"):
+        behav_score = scores.get("behavioral_score", 0)
+        behav_max = scores.get("behavioral_max", 0)
+        behav_pct = scores.get("behavioral_pct", 0)
+        behav_sub = f"{behav_score}/{behav_max} pts"
+    else:
+        behav_pct = scores.get("behavioral_pct", 0)
+        behav_sub = "Behavioral"
+
+    # 6 Minimalist Grayscale Stat Cards across 180mm
+    col_w = 28.5
+    gap = 1.8
+    h_box = 15
     x_start = pdf.get_x()
     y_start = pdf.get_y()
     cards = [
-        ("Combined", f"{combined}/100", "(40% R + 60% I)"),
-        ("Resume", f"{ranking}/100", "Resume Ranking"),
-        ("Interview", f"{interview_pct}%", f"{interview_score}/{interview_max} pts"),
-        ("Technical", f"{tech_pct}%", "Tech Questions"),
-        ("Behavioral", f"{behav_pct}%", "Behavioral"),
-        ("Proctoring", clean_pdf_text(proc_status), f"{proc_flags} flag(s)")
+        ("COMBINED", f"{combined}/100", "40% R + 60% I"),
+        ("RESUME", f"{ranking}/100", "Resume Rank"),
+        ("INTERVIEW", f"{interview_pct}%", f"{interview_score}/{interview_max} pts"),
+        ("TECHNICAL", f"{tech_pct}%", tech_sub),
+        ("BEHAVIORAL", f"{behav_pct}%", behav_sub),
+        ("PROCTORING", clean_pdf_text(proc_status), f"{proc_flags} flag(s)")
     ]
 
     for i, (label, val, sub) in enumerate(cards):
-        cx = x_start + (i * col_w)
+        cx = x_start + (i * (col_w + gap))
         pdf.set_xy(cx, y_start)
-        pdf.set_fill_color(248, 250, 252)
-        pdf.set_draw_color(226, 232, 240)
-        pdf.rect(cx, y_start, col_w - 1, h_box, style="FD")
+        pdf.set_fill_color(252, 252, 252)
+        pdf.set_draw_color(220, 220, 220)
+        pdf.rect(cx, y_start, col_w, h_box, style="FD")
 
-        pdf.set_xy(cx, y_start + 1.5)
-        pdf.set_font("Helvetica", "B", 7.5)
-        pdf.set_text_color(100, 116, 139)
-        pdf.cell(col_w - 1, 3.5, label, align="C")
+        # Top label
+        pdf.set_xy(cx, y_start + 1.2)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(110, 110, 110)
+        pdf.cell(col_w, 3.5, label, align="C")
 
+        # Main Value (Crisp Black / High Contrast)
         pdf.set_xy(cx, y_start + 5)
         pdf.set_font("Helvetica", "B", 10)
-        if label == "Combined":
-            pdf.set_text_color(79, 70, 229)
-        elif label == "Proctoring" and ("SUSPICIOUS" in val or "FLAG" in val):
-            pdf.set_text_color(220, 38, 38)
-        elif label == "Proctoring":
-            pdf.set_text_color(22, 163, 74)
-        else:
-            pdf.set_text_color(15, 23, 42)
-        pdf.cell(col_w - 1, 4.5, val, align="C")
+        pdf.set_text_color(15, 15, 15)
+        pdf.cell(col_w, 4.5, val, align="C")
 
-        pdf.set_xy(cx, y_start + 9.5)
+        # Subtitle
+        pdf.set_xy(cx, y_start + 10)
         pdf.set_font("Helvetica", "", 6.5)
-        pdf.set_text_color(148, 163, 184)
-        pdf.cell(col_w - 1, 3, sub, align="C")
+        pdf.set_text_color(130, 130, 130)
+        pdf.cell(col_w, 3, sub, align="C")
 
-    pdf.set_xy(x_start, y_start + h_box + 2)
+    pdf.set_xy(x_start, y_start + h_box + 3)
 
-    # 4. Hire Recommendation Box
+    # 4. Hire Recommendation Card (Minimalist B&W Pill Box with No Text Overlap)
     rec = ai_report.get("hire_recommendation", "N/A")
     risk = ai_report.get("risk_level", "N/A")
     justification = ai_report.get("hire_justification", "")
 
-    if "RECOMMEND" in rec and "NOT" not in rec:
-        text_rgb = (22, 101, 52)
-    elif "NOT" in rec:
-        text_rgb = (153, 27, 27)
-    else:
-        text_rgb = (133, 77, 14)
+    y_rec = pdf.get_y()
+    pdf.set_fill_color(248, 248, 248)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.rect(15, y_rec, 180, 8, style="FD")
 
-    pdf.set_font("Helvetica", "B", 9.5)
-    pdf.set_text_color(*text_rgb)
-    pdf.cell(50, 5, f"Recommendation: {clean_pdf_text(rec)}")
+    pdf.set_xy(18, y_rec + 1.5)
     pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(35, 5, f"Risk Level: {clean_pdf_text(risk)}")
-    pdf.set_font("Helvetica", "I", 8.5)
-    pdf.set_text_color(71, 85, 105)
-    pdf.cell(0, 5, f"Combined Score: {combined}/100", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(70, 5, f"HIRING DECISION:  {clean_pdf_text(rec).upper()}")
 
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(90, 90, 90)
+    pdf.cell(50, 5, f"RISK ASSESSMENT:  {clean_pdf_text(risk).upper()}")
+
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(15, 15, 15)
+    pdf.cell(56, 5, f"COMBINED SCORE:  {combined}/100", align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.set_xy(15, y_rec + 10.5)
     if justification:
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(90, 90, 90)
+        pdf.cell(0, 4, "HIRING JUSTIFICATION & RATIONALE:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 8.5)
-        pdf.set_text_color(51, 65, 85)
-        pdf.multi_cell(0, 4, clean_pdf_text(f"Justification: {justification}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.set_text_color(30, 30, 30)
+        pdf.multi_cell(0, 4.2, clean_pdf_text(justification), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
 
     # 5. Core Assessments
@@ -560,29 +618,29 @@ def generate_evaluation_pdf(report: dict, output_file: Path | None = None) -> FP
     if ai_report.get("behavioral_assessment"):
         pdf.write_para("Behavioral Assessment:", ai_report.get("behavioral_assessment"))
 
-    # Strengths & Gaps
+    # Key Strengths & Key Gaps (Minimalist Clean Bullets)
     strengths = ai_report.get("key_strengths") or []
     if isinstance(strengths, list) and strengths:
         pdf.set_x(pdf.l_margin)
         pdf.set_font("Helvetica", "B", 8.5)
-        pdf.set_text_color(22, 163, 74)
+        pdf.set_text_color(20, 20, 20)
         pdf.cell(0, 4.5, "Key Strengths:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(30, 41, 59)
+        pdf.set_text_color(40, 40, 40)
         for s in strengths:
-            pdf.multi_cell(0, 3.8, clean_pdf_text(f"+ {s}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(0, 3.8, clean_pdf_text(f"[+]  {s}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
 
     gaps = ai_report.get("key_gaps") or []
     if isinstance(gaps, list) and gaps:
         pdf.set_x(pdf.l_margin)
         pdf.set_font("Helvetica", "B", 8.5)
-        pdf.set_text_color(220, 38, 38)
+        pdf.set_text_color(20, 20, 20)
         pdf.cell(0, 4.5, "Key Gaps (Areas to Improve):", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(30, 41, 59)
+        pdf.set_text_color(40, 40, 40)
         for g in gaps:
-            pdf.multi_cell(0, 3.8, clean_pdf_text(f"- {g}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(0, 3.8, clean_pdf_text(f"[-]  {g}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
 
     # Next Steps & Proctor Remarks
@@ -590,19 +648,18 @@ def generate_evaluation_pdf(report: dict, output_file: Path | None = None) -> FP
     if isinstance(next_steps, list) and next_steps:
         pdf.set_x(pdf.l_margin)
         pdf.set_font("Helvetica", "B", 8.5)
-        pdf.set_text_color(71, 85, 105)
+        pdf.set_text_color(20, 20, 20)
         pdf.cell(0, 4.5, "Suggested Next Steps:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(30, 41, 59)
+        pdf.set_text_color(40, 40, 40)
         for idx, ns in enumerate(next_steps, 1):
-            pdf.multi_cell(0, 3.8, clean_pdf_text(f"{idx}. {ns}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(0, 3.8, clean_pdf_text(f"{idx}.  {ns}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(1)
 
     if ai_report.get("proctoring_remarks"):
         pdf.write_para("Proctoring Remarks & Integrity Observations:", ai_report.get("proctoring_remarks"))
 
     # 6. Detailed Q&A Transcript
-    responses = report.get("responses") or []
     if responses:
         pdf.section_heading(f"DETAILED QUESTION-BY-QUESTION BREAKDOWN ({len(responses)} QUESTIONS)")
 
@@ -615,53 +672,54 @@ def generate_evaluation_pdf(report: dict, output_file: Path | None = None) -> FP
             eval_data = r.get("evaluation") or {}
             ans_flags = r.get("answer_flags") or []
 
-            # Check page break margin
-            if pdf.get_y() > 240:
+            # Check page break margin so question card starts cleanly
+            if pdf.get_y() > 225:
                 pdf.add_page()
 
-            # Q Header Bar
-            pdf.set_fill_color(241, 245, 249)
-            pdf.set_draw_color(203, 213, 225)
-            pdf.rect(15, pdf.get_y(), 180, 6, style="FD")
+            # Q Header Bar (Minimalist Light Gray Container)
+            y_q = pdf.get_y()
+            pdf.set_fill_color(246, 246, 248)
+            pdf.set_draw_color(215, 215, 220)
+            pdf.rect(15, y_q, 180, 6.5, style="FD")
 
-            pdf.set_xy(16, pdf.get_y())
+            pdf.set_xy(17, y_q + 0.8)
             pdf.set_font("Helvetica", "B", 8.5)
-            pdf.set_text_color(30, 41, 59)
-            header_title = f"Q{q_num} [{q_type}] - {clean_pdf_text(q_topic)}"
-            pdf.cell(100, 6, header_title)
+            pdf.set_text_color(20, 20, 20)
+            header_title = f"QUESTION {q_num}  [{q_type}]  -  {clean_pdf_text(q_topic).upper()}"
+            pdf.cell(95, 5, header_title)
 
             pdf.set_font("Helvetica", "B", 8.5)
-            pdf.set_text_color(79, 70, 229)
-            pdf.cell(35, 6, f"Score: {q_score}/10", align="C")
+            pdf.set_text_color(20, 20, 20)
+            pdf.cell(35, 5, f"SCORE: {q_score} / 10", align="C")
 
             pdf.set_font("Helvetica", "", 7.5)
-            pdf.set_text_color(100, 116, 139)
+            pdf.set_text_color(110, 110, 110)
             flag_str = f"{len(ans_flags)} flag(s)" if ans_flags else "Clean"
-            pdf.cell(44, 6, f"Time: {time_taken}s | {flag_str}", align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.ln(1.5)
+            pdf.cell(46, 5, f"Time: {time_taken}s  |  {flag_str}", align="R", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_xy(15, y_q + 8)
 
-            # Question Prompt
+            # Question Prompt (Indented clean quote block)
             pdf.set_x(pdf.l_margin)
             pdf.set_font("Helvetica", "B", 8)
-            pdf.set_text_color(71, 85, 105)
-            pdf.cell(0, 4, "Question:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-            pdf.set_font("Helvetica", "", 8)
-            pdf.set_text_color(15, 23, 42)
-            pdf.multi_cell(0, 3.8, clean_pdf_text(r.get("question", "")), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_text_color(90, 90, 90)
+            pdf.cell(0, 4, "QUESTION PROMPT:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_font("Helvetica", "", 8.5)
+            pdf.set_text_color(20, 20, 20)
+            pdf.multi_cell(0, 4, clean_pdf_text(r.get("question", "")), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(1)
 
-            # Candidate Answer
+            # Candidate Answer (Bordered or indented container)
             pdf.set_x(pdf.l_margin)
             pdf.set_font("Helvetica", "B", 8)
-            pdf.set_text_color(71, 85, 105)
-            pdf.cell(0, 4, "Candidate's Answer:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_text_color(90, 90, 90)
+            pdf.cell(0, 4, "CANDIDATE'S VERBATIM ANSWER:", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font("Helvetica", "", 8)
-            pdf.set_text_color(51, 65, 85)
+            pdf.set_text_color(45, 45, 45)
             ans_text = clean_pdf_text(r.get("answer", ""))
             pdf.multi_cell(0, 3.8, ans_text if ans_text else "[No response recorded]", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(1)
 
-            # Score Rubric Breakdown Table
+            # Score Rubric Breakdown (Minimalist M3 chips in Grayscale)
             if eval_data:
                 rel = eval_data.get("relevance", "-")
                 dep = eval_data.get("depth", "-")
@@ -670,34 +728,34 @@ def generate_evaluation_pdf(report: dict, output_file: Path | None = None) -> FP
 
                 pdf.set_x(pdf.l_margin)
                 pdf.set_font("Helvetica", "B", 7.5)
-                pdf.set_text_color(79, 70, 229)
-                pdf.cell(0, 4, f"Score Rubric: Relevance ({rel}/3) | Depth ({dep}/3) | Clarity ({cla}/2) | Correctness ({cor}/2)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.set_text_color(30, 30, 30)
+                rubric_str = f"RUBRIC BREAKDOWN:  Relevance: {rel}/3   |   Depth: {dep}/3   |   Clarity: {cla}/2   |   Correctness: {cor}/2"
+                pdf.cell(0, 4, rubric_str, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
                 feedback = eval_data.get("feedback")
                 if feedback:
                     pdf.set_font("Helvetica", "I", 8)
-                    pdf.set_text_color(71, 85, 105)
+                    pdf.set_text_color(80, 80, 80)
                     pdf.multi_cell(0, 3.6, clean_pdf_text(f"AI Feedback: {feedback}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
-                # Question Strengths & Gaps
                 sp = eval_data.get("strong_points") or []
                 wp = eval_data.get("weak_points") or []
                 if isinstance(sp, list) and sp:
                     pdf.set_x(pdf.l_margin)
-                    pdf.set_font("Helvetica", "B", 7.5)
-                    pdf.set_text_color(22, 163, 74)
+                    pdf.set_font("Helvetica", "", 7.5)
+                    pdf.set_text_color(30, 30, 30)
                     pdf.cell(0, 3.5, f"Strengths: {clean_pdf_text(', '.join(sp))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 if isinstance(wp, list) and wp:
                     pdf.set_x(pdf.l_margin)
-                    pdf.set_font("Helvetica", "B", 7.5)
-                    pdf.set_text_color(220, 38, 38)
-                    pdf.cell(0, 3.5, f"Gaps: {clean_pdf_text(', '.join(wp))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    pdf.set_font("Helvetica", "", 7.5)
+                    pdf.set_text_color(60, 60, 60)
+                    pdf.cell(0, 3.5, f"Areas to Lag (Gaps): {clean_pdf_text(', '.join(wp))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
             if ans_flags:
                 pdf.set_x(pdf.l_margin)
                 pdf.set_font("Helvetica", "B", 7.5)
-                pdf.set_text_color(220, 38, 38)
-                pdf.cell(0, 3.5, f"Flags: {clean_pdf_text(', '.join(ans_flags))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.set_text_color(20, 20, 20)
+                pdf.cell(0, 3.5, f"Integrity Audit Flags: {clean_pdf_text(', '.join(ans_flags))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
             pdf.ln(3)
 
