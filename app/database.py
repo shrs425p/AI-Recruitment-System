@@ -495,3 +495,38 @@ def delete_job_template(template_id: int) -> bool:
     with db_session() as conn:
         conn.execute("DELETE FROM job_templates WHERE id=?", (template_id,))
         return True
+
+
+def delete_candidate(candidate_id: int) -> dict | None:
+    """Purge a candidate and all related database records (schedules, email_logs, tokens).
+    Returns deleted candidate metadata (name, source_file) or None if not found."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("SELECT id, name, source_file FROM candidates WHERE id=?", (candidate_id,))
+        cand = cur.fetchone()
+        if not cand:
+            return None
+        cand_dict = dict(cand)
+        name = cand_dict["name"]
+        source_file = cand_dict["source_file"]
+
+        # Delete from email_log for matching schedules
+        conn.execute("""
+            DELETE FROM email_log WHERE schedule_id IN (
+                SELECT id FROM schedules WHERE candidate_name=?
+            )
+        """, (name,))
+
+        # Delete from schedules
+        conn.execute("DELETE FROM schedules WHERE candidate_name=?", (name,))
+
+        # Delete from interview_tokens
+        conn.execute("DELETE FROM interview_tokens WHERE candidate_name=? OR (source_file != '' AND source_file=?)", (name, source_file))
+
+        # Delete from candidates
+        conn.execute("DELETE FROM candidates WHERE id=?", (candidate_id,))
+        conn.commit()
+        return cand_dict
+    finally:
+        conn.close()
+

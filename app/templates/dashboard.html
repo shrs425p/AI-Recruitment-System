@@ -812,6 +812,12 @@
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                                         Explain
                                     </button>
+                                    {% if c.id %}
+                                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 10px; border-radius: 6px; gap:4px; margin-left:6px; color:#ef4444;" onclick="deleteCandidate({{ c.id }}, '{{ c.candidate_name | escape }}')">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        Delete
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -1081,6 +1087,24 @@
             showToast('Error: ' + e.message, 'error');
         } finally {
             if (btn) btn.disabled = false;
+        }
+    }
+
+    async function deleteCandidate(id, name) {
+        if (!confirm('Are you sure you want to permanently delete candidate "' + name + '" and all associated files, transcripts, and records? This action cannot be undone.')) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/candidate/' + id, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast('Candidate successfully purged.', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast('Deletion failed: ' + (data.error || 'Server error'), 'error');
+            }
+        } catch(e) {
+            showToast('Network error: ' + e.message, 'error');
         }
     }
 </script>

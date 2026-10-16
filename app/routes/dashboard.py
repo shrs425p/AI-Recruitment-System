@@ -9,8 +9,20 @@ from datetime import datetime, timedelta
 
 from flask import jsonify, redirect, render_template, url_for
 
-from app.core import OUTPUT_FOLDER, RESUMES_FOLDER, _save_tasks, pipeline_tasks
-from app.database import create_interview_token, create_run, finish_run, upsert_candidate
+from app.core import (
+    OUTPUT_FOLDER,
+    RESUMES_FOLDER,
+    _save_tasks,
+    pipeline_tasks,
+    purge_candidate_files,
+)
+from app.database import (
+    create_interview_token,
+    create_run,
+    delete_candidate,
+    finish_run,
+    upsert_candidate,
+)
 from app.database import save_schedule as db_save_schedule
 from app.folder_opener import open_folder
 from app.utils import login_required
@@ -420,6 +432,16 @@ def register_dashboard_routes(app):
             try:
                 with open(ranking_files[0], encoding="utf-8") as f:
                     latest_ranking = json.load(f)
+                if latest_ranking and isinstance(latest_ranking, dict) and "ranked_candidates" in latest_ranking:
+                    try:
+                        from app.database import get_candidate_by_name
+                        for c in latest_ranking["ranked_candidates"]:
+                            c_name = c.get("candidate_name", "")
+                            cand_row = get_candidate_by_name(c_name)
+                            if cand_row:
+                                c["id"] = cand_row["id"]
+                    except Exception:
+                        pass
             except Exception as e:
                 logger.warning('Caught exception: %s', e, exc_info=True)
 
@@ -534,3 +556,20 @@ def register_dashboard_routes(app):
             "message": "Auto-pipeline started.",
             "task": pipeline_tasks["auto_pipeline"],
         }), 202
+
+    @app.route("/api/candidate/<int:candidate_id>", methods=["DELETE"])
+    @login_required
+    def api_delete_candidate(candidate_id):
+        cand_info = delete_candidate(candidate_id)
+        if not cand_info:
+            return jsonify({"error": "Candidate not found", "code": 404}), 404
+
+        purge_candidate_files(cand_info)
+        # Log deletion event without storing candidate PII
+        logger.info("Candidate ID %s and associated assets purged by HR", candidate_id)
+        return jsonify({
+            "success": True,
+            "id": candidate_id,
+            "message": "Candidate and all associated data purged successfully.",
+        })
+

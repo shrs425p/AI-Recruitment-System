@@ -81,7 +81,8 @@ def register_csrf_protection(app: Flask):
         if not request.path.startswith("/api/"):
             return None
         # Allowlist candidate-facing endpoints and desktop login bootstrap
-        if request.path.startswith("/api/candidate/") or request.path in ("/api/desktop-login", "/api/health"):
+        is_candidate_api = request.path.startswith("/api/candidate/") and request.method != "DELETE" and not request.path.split("/")[-1].isdigit()
+        if is_candidate_api or request.path in ("/api/desktop-login", "/api/health"):
             return None
         # If an HR session is active, require a valid X-CSRF-Token
         if session.get("logged_in"):
