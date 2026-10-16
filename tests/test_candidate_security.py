@@ -34,6 +34,12 @@ def _app(monkeypatch):
     )
     interview_routes.interview_session.clear()
     interview_routes.active_token_sessions.clear()
+    try:
+        from app.database import db_session
+        with db_session() as conn:
+            conn.execute("DELETE FROM interview_sessions")
+    except Exception:
+        pass
 
     # create_app() already registers all blueprints/routes including interview.
     # Do NOT call register_interview_routes again — it would duplicate endpoints.

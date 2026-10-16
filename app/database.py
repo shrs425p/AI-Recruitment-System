@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 
 try:
@@ -117,10 +118,21 @@ def init_db():
             updated_at   TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS interview_sessions (
+            session_id     TEXT PRIMARY KEY,
+            token          TEXT NOT NULL,
+            candidate_name TEXT NOT NULL,
+            job_title      TEXT DEFAULT '',
+            session_data   TEXT NOT NULL,
+            created_at     REAL NOT NULL,
+            updated_at     TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_candidates_run_id ON candidates(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_run_id ON schedules(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status);
         CREATE INDEX IF NOT EXISTS idx_interview_tokens_token ON interview_tokens(token);
+        CREATE INDEX IF NOT EXISTS idx_interview_sessions_token ON interview_sessions(token);
     """)
     conn.commit()
     conn.close()
@@ -541,10 +553,74 @@ def delete_candidate(candidate_id: int) -> dict | None:
         # Delete from interview_tokens
         conn.execute("DELETE FROM interview_tokens WHERE candidate_name=? OR (source_file != '' AND source_file=?)", (name, source_file))
 
+        # Delete from interview_sessions
+        conn.execute("DELETE FROM interview_sessions WHERE candidate_name=?", (name,))
+
         # Delete from candidates
         conn.execute("DELETE FROM candidates WHERE id=?", (candidate_id,))
         conn.commit()
         return cand_dict
     finally:
         conn.close()
+
+
+def save_interview_session(session_id: str, data: dict):
+    """Insert or update an active interview session in SQLite."""
+    token = data.get("token", "")
+    cand_name = data.get("candidate_name", "")
+    job_title = data.get("job_title", "")
+    created_at = data.get("started_at") or data.get("created_at") or time.time()
+    payload = json.dumps(data)
+    with db_session() as conn:
+        conn.execute(
+            """
+            INSERT INTO interview_sessions (session_id, token, candidate_name, job_title, session_data, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(session_id) DO UPDATE SET
+                token=excluded.token,
+                candidate_name=excluded.candidate_name,
+                job_title=excluded.job_title,
+                session_data=excluded.session_data,
+                updated_at=datetime('now')
+            """,
+            (session_id, token, cand_name, job_title, payload, created_at),
+        )
+
+
+def get_interview_session(session_id: str) -> dict | None:
+    """Retrieve an interview session by session_id from SQLite."""
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT session_data FROM interview_sessions WHERE session_id=?", (session_id,)
+        ).fetchone()
+        if row and row["session_data"]:
+            return json.loads(row["session_data"])
+        return None
+
+
+def get_active_session_by_token(token: str) -> tuple[str | None, dict | None]:
+    """Retrieve the most recent session for an interview token."""
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT session_id, session_data FROM interview_sessions WHERE token=? ORDER BY rowid DESC LIMIT 1",
+            (token,),
+        ).fetchone()
+        if row and row["session_data"]:
+            return row["session_id"], json.loads(row["session_data"])
+        return None, None
+
+
+def delete_interview_session(session_id: str) -> bool:
+    """Delete an interview session by session_id."""
+    with db_session() as conn:
+        conn.execute("DELETE FROM interview_sessions WHERE session_id=?", (session_id,))
+        return True
+
+
+def cleanup_expired_interview_sessions(ttl_seconds: int = 7200) -> int:
+    """Delete sessions older than ttl_seconds from SQLite."""
+    cutoff = time.time() - ttl_seconds
+    with db_session() as conn:
+        cur = conn.execute("DELETE FROM interview_sessions WHERE created_at < ?", (cutoff,))
+        return cur.rowcount
 
