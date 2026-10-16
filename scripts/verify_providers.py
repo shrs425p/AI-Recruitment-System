@@ -27,7 +27,11 @@ for p in providers:
         status = 'ENABLED but PLACEHOLDER/EMPTY KEY'
     else:
         status = 'disabled'
-    key_preview = p.get('key','')[:20] + '...' if len(p.get('key','')) > 20 else p.get('key','')
+    raw_key = p.get('key', '')
+    if valid and raw_key:
+        key_preview = raw_key[:4] + "..." + raw_key[-4:] if len(raw_key) > 8 else "****"
+    else:
+        key_preview = raw_key[:12] if raw_key in PLACEHOLDERS else "(empty)"
     print(f"  {p['name']:<20} {status}  key={key_preview}")
 
 print()
@@ -40,4 +44,4 @@ if active:
 else:
     print('PROBLEM — no valid active providers found.')
     print('Check: NVIDIA_ENABLED =', config.NVIDIA_ENABLED)
-    print('Check: NVIDIA_KEY    =', repr(config.NVIDIA_KEY[:30]))
+    print('Check: NVIDIA_KEY    =', repr(config.NVIDIA_KEY[:4] + '...' if len(config.NVIDIA_KEY) > 4 else '***'))

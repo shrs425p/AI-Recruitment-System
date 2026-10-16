@@ -6,8 +6,12 @@ import urllib.request
 sys.path.insert(0, 'config')
 import config
 
-KEY  = config.NVIDIA_KEY
+KEY = config.NVIDIA_KEY
 BASE = 'https://integrate.api.nvidia.com/v1/chat/completions'
+
+if not KEY or KEY in {'nvapi-...', 'sk-...'} or not KEY.strip():
+    print("NVIDIA_KEY is empty or a placeholder. Configure a valid NVIDIA API key in Settings -> AI Models.")
+    sys.exit(0)
 
 candidates = [
     'meta/llama-3.1-8b-instruct',
