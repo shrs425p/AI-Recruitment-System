@@ -13,7 +13,21 @@ permissions:
   contents: read
 
 jobs:
-  security-audit:
+  gitleaks:
+    name: Gitleaks Secret Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  bandit-pip-audit:
     name: Bandit SAST & Pip-Audit
     runs-on: ubuntu-latest
 
