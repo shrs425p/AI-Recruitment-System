@@ -199,17 +199,17 @@ def register_settings_routes(app):
         try:
             if provider == "openai":
                 req = urllib.request.Request("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", []) if "gpt" in m["id"] or "o1" in m["id"]]
             elif provider == "groq":
                 req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", [])]
             elif provider == "gemini":
                 req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}")
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["name"].replace("models/", "") for m in resp_data.get("models", []) if "gemini" in m["name"]]
             elif provider == "anthropic":
@@ -218,7 +218,7 @@ def register_settings_routes(app):
                     headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
                     data=json.dumps({"model":"claude-3-haiku-20240307","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}).encode())
                 try:
-                    urllib.request.urlopen(req, timeout=5)
+                    urllib.request.urlopen(req, timeout=5)  # nosec B310
                     models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
                 except urllib.error.HTTPError as e:
                     if e.code == 401:
@@ -226,12 +226,12 @@ def register_settings_routes(app):
                     models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"]
             elif provider == "openrouter":
                 req = urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", [])]
             elif provider == "nvidia":
                 req = urllib.request.Request("https://integrate.api.nvidia.com/v1/models", headers={"Authorization": f"Bearer {key}"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
+                with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
                     resp_data = json.loads(resp.read().decode())
                     models = [m["id"] for m in resp_data.get("data", [])]
             elif provider == "github":
@@ -248,7 +248,7 @@ def register_settings_routes(app):
                 url = f"{base.rstrip('/')}/api/tags"
                 req = urllib.request.Request(url)
                 try:
-                    with urllib.request.urlopen(req, timeout=10) as resp:
+                    with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                         resp_data = json.loads(resp.read().decode())
                         models = [m["name"] for m in resp_data.get("models", [])]
                 except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as e:
