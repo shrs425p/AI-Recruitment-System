@@ -5,12 +5,44 @@ logger = logging.getLogger(__name__)
 
 import asyncio
 import json
+import re
 import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
 import ai_mode
+
+
+def sanitize_prompt_pii(text: str, candidate_name: str = "") -> str:
+    """
+    Redact candidate PII (names, emails, phone numbers) from prompt text
+    before it is transmitted to external cloud LLM providers.
+    """
+    if not text:
+        return text
+
+    res = text
+    # 1. Known candidate name if passed
+    if candidate_name and len(candidate_name.strip()) > 1:
+        res = re.sub(re.escape(candidate_name.strip()), "[CANDIDATE_NAME]", res, flags=re.IGNORECASE)
+
+    # 2. Labelled candidate names: e.g. "Candidate Name: Alice Smith", "Candidate: Alice Smith", "Applicant: Alice Smith", "Name: Alice Smith"
+    res = re.sub(
+        r"(?i)\b(candidate(?:\s+name)?|applicant(?:\s+name)?|name)\s*:\s*([A-Z][a-zA-Z\'-]+(?:\s+[A-Z][a-zA-Z\'-]+){1,3})",
+        r"\1: [CANDIDATE_NAME]",
+        res,
+    )
+
+    # 3. Email addresses
+    res = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "[EMAIL_REDACTED]", res)
+
+    # 4. Phone numbers
+    res = re.sub(r"(?:\+?\d{1,3}[-.\s]*)?\(?\d{3}\)?[-.\s]+\d{3}[-.\s]+\d{4}\b", "[PHONE_REDACTED]", res)
+    res = re.sub(r"(?:\+?\d{1,3}[-.\s]*)?\b\d{3}[-.]\d{3}[-.]\d{4}\b", "[PHONE_REDACTED]", res)
+    res = re.sub(r"(?:\+?\d{1,3}[-.\s]*)?\b\d{10,12}\b", "[PHONE_REDACTED]", res)
+
+    return res
 
 
 def _validate_endpoint(url: str) -> None:
@@ -47,24 +79,28 @@ def sync_http_post(url, headers, payload):
         ) from e
 
 
-def call_provider_sync(provider, system_msg, user_msg, max_tokens):
-    """Synchronously call a specific cloud provider's API endpoint."""
+def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=""):
+    """Synchronously call a specific cloud provider's API endpoint with PII sanitized."""
     name = provider["name"]
     key = provider["key"]
     model = provider["model"]
+
+    # Redact candidate PII before transmitting payload to external cloud providers
+    sanitized_system_msg = sanitize_prompt_pii(system_msg, candidate_name=candidate_name)
+    sanitized_user_msg = sanitize_prompt_pii(user_msg, candidate_name=candidate_name)
 
     if name == "anthropic":
         url = "https://api.anthropic.com/v1/messages"
         headers = {
             "x-api-key": key,
             "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         payload = {
             "model": model,
             "max_tokens": max_tokens,
-            "system": system_msg,
-            "messages": [{"role": "user", "content": user_msg}]
+            "system": sanitized_system_msg,
+            "messages": [{"role": "user", "content": sanitized_user_msg}],
         }
         res = sync_http_post(url, headers, payload)
         return json.loads(res)["content"][0]["text"]
@@ -75,7 +111,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
         payload = {
             "contents": [
                 {
-                    "parts": [{"text": f"System Instructions:\n{system_msg}\n\nUser Question:\n{user_msg}"}]
+                    "parts": [{"text": f"System Instructions:\n{sanitized_system_msg}\n\nUser Question:\n{sanitized_user_msg}"}]
                 }
             ]
         }
@@ -98,7 +134,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
         url = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
             "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         if name == "ollama_cloud":
             headers = {"Content-Type": "application/json"}  # no auth key required
@@ -106,9 +142,9 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens):
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg}
-            ]
+                {"role": "system", "content": sanitized_system_msg},
+                {"role": "user", "content": sanitized_user_msg},
+            ],
         }
         res = sync_http_post(url, headers, payload)
         return json.loads(res)["choices"][0]["message"]["content"]
@@ -183,12 +219,12 @@ class ProviderRouter:
             self._log_call(active[0])
             return active[0]
 
-    async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048) -> str:
+    async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048, candidate_name: str = "") -> str:
         """Query LLM asynchronously using round-robin provider balancing."""
         provider = await self.get_provider()
 
         def _sync_wrapper():
-            return call_provider_sync(provider, system_msg, user_msg, max_tokens)
+            return call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
 
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, _sync_wrapper)
