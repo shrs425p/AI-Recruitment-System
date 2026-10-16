@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, "fix/**"]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
@@ -12,12 +12,14 @@ permissions:
 
 jobs:
   test:
-    name: Windows quality checks
+    name: Windows Quality & Tests
     runs-on: windows-latest
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,14 +32,48 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Lint
+      - name: Lint with Ruff
         run: python -m ruff check .
 
       - name: Compile application code
         run: python -m compileall -q main.py app src tests
 
-      - name: Run tests
-        run: python -m pytest tests --timeout=90
+      - name: Run tests with pytest & coverage
+        run: |
+          python -m pytest --cov=src --cov=app --cov-report=xml:coverage.xml --junitxml=test-results.xml tests --timeout=90
 
       - name: Run environment pre-flight
         run: python scripts/verify_environment.py
+
+      - name: Upload test & coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            coverage.xml
+
+  sonarqube:
+    name: SonarQube Code Quality Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    if: ${{ env.SONAR_TOKEN != '' }}
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download test & coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

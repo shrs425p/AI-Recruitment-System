@@ -43,7 +43,10 @@ crash.log
 .mypy_cache/
 .ruff_cache/
 .coverage
+coverage.xml
+test-results.xml
 htmlcov/
+
 
 # Build & Packaging Output
 build/
