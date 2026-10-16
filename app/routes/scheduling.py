@@ -1,7 +1,5 @@
-import logging
-
-logger = logging.getLogger(__name__)
 import json
+import logging
 import time
 from datetime import datetime
 
@@ -19,6 +17,8 @@ from src.scheduling import (
     load_top_candidates,
     save_schedule_summary,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_schedule_slots(raw_slots):
