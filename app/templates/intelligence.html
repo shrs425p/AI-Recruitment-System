@@ -509,14 +509,21 @@
 
         <!-- AI Hiring Committee Executive Synthesis -->
         <div class="synthesis-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
-                <h3 style="margin:0; font-size:16px; font-weight:700;">AI Executive Deliberation Brief</h3>
-                <span style="font-size:12px; color:var(--gray-500); font-weight:600;">Hiring Committee Advisory</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
+                <div>
+                    <h3 style="margin:0; font-size:16px; font-weight:700;">AI Executive Deliberation Brief</h3>
+                    <span style="font-size:12px; color:var(--gray-500); font-weight:600;">Hiring Committee Advisory</span>
+                </div>
+                <button class="btn btn-secondary" onclick="copyExecutiveBrief()" style="padding:6px 12px; font-size:12px; display:flex; align-items:center; gap:6px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    Copy Brief
+                </button>
             </div>
-            <div id="executiveSynthesisText" style="white-space:pre-wrap; font-size:14px; color:var(--gray-800);"></div>
+            <div id="executiveSynthesisText" style="font-size:14px; color:var(--gray-800); line-height:1.6;"></div>
         </div>
     </div>
 </div>
+
 
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
@@ -989,8 +996,131 @@
             </div>
         `).join('');
 
-        // 4. Render AI Executive Synthesis Text
-        document.getElementById('executiveSynthesisText').textContent = data.executive_synthesis;
+        // 4. Render AI Executive Synthesis Text via Formatted Markdown
+        _rawSynthesisText = data.executive_synthesis || '';
+        document.getElementById('executiveSynthesisText').innerHTML = renderMarkdown(data.executive_synthesis);
+    }
+
+    let _rawSynthesisText = '';
+
+    function copyExecutiveBrief() {
+        const text = _rawSynthesisText || document.getElementById('executiveSynthesisText').innerText;
+        navigator.clipboard.writeText(text);
+        alert('Executive Deliberation Brief copied to clipboard.');
+    }
+
+    function formatInline(str) {
+        if (!str) return '';
+        // Bold
+        str = str.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--black); font-weight:700;">$1</strong>');
+        // Code/backticks
+        str = str.replace(/`([^`]+)`/g, '<code style="background:var(--gray-100); padding:2px 5px; border-radius:4px; font-family:var(--font-mono); font-size:12px;">$1</code>');
+        return str;
+    }
+
+    function renderMarkdown(md) {
+        if (!md) return '';
+        let lines = md.replace(/\r\n/g, '\n').split('\n');
+        let out = [];
+        let inTable = false;
+        let tableRows = [];
+        let inList = false;
+
+        function flushTable() {
+            if (!tableRows.length) return;
+            let html = '<div class="table-wrap" style="margin:16px 0; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden;"><table style="width:100%; border-collapse:collapse; font-size:13px;">';
+            // Header row
+            if (tableRows.length >= 1) {
+                html += '<thead style="background:var(--gray-100);"><tr style="border-bottom:1.5px solid var(--gray-200);">';
+                tableRows[0].forEach(cell => {
+                    html += `<th style="padding:10px 14px; text-align:left; font-weight:700; color:var(--gray-800);">${cell}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+            }
+            // Check if row 1 is separator (---)
+            let startIndex = 1;
+            if (tableRows.length > 1 && tableRows[1].every(c => c.replace(/[-\s:]/g, '') === '')) {
+                startIndex = 2;
+            }
+            for (let i = startIndex; i < tableRows.length; i++) {
+                let bg = i % 2 === 0 ? 'background:var(--white);' : 'background:var(--gray-50);';
+                html += `<tr style="${bg} border-bottom:1px solid var(--gray-100);">`;
+                tableRows[i].forEach(cell => {
+                    html += `<td style="padding:10px 14px; color:var(--gray-700);">${cell}</td>`;
+                });
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+            out.push(html);
+            tableRows = [];
+            inTable = false;
+        }
+
+        function flushList() {
+            if (inList) {
+                out.push('</ul>');
+                inList = false;
+            }
+        }
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+
+            // Table rows
+            if (line.startsWith('|') && line.endsWith('|')) {
+                flushList();
+                inTable = true;
+                let cells = line.split('|').slice(1, -1).map(c => formatInline(c.trim()));
+                tableRows.push(cells);
+                continue;
+            } else if (inTable) {
+                flushTable();
+            }
+
+            if (!line) {
+                flushList();
+                continue;
+            }
+
+            // Headings (### or ## or standalone **Heading**)
+            if (line.startsWith('### ')) {
+                flushList();
+                out.push(`<h4 style="margin:20px 0 8px 0; font-size:15px; font-weight:700; color:var(--black); border-bottom:1px solid var(--gray-200); padding-bottom:6px;">${formatInline(line.substring(4))}</h4>`);
+                continue;
+            }
+            if (line.startsWith('## ')) {
+                flushList();
+                out.push(`<h3 style="margin:24px 0 10px 0; font-size:17px; font-weight:700; color:var(--black);">${formatInline(line.substring(3))}</h3>`);
+                continue;
+            }
+            if (/^\*\*[^*]+\*\*$/.test(line)) {
+                flushList();
+                let title = line.replace(/^\*\*|\*\*$/g, '');
+                out.push(`<h4 style="margin:20px 0 8px 0; font-size:15px; font-weight:700; color:var(--black); border-bottom:1px solid var(--gray-200); padding-bottom:6px;">${title}</h4>`);
+                continue;
+            }
+
+            // List item (1. item or * item or + item or - item)
+            if (/^(\d+\.|\*|\+|\-)\s+/.test(line)) {
+                if (!inList) {
+                    out.push('<ul style="margin:10px 0; padding-left:22px; display:flex; flex-direction:column; gap:8px;">');
+                    inList = true;
+                }
+                let itemText = line.replace(/^(\d+\.|\*|\+|\-)\s+/, '');
+                out.push(`<li style="line-height:1.6; color:var(--gray-800);">${formatInline(itemText)}</li>`);
+                continue;
+            } else {
+                flushList();
+            }
+
+            // Normal Paragraph
+            out.push(`<p style="margin:10px 0; line-height:1.6; color:var(--gray-700);">${formatInline(line)}</p>`);
+        }
+
+        if (inTable) flushTable();
+        flushList();
+
+        return out.join('\n');
     }
 
     function drawRadarChart(canvasId, categories, candidates) {
