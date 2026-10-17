@@ -3,8 +3,11 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+import json
+
 from app import create_app
-from app.database import get_all_candidate_embeddings, get_telemetry_metrics, init_db
+from app.database import get_all_candidate_embeddings, init_db
+from src.common import data_path
 from src.talent_intelligence import (
     compare_candidates_matrix,
     generate_candidate_feedback_letter,
@@ -12,9 +15,61 @@ from src.talent_intelligence import (
     semantic_search_talent,
 )
 
-def run_tests():
+
+def test_talent_intelligence_suite():
     print("--- 1. Testing Database Initialization ---")
     init_db()
+
+    # Ensure test candidate profiles exist in test environment
+    nlp_dir = data_path("output/nlp")
+    nlp_dir.mkdir(parents=True, exist_ok=True)
+    if not list(nlp_dir.glob("*_nlp.json")):
+        sample_c1 = {
+            "personal_info": {"name": "Olivia Cox", "email": "olivia.cox@example.com"},
+            "domain": "Software Engineering",
+            "skills": {
+                "technical_skills": ["Python", "FastAPI", "PostgreSQL", "Kubernetes", "Docker", "Java"],
+                "soft_skills": ["Team Leadership", "Communication"],
+            },
+            "candidate_strength_summary": "Expert backend developer with Kubernetes and Postgres tuning expertise.",
+            "work_experience": [
+                {
+                    "role": "Senior Software Engineer",
+                    "company": "TechCorp",
+                    "responsibilities": ["Kubernetes cluster troubleshooting and high-scale Postgres tuning."],
+                }
+            ],
+            "projects": [
+                {"name": "Data Engine", "description": "High performance ingestion engine", "technologies": ["Python", "PostgreSQL"]}
+            ],
+        }
+        sample_c2 = {
+            "personal_info": {"name": "Ava Lopez", "email": "ava.lopez@example.com"},
+            "domain": "Cloud DevOps",
+            "skills": {
+                "technical_skills": ["AWS", "Terraform", "CI/CD", "Linux"],
+                "soft_skills": ["Problem Solving"],
+            },
+            "candidate_strength_summary": "Cloud infrastructure engineer with extensive AWS and DevOps automation experience.",
+            "work_experience": [
+                {
+                    "role": "DevOps Engineer",
+                    "company": "CloudInc",
+                    "responsibilities": ["Automated CI/CD pipelines and AWS cloud architecture."],
+                }
+            ],
+            "projects": [
+                {"name": "Infra as Code", "description": "Terraform AWS provisioning", "technologies": ["AWS", "Terraform"]}
+            ],
+        }
+        with open(nlp_dir / "resume_001_nlp.json", "w", encoding="utf-8") as f:
+            json.dump(sample_c1, f)
+        with open(nlp_dir / "resume_002_nlp.json", "w", encoding="utf-8") as f:
+            json.dump(sample_c2, f)
+        txt_dir = data_path("output/txt")
+        txt_dir.mkdir(parents=True, exist_ok=True)
+        (txt_dir / "resume_001.txt").write_text("Olivia Cox\nEmail: olivia.cox@example.com\nSenior Software Engineer...", encoding="utf-8")
+        (txt_dir / "resume_002.txt").write_text("Ava Lopez\nEmail: ava.lopez@example.com\nDevOps Engineer...", encoding="utf-8")
 
     print("--- 2. Testing Talent Pool Indexing ---")
     count = index_talent_pool()
@@ -85,4 +140,4 @@ def run_tests():
     print("\n>>> ALL TALENT INTELLIGENCE ENGINE & ROUTE TESTS PASSED SUCCESSFULLY! <<<")
 
 if __name__ == "__main__":
-    run_tests()
+    test_talent_intelligence_suite()

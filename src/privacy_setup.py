@@ -14,6 +14,8 @@ try:
 except ImportError:
     from src import ai_mode
 
+import config
+
 _cancelled = False
 
 

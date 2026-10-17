@@ -48,8 +48,8 @@ def register_nlp_routes(app):
 
         import asyncio
 
-        from src.nlp_extractor import process_file_async
         from src.ai_mode import get_pipeline_workers
+        from src.nlp_extractor import process_file_async
         workers = get_pipeline_workers()
 
         async def run_batch():

@@ -107,6 +107,7 @@ def _run_nlp_stage(results):
 
     run_id = create_run("nlp", {"file_count": len(txt_files), "source": "auto_pipeline"})
     import asyncio
+
     from src.ai_mode import get_pipeline_workers
     workers = get_pipeline_workers()
 

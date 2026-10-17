@@ -3,7 +3,6 @@ import logging
 import math
 import re
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -43,7 +42,7 @@ def _tokenize(text: str) -> list[str]:
         return []
     words = re.findall(r"[a-z0-9+#]+", text.lower())
     filtered = [w for w in words if w not in STOPWORDS and len(w) > 1]
-    
+
     # Add consecutive bigrams to capture technical phrases like "kubernetes cluster", "postgres tuning"
     bigrams = [f"{filtered[i]}_{filtered[i+1]}" for i in range(len(filtered) - 1)]
     return filtered + bigrams
@@ -55,7 +54,7 @@ def extract_flat_skills(skills_data) -> list[str]:
         return []
     flat = []
     if isinstance(skills_data, dict):
-        for cat, items in skills_data.items():
+        for _cat, items in skills_data.items():
             if isinstance(items, list):
                 for item in items:
                     if isinstance(item, dict):
@@ -99,17 +98,17 @@ def extract_flat_skills(skills_data) -> list[str]:
 def build_candidate_profile_text(cand: dict) -> str:
     """Flatten structured candidate data into a rich textual corpus for semantic indexing."""
     parts = []
-    
+
     # 1. Personal & Domain
     domain = cand.get("domain") or ""
     strength = cand.get("candidate_strength_summary") or cand.get("summary") or ""
     parts.append(f"Domain: {domain}. Summary: {strength}.")
-    
+
     # 2. Real Flattened Skills
     skills_flat = extract_flat_skills(cand.get("skills"))
     if skills_flat:
         parts.append(f"Skills: {', '.join(skills_flat)}.")
-    
+
     # 3. Work Experience
     exp = cand.get("work_experience") or []
     for item in exp:
@@ -119,7 +118,7 @@ def build_candidate_profile_text(cand: dict) -> str:
             resp = item.get("responsibilities") or item.get("description") or []
             resp_str = " ".join(resp) if isinstance(resp, list) else str(resp)
             parts.append(f"Role: {role} at {comp}. {resp_str}")
-            
+
     # 4. Projects
     projects = cand.get("projects") or []
     for proj in projects:
@@ -151,7 +150,7 @@ def index_talent_pool() -> int:
 
     for jf in json_files:
         try:
-            with open(jf, "r", encoding="utf-8") as f:
+            with open(jf, encoding="utf-8") as f:
                 data = json.load(f)
             cand_name = (
                 data.get("personal_info", {}).get("name")
@@ -161,7 +160,7 @@ def index_talent_pool() -> int:
             profile_text = build_candidate_profile_text(data)
             domain = data.get("domain") or "General"
             skills_flat = extract_flat_skills(data.get("skills"))
-            
+
             candidates.append({
                 "name": cand_name,
                 "source_file": jf.name,
@@ -180,7 +179,7 @@ def index_talent_pool() -> int:
     doc_count = len(docs)
     vocab = {}
     doc_freq = {}
-    
+
     for tokens in docs:
         unique_tokens = set(tokens)
         for t in unique_tokens:
@@ -192,7 +191,7 @@ def index_talent_pool() -> int:
     vocab_size = len(vocab)
 
     # Compute TF-IDF vectors
-    for cand, tokens in zip(candidates, docs):
+    for cand, tokens in zip(candidates, docs, strict=False):
         vec = np.zeros(vocab_size, dtype=np.float32)
         token_counts = {}
         for t in tokens:
@@ -247,9 +246,8 @@ def semantic_search_talent(query: str, top_k: int = 10, min_score: float = 0.1) 
     query_words = [w.lower() for w in re.findall(r"[a-z0-9+#]+", query.lower()) if w not in STOPWORDS]
 
     results = []
-    
+
     for cand in stored_candidates:
-        cand_vec = np.array(cand.get("vector") or [], dtype=np.float32)
         cand_tokens = set(_tokenize(cand["profile_text"]))
         cand_skills = cand.get("skills") or []
 
@@ -301,7 +299,7 @@ def get_candidate_details(candidate_name: str) -> dict | None:
     nlp_dir = data_path("output/nlp")
     for jf in nlp_dir.glob("*_nlp.json"):
         try:
-            with open(jf, "r", encoding="utf-8") as f:
+            with open(jf, encoding="utf-8") as f:
                 d = json.load(f)
             name = d.get("personal_info", {}).get("name") or jf.stem.replace("_nlp", "")
             if name.lower() == candidate_name.lower():
@@ -388,7 +386,7 @@ def compare_candidates_matrix(candidate_names: list[str], job_context: str = "")
         radar = calculate_radar_dimensions(data)
         skills = data.get("skills") or []
         skills_flat = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in skills]
-        
+
         cand_info = {
             "name": name,
             "domain": data.get("domain") or "General",
