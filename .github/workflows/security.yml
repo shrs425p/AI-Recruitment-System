@@ -2,9 +2,7 @@ name: Security Audit
 
 on:
   push:
-    branches: [main, master, "fix/**"]
   pull_request:
-    branches: [main, master]
   schedule:
     - cron: '0 2 * * 0' # weekly on Sunday at 02:00 UTC
   workflow_dispatch:
@@ -26,6 +24,25 @@ jobs:
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  detect-secrets:
+    name: Detect-Secrets Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install detect-secrets
+        run: pip install detect-secrets
+
+      - name: Run Detect-Secrets with Baseline
+        continue-on-error: true
+        run: detect-secrets-hook --baseline .secrets.baseline $(git ls-files)
 
   bandit-pip-audit:
     name: Bandit SAST & Pip-Audit

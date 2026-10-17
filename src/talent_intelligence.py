@@ -177,8 +177,8 @@ def index_talent_pool() -> int:
 
     # Build Global Vocabulary & Inverse Document Frequency (IDF)
     doc_count = len(docs)
-    vocab = {}
-    doc_freq = {}
+    vocab: dict[str, int] = {}
+    doc_freq: dict[str, int] = {}
 
     for tokens in docs:
         unique_tokens = set(tokens)
@@ -193,7 +193,7 @@ def index_talent_pool() -> int:
     # Compute TF-IDF vectors
     for cand, tokens in zip(candidates, docs, strict=False):
         vec = np.zeros(vocab_size, dtype=np.float32)
-        token_counts = {}
+        token_counts: dict[str, int] = {}
         for t in tokens:
             if t in vocab:
                 token_counts[t] = token_counts.get(t, 0) + 1
@@ -210,11 +210,11 @@ def index_talent_pool() -> int:
 
         # Save to SQLite database
         upsert_candidate_embedding(
-            candidate_name=cand["name"],
-            source_file=cand["source_file"],
-            domain=cand["domain"],
-            skills=cand["skills"],
-            profile_text=cand["profile_text"],
+            candidate_name=str(cand["name"]),
+            source_file=str(cand["source_file"]),
+            domain=str(cand["domain"]),
+            skills=list(cand["skills"]),
+            profile_text=str(cand["profile_text"]),
             vector=vec.tolist()
         )
 

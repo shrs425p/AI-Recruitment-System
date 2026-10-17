@@ -115,7 +115,7 @@ def clean_json_response(text: str) -> dict:
 
 clean_json = clean_json_response
 
-async def call_ollama_async(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None) -> str:
+async def call_ollama_async(system_msg: str, user_msg: str, temperature: float | None = None, num_predict: int | None = None) -> str:
     import logging
 
     import config
@@ -213,7 +213,7 @@ async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 204
     block = msg.content[0]
     return getattr(block, "text", str(block))
 
-async def call_ai_async(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None, local_timeout: float = 300.0) -> str:
+async def call_ai_async(system_msg: str, user_msg: str, temperature: float | None = None, num_predict: int | None = None, local_timeout: float = 300.0) -> str:
     import logging
     logger = logging.getLogger(__name__)
     mode = get_app_mode()
@@ -251,7 +251,7 @@ async def call_ai_async(system_msg: str, user_msg: str, temperature: float = Non
         from src.provider_router import router
         return await router.call(system_msg, user_msg, max_tokens=num_predict or 2048)
 
-def call_ollama(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None) -> str:
+def call_ollama(system_msg: str, user_msg: str, temperature: float | None = None, num_predict: int | None = None) -> str:
     import asyncio
     import logging
     import threading

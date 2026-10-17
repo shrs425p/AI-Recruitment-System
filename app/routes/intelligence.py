@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def _get_candidate_list() -> list[dict]:
     """Retrieve all available candidates with their domain and basic skills."""
     nlp_dir = data_path("output/nlp")
-    candidates = []
+    candidates: list[dict] = []
     if not nlp_dir.exists():
         return candidates
 
