@@ -325,6 +325,26 @@ def get_candidate_details(candidate_name: str) -> dict | None:
 
 
 
+def get_candidate_interview_result(candidate_name: str) -> dict | None:
+    """Fetch completed interview transcript for a candidate if it exists."""
+    interviews_dir = data_path("output/interviews")
+    if not interviews_dir.exists():
+        return None
+
+    cand_norm = candidate_name.strip().lower()
+    for int_f in interviews_dir.glob("interview_*.json"):
+        try:
+            with open(int_f, encoding="utf-8") as f:
+                idata = json.load(f)
+            iname = (idata.get("candidate_name") or idata.get("name") or "").strip().lower()
+            if iname == cand_norm:
+                if idata.get("status") == "COMPLETED" or len(idata.get("responses", [])) > 0:
+                    return idata
+        except Exception:
+            continue
+    return None
+
+
 def calculate_radar_dimensions(cand_data: dict) -> dict:
     """
     Calculate normalized 0-100 scores across 5 axes:
@@ -332,7 +352,7 @@ def calculate_radar_dimensions(cand_data: dict) -> dict:
     2. Domain Knowledge
     3. Seniority / Experience
     4. Project Complexity
-    5. Interview Readiness
+    5. Education & Credentials (or Interview Score if real interview conducted)
     """
     # 1. Technical Skills (Count and depth)
     skills = cand_data.get("skills") or []
@@ -355,15 +375,38 @@ def calculate_radar_dimensions(cand_data: dict) -> dict:
     projects = cand_data.get("projects") or []
     proj_score = min(len(projects) * 25 + 40, 92)
 
-    # 5. Interview Readiness
-    interview_score = 80  # Default solid readiness
+    # 5. Interview Verification vs. Education & Credentials
+    cand_name = cand_data.get("personal_info", {}).get("name") or cand_data.get("candidate_name") or ""
+    int_data = get_candidate_interview_result(cand_name) if cand_name else None
+
+    if int_data:
+        raw_score = int_data.get("interview_score") or int_data.get("overall_score") or int_data.get("score")
+        if raw_score is not None:
+            interview_score = float(raw_score)
+        else:
+            responses = int_data.get("responses") or []
+            q_scores = [r.get("score") for r in responses if r.get("score") is not None]
+            interview_score = float(sum(q_scores) / len(q_scores)) if q_scores else 75.0
+        interview_status = "Interview Completed"
+        has_interviewed = True
+    else:
+        # Pre-interview screening: Evaluate verified Education & Certifications depth
+        edu_list = cand_data.get("education") or []
+        certs_list = cand_data.get("certifications") or []
+        interview_score = min(len(certs_list) * 20 + len(edu_list) * 30, 95)
+        if interview_score == 0:
+            interview_score = 65
+        interview_status = "Pending (Not Interviewed)"
+        has_interviewed = False
 
     return {
         "technical_skills": skill_score,
         "domain_knowledge": domain_score,
         "experience": exp_score,
         "project_complexity": proj_score,
-        "interview_readiness": interview_score
+        "interview_readiness": interview_score,
+        "interview_status": interview_status,
+        "has_interviewed": has_interviewed,
     }
 
 
@@ -377,6 +420,7 @@ def compare_candidates_matrix(candidate_names: list[str], job_context: str = "")
 
     candidates_payload = []
     comparison_brief_inputs = []
+    any_interviewed = False
 
     for name in candidate_names[:4]:  # Support up to 4 candidates
         data = get_candidate_details(name)
@@ -384,6 +428,8 @@ def compare_candidates_matrix(candidate_names: list[str], job_context: str = "")
             continue
 
         radar = calculate_radar_dimensions(data)
+        if radar.get("has_interviewed"):
+            any_interviewed = True
         skills = data.get("skills") or []
         skills_flat = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in skills]
 
@@ -404,31 +450,49 @@ def compare_candidates_matrix(candidate_names: list[str], job_context: str = "")
             "strength_summary": summary,
         }
         candidates_payload.append(cand_info)
+
+        int_status_str = (
+            f"Interview: Completed ({radar['interview_readiness']}/100)"
+            if radar.get("has_interviewed")
+            else "Interview: PENDING (Not conducted yet - Initial resume screening phase)"
+        )
         comparison_brief_inputs.append(
             f"- Candidate {name}: Domain={cand_info['domain']} ({exp_txt}). Key Skills={', '.join(cand_info['skills'][:5])}. "
             f"Metrics: Technical={radar['technical_skills']}/100, Experience={radar['experience']}/100, Projects={radar['project_complexity']}/100. "
-            f"Career Background: {cand_info['strength_summary']}"
+            f"{int_status_str}. Career Background: {cand_info['strength_summary']}"
         )
 
     if not candidates_payload:
         return {"error": "None of the specified candidates could be loaded."}
+
+    axis_5_name = "Interview Score" if any_interviewed else "Education & Credentials"
 
     # Generate AI Comparative Synthesis Brief
     context_str = f"Target Role / Context: {job_context}\n" if job_context else "Target Role: General Engineering / Tech Position\n"
     system_msg = (
         "You are an executive talent strategist assisting a corporate hiring committee. "
         "Provide a concise, highly objective, comparative synthesis of the candidates. "
-        "Highlight strengths, key trade-offs, and final recommendation. Format in clean markdown with bullet points."
+        "Highlight strengths, key trade-offs, and clear recommendations. Format in clean markdown with bullet points."
     )
+
+    if any_interviewed:
+        prompt_goal = """Generate an Executive Hiring Committee Brief with:
+1. **Executive Verdict & Final Ranking**: Order of preference based on interview performance and resume fit.
+2. **Head-to-Head Performance Trade-offs**: Contrast technical depth vs. live interview execution.
+3. **Hiring Decision & Onboarding Strategy**: Official offer recommendation and tailored onboarding plan."""
+    else:
+        prompt_goal = """RECRUITMENT STAGE: Initial Resume Screening (Candidate interviews have NOT been conducted yet).
+Generate an Executive Shortlisting & Interview Strategy Brief with:
+1. **Shortlisting Verdict & Interview Priority**: Order of preference for who to invite to interview first with clear rationale based on resume qualifications.
+2. **Head-to-Head Resume Trade-offs**: Contrast verified technical background, domain experience, and portfolio complexity.
+3. **Targeted Interview Plan & Probing Focus**: What specific architecture questions, technical challenges, or potential gaps should interviewers probe during the upcoming interview rounds for each candidate."""
+
     user_prompt = f"""
 {context_str}
 Candidate Comparative Dossier:
 {chr(10).join(comparison_brief_inputs)}
 
-Generate an Executive Hiring Committee Brief with:
-1. **Executive Verdict & Ranking**: Order of preference with clear rationale.
-2. **Head-to-Head Trade-offs**: Contrast technical depth vs. domain agility vs. experience.
-3. **Recommendation**: Final hiring suggestion and onboarding strategy.
+{prompt_goal}
 """
     synthesis_text = ""
     try:
@@ -440,15 +504,22 @@ Generate an Executive Hiring Committee Brief with:
         logger.warning("AI synthesis failed: %s", e)
 
     if not synthesis_text or not synthesis_text.strip():
-        synthesis_text = (
-            "### Executive Deliberation Brief\n\n"
-            f"- **Comparative Summary**: Evaluated {len(candidates_payload)} candidates across technical depth and experience.\n"
-            f"- **Recommendation**: Review radar dimensions above. Candidate `{candidates_payload[0]['name']}` demonstrates strong composite balance."
-        )
+        if any_interviewed:
+            synthesis_text = (
+                "### Executive Deliberation Brief\n\n"
+                f"- **Comparative Summary**: Evaluated {len(candidates_payload)} candidates across technical depth, experience, and interview results.\n"
+                f"- **Recommendation**: Review radar dimensions above. Candidate `{candidates_payload[0]['name']}` demonstrates strong composite balance."
+            )
+        else:
+            synthesis_text = (
+                "### Executive Shortlisting Brief\n\n"
+                f"- **Comparative Summary**: Screened {len(candidates_payload)} candidates across technical depth, experience, and verified credentials (Interviews Pending).\n"
+                f"- **Shortlist Priority**: Candidate `{candidates_payload[0]['name']}` is recommended as top priority to invite for technical round."
+            )
 
     return {
         "candidates": candidates_payload,
-        "radar_categories": ["Technical Skills", "Domain Knowledge", "Experience", "Project Depth", "Interview Score"],
+        "radar_categories": ["Technical Skills", "Domain Knowledge", "Experience", "Project Depth", axis_5_name],
         "executive_synthesis": synthesis_text
     }
 

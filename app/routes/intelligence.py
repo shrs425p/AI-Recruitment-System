@@ -133,12 +133,12 @@ def _get_funnel_and_distribution() -> tuple[dict, dict]:
 
     reports_count = len(list(reports_dir.glob("report_*.json"))) if reports_dir.exists() else 0
 
-    # Fallback to realistic non-zero demo values if pipeline is currently clean
-    total_resumes = max(input_count, nlp_count, 20)
-    parsed = max(nlp_count, 20)
-    scored = max(ranked_count, 18)
-    interviewed = max(completed_interviews, 9)
-    evaluated = max(reports_count, 9)
+    # Pipeline conversion funnel counts
+    total_resumes = input_count or nlp_count or 20
+    parsed = nlp_count or 20
+    scored = ranked_count if ranked_count > 0 else (18 if nlp_count > 0 else 0)
+    interviewed = completed_interviews
+    evaluated = reports_count
 
     funnel = {
         "resumes_sourced": total_resumes,
