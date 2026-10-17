@@ -568,16 +568,16 @@
                 <div class="funnel-step">
                     <div class="funnel-label">Interviews Completed</div>
                     <div class="funnel-bar-bg">
-                        <div class="funnel-bar-fill" style="width: {{ (funnel.interviews_completed / funnel.resumes_sourced * 100) | round }}%; background: #10b981;">
-                            {{ funnel.interviews_completed }} Candidates
+                        <div class="funnel-bar-fill" style="width: {{ ((funnel.interviews_completed / (funnel.resumes_sourced or 1)) * 100) | round }}%; {% if funnel.interviews_completed > 0 %}background: #10b981;{% else %}min-width: 140px; background: var(--gray-200); color: var(--gray-600);{% endif %}">
+                            {{ funnel.interviews_completed }} Candidates{% if funnel.interviews_completed == 0 %} (Pending){% endif %}
                         </div>
                     </div>
                 </div>
                 <div class="funnel-step">
                     <div class="funnel-label">Final Evaluated</div>
                     <div class="funnel-bar-bg">
-                        <div class="funnel-bar-fill" style="width: {{ (funnel.reports_finalized / funnel.resumes_sourced * 100) | round }}%; background: #059669;">
-                            {{ funnel.reports_finalized }} Decisions
+                        <div class="funnel-bar-fill" style="width: {{ ((funnel.reports_finalized / (funnel.resumes_sourced or 1)) * 100) | round }}%; {% if funnel.reports_finalized > 0 %}background: #059669;{% else %}min-width: 140px; background: var(--gray-200); color: var(--gray-600);{% endif %}">
+                            {{ funnel.reports_finalized }} Decisions{% if funnel.reports_finalized == 0 %} (Pending){% endif %}
                         </div>
                     </div>
                 </div>
