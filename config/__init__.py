@@ -30,7 +30,7 @@ DEFAULT_SETTINGS = {
     "OLLAMA_NUM_PREDICT": 4096,
     "OLLAMA_TEMPERATURE": 0.0,
     "OLLAMA_WORKERS": 1,
-    "CLOUD_WORKERS": 4,
+    "CLOUD_WORKERS": 1,
     "CLOUD_ENABLED": False,
     "CLOUD_MODEL": "claude-3-5-haiku-latest",
     "SMTP_HOST": "smtp.gmail.com",
