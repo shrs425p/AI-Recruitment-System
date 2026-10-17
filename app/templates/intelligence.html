@@ -104,6 +104,9 @@
         font-weight: 500;
         cursor: pointer;
         border: 1px solid transparent;
+        font-family: inherit;
+        line-height: inherit;
+        outline: none;
         transition: all 0.15s;
     }
     .search-chip:hover {
@@ -374,7 +377,8 @@
         </div>
 
         <div class="search-input-wrap">
-            <input type="text" id="semanticSearchQuery" class="search-input" placeholder="e.g. Find candidates with Kubernetes cluster troubleshooting and high-scale Postgres tuning..." onkeydown="if(event.key==='Enter') executeSemanticSearch();">
+            <label for="semanticSearchQuery" class="sr-only">Search talent pool</label>
+            <input type="text" id="semanticSearchQuery" class="search-input" aria-label="Search talent pool" placeholder="e.g. Find candidates with Kubernetes cluster troubleshooting and high-scale Postgres tuning..." onkeydown="if(event.key==='Enter') executeSemanticSearch();">
             <button class="btn btn-primary" onclick="executeSemanticSearch()" id="searchBtn" style="min-width:110px;">
                 Search Pool
             </button>
@@ -382,11 +386,11 @@
 
         <div class="chips-row">
             <span style="font-size:12px; color:var(--gray-500); font-weight:600;">Sample Queries:</span>
-            <span class="search-chip" onclick="applySampleQuery('Kubernetes cluster troubleshooting and high-scale Postgres tuning')">Kubernetes & Postgres tuning</span>
-            <span class="search-chip" onclick="applySampleQuery('Python data analytics SQL machine learning pipelines')">Python Data Analytics & ML</span>
-            <span class="search-chip" onclick="applySampleQuery('Frontend React TypeScript responsive UI component architecture')">React & TypeScript Frontend</span>
-            <span class="search-chip" onclick="applySampleQuery('Cloud AWS Docker CI/CD microservices DevOps engineer')">Cloud DevOps & Docker</span>
-            <span class="search-chip" onclick="applySampleQuery('Backend API FastAPI distributed database performance optimization')">Backend FastAPI & Distributed Systems</span>
+            <button type="button" class="search-chip" onclick="applySampleQuery('Kubernetes cluster troubleshooting and high-scale Postgres tuning')">Kubernetes & Postgres tuning</button>
+            <button type="button" class="search-chip" onclick="applySampleQuery('Python data analytics SQL machine learning pipelines')">Python Data Analytics & ML</button>
+            <button type="button" class="search-chip" onclick="applySampleQuery('Frontend React TypeScript responsive UI component architecture')">React & TypeScript Frontend</button>
+            <button type="button" class="search-chip" onclick="applySampleQuery('Cloud AWS Docker CI/CD microservices DevOps engineer')">Cloud DevOps & Docker</button>
+            <button type="button" class="search-chip" onclick="applySampleQuery('Backend API FastAPI distributed database performance optimization')">Backend FastAPI & Distributed Systems</button>
         </div>
     </div>
 
@@ -444,24 +448,24 @@
 
         <div class="selector-grid">
             <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate A</label>
-                <select id="compCand1" class="compare-select">
+                <label for="compCand1" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate A</label>
+                <select id="compCand1" class="compare-select" aria-label="Candidate A">
                     {% for c in candidates %}
                     <option value="{{ c.name }}" {% if loop.index == 1 %}selected{% endif %}>{{ c.name }} ({{ c.domain }})</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate B</label>
-                <select id="compCand2" class="compare-select">
+                <label for="compCand2" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate B</label>
+                <select id="compCand2" class="compare-select" aria-label="Candidate B">
                     {% for c in candidates %}
                     <option value="{{ c.name }}" {% if loop.index == 2 %}selected{% endif %}>{{ c.name }} ({{ c.domain }})</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate C (Optional)</label>
-                <select id="compCand3" class="compare-select">
+                <label for="compCand3" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate C (Optional)</label>
+                <select id="compCand3" class="compare-select" aria-label="Candidate C (Optional)">
                     <option value="">-- None --</option>
                     {% for c in candidates %}
                     <option value="{{ c.name }}" {% if loop.index == 3 %}selected{% endif %}>{{ c.name }} ({{ c.domain }})</option>
@@ -469,8 +473,8 @@
                 </select>
             </div>
             <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate D (Optional)</label>
-                <select id="compCand4" class="compare-select">
+                <label for="compCand4" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate D (Optional)</label>
+                <select id="compCand4" class="compare-select" aria-label="Candidate D (Optional)">
                     <option value="">-- None --</option>
                     {% for c in candidates %}
                     <option value="{{ c.name }}">{{ c.name }} ({{ c.domain }})</option>
@@ -481,8 +485,8 @@
 
         <div style="margin-top:16px; display:flex; gap:12px; align-items:flex-end;">
             <div style="flex:1;">
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role / Benchmark Context</label>
-                <input type="text" id="compJobContext" class="search-input" style="padding:10px 14px;" placeholder="e.g. Senior Software Engineer - Core Platform Infrastructure" value="Senior Software Engineer">
+                <label for="compJobContext" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role / Benchmark Context</label>
+                <input type="text" id="compJobContext" class="search-input" aria-label="Target Role / Benchmark Context" style="padding:10px 14px;" placeholder="e.g. Senior Software Engineer - Core Platform Infrastructure" value="Senior Software Engineer">
             </div>
             <button class="btn btn-primary" onclick="runCandidateComparison()" id="compareBtn" style="padding:11px 22px; height:42px;">
                 Synthesize Comparison
@@ -693,16 +697,16 @@
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:14px;">
             <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Select Candidate</label>
-                <select id="feedbackCandSelect" class="compare-select">
+                <label for="feedbackCandSelect" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Select Candidate</label>
+                <select id="feedbackCandSelect" class="compare-select" aria-label="Select Candidate">
                     {% for c in candidates %}
                     <option value="{{ c.name }}">{{ c.name }} ({{ c.domain }})</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role</label>
-                <input type="text" id="feedbackRole" class="search-input" style="padding:10px 14px;" value="Software Engineer" placeholder="e.g. Senior Software Engineer">
+                <label for="feedbackRole" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role</label>
+                <input type="text" id="feedbackRole" class="search-input" aria-label="Target Role" style="padding:10px 14px;" value="Software Engineer" placeholder="e.g. Senior Software Engineer">
             </div>
         </div>
 
@@ -713,17 +717,17 @@
         <div id="feedbackReviewArea" style="display:none; margin-top:20px;">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:14px;">
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate Recipient Email</label>
-                    <input type="email" id="feedbackEmail" class="search-input" style="padding:10px 14px;" placeholder="candidate@example.com">
+                    <label for="feedbackEmail" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate Recipient Email</label>
+                    <input type="email" id="feedbackEmail" class="search-input" aria-label="Candidate Recipient Email" style="padding:10px 14px;" placeholder="candidate@example.com">
                 </div>
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Email Subject</label>
-                    <input type="text" id="feedbackSubject" class="search-input" style="padding:10px 14px;" value="Application Update & Interview Feedback">
+                    <label for="feedbackSubject" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Email Subject</label>
+                    <input type="text" id="feedbackSubject" class="search-input" aria-label="Email Subject" style="padding:10px 14px;" value="Application Update & Interview Feedback">
                 </div>
             </div>
 
-            <label style="font-size:12px; font-weight:600; display:block; margin-top:14px; margin-bottom:4px;">Tailored Feedback Body</label>
-            <textarea id="feedbackBody" class="feedback-textarea"></textarea>
+            <label for="feedbackBody" style="font-size:12px; font-weight:600; display:block; margin-top:14px; margin-bottom:4px;">Tailored Feedback Body</label>
+            <textarea id="feedbackBody" class="feedback-textarea" aria-label="Tailored Feedback Body"></textarea>
 
             <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:14px;">
                 <input type="hidden" id="currentFeedbackId" value="">
