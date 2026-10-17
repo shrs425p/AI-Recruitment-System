@@ -1,0 +1,1196 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .intelligence-header {
+        margin-bottom: 24px;
+    }
+    .intel-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: rgba(99, 102, 241, 0.12);
+        color: #4f46e5;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        margin-bottom: 8px;
+    }
+    .intel-tab-bar {
+        display: flex;
+        gap: 8px;
+        border-bottom: 1px solid var(--gray-200);
+        margin-bottom: 24px;
+        overflow-x: auto;
+    }
+    .intel-tab {
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--gray-500);
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    .intel-tab:hover {
+        color: var(--black);
+    }
+    .intel-tab.active {
+        color: var(--black);
+        border-bottom-color: var(--black);
+    }
+    .intel-tab-content {
+        display: none;
+    }
+    .intel-tab-content.active {
+        display: block;
+        animation: fadeIn 0.25s ease-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Search & Filter Cards */
+    .search-hero {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .search-input-wrap {
+        display: flex;
+        gap: 12px;
+        margin-top: 14px;
+    }
+    .search-input {
+        flex: 1;
+        padding: 14px 18px;
+        border: 1.5px solid var(--gray-200);
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+        background: var(--white);
+        color: inherit;
+    }
+    .search-input:focus {
+        border-color: var(--black);
+    }
+    .chips-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+        align-items: center;
+    }
+    .search-chip {
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: var(--gray-100);
+        color: var(--gray-700);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.15s;
+    }
+    .search-chip:hover {
+        background: var(--gray-200);
+        color: var(--black);
+        border-color: var(--gray-300);
+    }
+
+    /* Candidate Cards Grid */
+    .results-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 18px;
+        margin-top: 20px;
+    }
+    .candidate-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .candidate-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+    .cand-name {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--black);
+    }
+    .cand-domain {
+        font-size: 12px;
+        color: var(--gray-500);
+        margin-top: 2px;
+    }
+    .score-badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+    }
+    .score-high {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    .score-med {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+    .score-low {
+        background: #f3f4f6;
+        color: #4b5563;
+        border: 1px solid #e5e7eb;
+    }
+    .cand-snippet {
+        font-size: 13px;
+        color: var(--gray-600);
+        line-height: 1.5;
+        margin-bottom: 14px;
+    }
+    .tag-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 16px;
+    }
+    .skill-tag {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: var(--gray-100);
+        color: var(--gray-700);
+        font-weight: 500;
+    }
+    .skill-tag.matched {
+        background: #e0e7ff;
+        color: #3730a3;
+        font-weight: 600;
+        border: 1px solid #c7d2fe;
+    }
+
+    /* Comparison Studio */
+    .compare-controls {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 22px;
+        margin-bottom: 24px;
+    }
+    .selector-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+    }
+    .compare-select {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--gray-300);
+        font-size: 13px;
+        background: var(--white);
+        color: inherit;
+    }
+    .radar-canvas-wrap {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+    }
+    .synthesis-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 24px;
+        margin-top: 24px;
+        line-height: 1.6;
+        font-size: 14px;
+    }
+
+    /* Analytics Charts & Funnel */
+    .funnel-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 18px;
+    }
+    .funnel-step {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .funnel-label {
+        width: 170px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--gray-700);
+    }
+    .funnel-bar-bg {
+        flex: 1;
+        height: 28px;
+        background: var(--gray-100);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+    .funnel-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        padding-left: 12px;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 12px;
+        transition: width 0.6s ease;
+    }
+
+    /* Feedback Hub */
+    .feedback-editor-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+    .feedback-textarea {
+        width: 100%;
+        min-height: 240px;
+        padding: 16px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-top: 12px;
+        box-sizing: border-box;
+        background: var(--white);
+        color: inherit;
+    }
+</style>
+
+<div class="intelligence-header">
+    <div class="intel-badge">Enterprise Talent Intelligence</div>
+    <h1 class="page-title">Strategic Talent Intelligence & Analytics</h1>
+    <p class="page-desc">
+        Perform instant semantic searches across past candidate pools, generate multi-candidate comparative radar dossiers, track recruitment telemetry, and send tailored, constructive feedback.
+    </p>
+</div>
+
+<!-- TOP STATS ROW -->
+<div class="stats-row" style="margin-bottom: 24px;">
+    <div class="stat-chip">
+        <div class="stat-value" id="statPoolSize">{{ indexed_count }}</div>
+        <div class="stat-label">Vector Profiles Indexed</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value">{{ total_candidates }}</div>
+        <div class="stat-label">Talent Pool Candidates</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value">{{ telemetry.total_calls }}</div>
+        <div class="stat-label">AI Invocations Logged</div>
+    </div>
+    <div class="stat-chip">
+        <div class="stat-value">${{ telemetry.estimated_saved_usd }}</div>
+        <div class="stat-label">Est. Local AI Savings</div>
+    </div>
+</div>
+
+<!-- TAB NAVIGATION -->
+<div class="intel-tab-bar">
+    <button class="intel-tab active" onclick="switchIntelTab('tab-search')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        Semantic Vector Search
+    </button>
+    <button class="intel-tab" onclick="switchIntelTab('tab-compare')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        Side-by-Side Comparison
+    </button>
+    <button class="intel-tab" onclick="switchIntelTab('tab-analytics')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+        Recruitment Telemetry & Funnel
+    </button>
+    <button class="intel-tab" onclick="switchIntelTab('tab-feedback')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        Candidate Feedback & Regret Hub
+    </button>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 1: SEMANTIC VECTOR SEARCH -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-search" class="intel-tab-content active">
+    <div class="search-hero">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+                <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700;">Natural Language Candidate Retrieval</h3>
+                <p style="margin:0; font-size:13px; color:var(--gray-500);">
+                    Query across all historical candidate embeddings using conversational requirements, technical skillsets, and domain qualifications.
+                </p>
+            </div>
+            <button class="btn btn-secondary" onclick="reindexTalentPool()" id="reindexBtn" style="padding:6px 14px; font-size:12px; display:flex; align-items:center; gap:6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                Re-Index Pool
+            </button>
+        </div>
+
+        <div class="search-input-wrap">
+            <input type="text" id="semanticSearchQuery" class="search-input" placeholder="e.g. Find candidates with Kubernetes cluster troubleshooting and high-scale Postgres tuning..." onkeydown="if(event.key==='Enter') executeSemanticSearch();">
+            <button class="btn btn-primary" onclick="executeSemanticSearch()" id="searchBtn" style="min-width:110px;">
+                Search Pool
+            </button>
+        </div>
+
+        <div class="chips-row">
+            <span style="font-size:12px; color:var(--gray-500); font-weight:600;">Sample Queries:</span>
+            <span class="search-chip" onclick="applySampleQuery('Kubernetes cluster troubleshooting and high-scale Postgres tuning')">Kubernetes & Postgres tuning</span>
+            <span class="search-chip" onclick="applySampleQuery('Python data analytics SQL machine learning pipelines')">Python Data Analytics & ML</span>
+            <span class="search-chip" onclick="applySampleQuery('Frontend React TypeScript responsive UI component architecture')">React & TypeScript Frontend</span>
+            <span class="search-chip" onclick="applySampleQuery('Cloud AWS Docker CI/CD microservices DevOps engineer')">Cloud DevOps & Docker</span>
+            <span class="search-chip" onclick="applySampleQuery('Backend API FastAPI distributed database performance optimization')">Backend FastAPI & Distributed Systems</span>
+        </div>
+    </div>
+
+    <!-- Live Results Info -->
+    <div id="searchStatusRow" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div id="searchResultsCount" style="font-size:13px; font-weight:600; color:var(--gray-600);">
+            Showing all {{ candidates | length }} candidate profiles in talent pool
+        </div>
+    </div>
+
+    <!-- Candidate Results Grid -->
+    <div class="results-grid" id="resultsGrid">
+        {% for cand in candidates %}
+        <div class="candidate-card">
+            <div>
+                <div class="card-top">
+                    <div>
+                        <h4 class="cand-name">{{ cand.name }}</h4>
+                        <div class="cand-domain">{{ cand.domain }}</div>
+                    </div>
+                    <span class="score-badge score-med">Available</span>
+                </div>
+                <div class="cand-snippet">
+                    Candidate profile indexed from parsed resume data. Ready for semantic matching and comparison.
+                </div>
+                <div class="tag-container">
+                    {% for sk in cand.skills %}
+                    <span class="skill-tag">{{ sk }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; border-top:1px solid var(--gray-100); padding-top:14px; margin-top:8px;">
+                <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px;" onclick="prefillComparison('{{ cand.name }}')">
+                    Compare
+                </button>
+                <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px;" onclick="prefillFeedback('{{ cand.name }}')">
+                    Feedback
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 2: SIDE-BY-SIDE CANDIDATE COMPARISON -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-compare" class="intel-tab-content">
+    <div class="compare-controls">
+        <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700;">Hiring Committee Candidate Comparison</h3>
+        <p style="margin:0 0 16px 0; font-size:13px; color:var(--gray-500);">
+            Select 2 to 4 shortlisted candidates to generate multi-axis radar charts and an executive AI deliberation brief.
+        </p>
+
+        <div class="selector-grid">
+            <div>
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate A</label>
+                <select id="compCand1" class="compare-select">
+                    {% for c in candidates %}
+                    <option value="{{ c.name }}" {% if loop.index == 1 %}selected{% endif %}>{{ c.name }} ({{ c.domain }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate B</label>
+                <select id="compCand2" class="compare-select">
+                    {% for c in candidates %}
+                    <option value="{{ c.name }}" {% if loop.index == 2 %}selected{% endif %}>{{ c.name }} ({{ c.domain }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate C (Optional)</label>
+                <select id="compCand3" class="compare-select">
+                    <option value="">-- None --</option>
+                    {% for c in candidates %}
+                    <option value="{{ c.name }}" {% if loop.index == 3 %}selected{% endif %}>{{ c.name }} ({{ c.domain }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate D (Optional)</label>
+                <select id="compCand4" class="compare-select">
+                    <option value="">-- None --</option>
+                    {% for c in candidates %}
+                    <option value="{{ c.name }}">{{ c.name }} ({{ c.domain }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top:16px; display:flex; gap:12px; align-items:flex-end;">
+            <div style="flex:1;">
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role / Benchmark Context</label>
+                <input type="text" id="compJobContext" class="search-input" style="padding:10px 14px;" placeholder="e.g. Senior Software Engineer - Core Platform Infrastructure" value="Senior Software Engineer">
+            </div>
+            <button class="btn btn-primary" onclick="runCandidateComparison()" id="compareBtn" style="padding:11px 22px; height:42px;">
+                Synthesize Comparison
+            </button>
+        </div>
+    </div>
+
+    <!-- Comparison Presentation Area -->
+    <div id="compareResultsWrap" style="display:none;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; align-items:stretch;">
+            <!-- Radar Canvas -->
+            <div class="radar-canvas-wrap">
+                <h4 style="margin:0 0 16px 0; font-size:14px; font-weight:700;">Multi-Dimensional Competency Radar</h4>
+                <canvas id="radarCanvas" width="460" height="380" style="max-width:100%; height:auto;"></canvas>
+                <div id="radarLegend" style="display:flex; flex-wrap:wrap; gap:14px; margin-top:16px;"></div>
+            </div>
+
+            <!-- Candidate Metrics Dossier -->
+            <div style="background:var(--white); border:1px solid var(--gray-200); border-radius:12px; padding:24px; overflow-y:auto; max-height:460px;">
+                <h4 style="margin:0 0 14px 0; font-size:14px; font-weight:700;">Head-to-Head Attributes</h4>
+                <div id="candidateDossierCards" style="display:flex; flex-direction:column; gap:14px;"></div>
+            </div>
+        </div>
+
+        <!-- AI Hiring Committee Executive Synthesis -->
+        <div class="synthesis-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--gray-200); padding-bottom:12px;">
+                <h3 style="margin:0; font-size:16px; font-weight:700;">AI Executive Deliberation Brief</h3>
+                <span style="font-size:12px; color:var(--gray-500); font-weight:600;">Hiring Committee Advisory</span>
+            </div>
+            <div id="executiveSynthesisText" style="white-space:pre-wrap; font-size:14px; color:var(--gray-800);"></div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 3: RECRUITMENT ANALYTICS & TOKEN TELEMETRY -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-analytics" class="intel-tab-content">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
+        <!-- Hiring Funnel Drop-Off -->
+        <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Recruitment Pipeline Funnel</div>
+            <div class="card-desc">Real-time candidate conversion & drop-off rates across stages.</div>
+
+            <div class="funnel-container">
+                <div class="funnel-step">
+                    <div class="funnel-label">Resumes Sourced</div>
+                    <div class="funnel-bar-bg">
+                        <div class="funnel-bar-fill" style="width: 100%; background: #4f46e5;">
+                            {{ funnel.resumes_sourced }} Candidates (100%)
+                        </div>
+                    </div>
+                </div>
+                <div class="funnel-step">
+                    <div class="funnel-label">NLP Profiled</div>
+                    <div class="funnel-bar-bg">
+                        <div class="funnel-bar-fill" style="width: {{ (funnel.nlp_profiled / funnel.resumes_sourced * 100) | round }}%; background: #6366f1;">
+                            {{ funnel.nlp_profiled }} Candidates
+                        </div>
+                    </div>
+                </div>
+                <div class="funnel-step">
+                    <div class="funnel-label">Fit Scored</div>
+                    <div class="funnel-bar-bg">
+                        <div class="funnel-bar-fill" style="width: {{ (funnel.fit_scored / funnel.resumes_sourced * 100) | round }}%; background: #0ea5e9;">
+                            {{ funnel.fit_scored }} Candidates
+                        </div>
+                    </div>
+                </div>
+                <div class="funnel-step">
+                    <div class="funnel-label">Interviews Completed</div>
+                    <div class="funnel-bar-bg">
+                        <div class="funnel-bar-fill" style="width: {{ (funnel.interviews_completed / funnel.resumes_sourced * 100) | round }}%; background: #10b981;">
+                            {{ funnel.interviews_completed }} Candidates
+                        </div>
+                    </div>
+                </div>
+                <div class="funnel-step">
+                    <div class="funnel-label">Final Evaluated</div>
+                    <div class="funnel-bar-bg">
+                        <div class="funnel-bar-fill" style="width: {{ (funnel.reports_finalized / funnel.resumes_sourced * 100) | round }}%; background: #059669;">
+                            {{ funnel.reports_finalized }} Decisions
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Distribution Histogram -->
+        <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Talent Pool Score Distribution</div>
+            <div class="card-desc">Distribution of applicant fit ratings across 5 scoring tiers.</div>
+            <div style="height:240px; display:flex; align-items:flex-end; gap:16px; padding:20px 10px 0 10px;">
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <div style="font-size:12px; font-weight:700;">{{ score_distribution['0_40'] }}</div>
+                    <div style="width:100%; height:{{ [score_distribution['0_40'] * 20, 20] | max }}px; background:#ef4444; border-radius:4px 4px 0 0;"></div>
+                    <div style="font-size:11px; color:var(--gray-500); font-weight:600;">0–40%</div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <div style="font-size:12px; font-weight:700;">{{ score_distribution['41_60'] }}</div>
+                    <div style="width:100%; height:{{ [score_distribution['41_60'] * 20, 20] | max }}px; background:#f59e0b; border-radius:4px 4px 0 0;"></div>
+                    <div style="font-size:11px; color:var(--gray-500); font-weight:600;">41–60%</div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <div style="font-size:12px; font-weight:700;">{{ score_distribution['61_75'] }}</div>
+                    <div style="width:100%; height:{{ [score_distribution['61_75'] * 20, 20] | max }}px; background:#3b82f6; border-radius:4px 4px 0 0;"></div>
+                    <div style="font-size:11px; color:var(--gray-500); font-weight:600;">61–75%</div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <div style="font-size:12px; font-weight:700;">{{ score_distribution['76_85'] }}</div>
+                    <div style="width:100%; height:{{ [score_distribution['76_85'] * 20, 20] | max }}px; background:#10b981; border-radius:4px 4px 0 0;"></div>
+                    <div style="font-size:11px; color:var(--gray-500); font-weight:600;">76–85%</div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                    <div style="font-size:12px; font-weight:700;">{{ score_distribution['86_100'] }}</div>
+                    <div style="width:100%; height:{{ [score_distribution['86_100'] * 20, 20] | max }}px; background:#059669; border-radius:4px 4px 0 0;"></div>
+                    <div style="font-size:11px; color:var(--gray-500); font-weight:600;">86–100%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Telemetry & Cost Optimization Table -->
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+            <div>
+                <div class="card-title">AI Provider Latency, Token & Cost Telemetry</div>
+                <div class="card-desc">Detailed usage metrics across OpenAI, Anthropic, Gemini, Groq, and Ollama.</div>
+            </div>
+            <div style="text-align:right;">
+                <span class="score-badge score-high" style="font-size:12px;">Local Ollama Savings: ${{ telemetry.estimated_saved_usd }} USD</span>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>AI Provider / Engine</th>
+                        <th>Total Invocations</th>
+                        <th>Average Latency</th>
+                        <th>Tokens Processed</th>
+                        <th>Cost Incurred</th>
+                        <th>Efficiency Verdict</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if telemetry.providers %}
+                        {% for p in telemetry.providers %}
+                        <tr>
+                            <td><strong>{{ p.provider | upper }}</strong></td>
+                            <td>{{ p.count }}</td>
+                            <td>{{ p.avg_lat | round(2) }}s</td>
+                            <td>{{ p.total_tokens | default(0) }}</td>
+                            <td>${{ p.total_cost | default(0.0) | round(4) }}</td>
+                            <td>
+                                {% if 'ollama' in p.provider.lower() %}
+                                <span class="badge badge-green">100% Free / Zero API Cost</span>
+                                {% else %}
+                                <span class="badge badge-blue">Cloud API Active</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td><strong>OLLAMA (LOCAL)</strong></td>
+                            <td>12</td>
+                            <td>2.10s</td>
+                            <td>14,500</td>
+                            <td>$0.0000</td>
+                            <td><span class="badge badge-green">100% Free / Zero API Cost</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>GEMINI (CLOUD)</strong></td>
+                            <td>6</td>
+                            <td>1.45s</td>
+                            <td>8,200</td>
+                            <td>$0.0008</td>
+                            <td><span class="badge badge-blue">Cloud API Active</span></td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 4: TAILORED CANDIDATE FEEDBACK & REGRET HUB -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-feedback" class="intel-tab-content">
+    <div class="feedback-editor-card">
+        <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700;">Generate Respectful, Constructive Candidate Feedback</h3>
+        <p style="margin:0 0 16px 0; font-size:13px; color:var(--gray-500);">
+            Draft personalized, encouraging regret letters with genuine strengths and growth advice to elevate candidate experience and employer brand.
+        </p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:14px;">
+            <div>
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Select Candidate</label>
+                <select id="feedbackCandSelect" class="compare-select">
+                    {% for c in candidates %}
+                    <option value="{{ c.name }}">{{ c.name }} ({{ c.domain }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role</label>
+                <input type="text" id="feedbackRole" class="search-input" style="padding:10px 14px;" value="Software Engineer" placeholder="e.g. Senior Software Engineer">
+            </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="generateTailoredFeedback()" id="generateFeedbackBtn">
+            Draft Constructive Feedback Letter
+        </button>
+
+        <div id="feedbackReviewArea" style="display:none; margin-top:20px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:14px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate Recipient Email</label>
+                    <input type="email" id="feedbackEmail" class="search-input" style="padding:10px 14px;" placeholder="candidate@example.com">
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Email Subject</label>
+                    <input type="text" id="feedbackSubject" class="search-input" style="padding:10px 14px;" value="Application Update & Interview Feedback">
+                </div>
+            </div>
+
+            <label style="font-size:12px; font-weight:600; display:block; margin-top:14px; margin-bottom:4px;">Tailored Feedback Body</label>
+            <textarea id="feedbackBody" class="feedback-textarea"></textarea>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:14px;">
+                <input type="hidden" id="currentFeedbackId" value="">
+                <button class="btn btn-secondary" onclick="copyFeedbackText()">Copy Text</button>
+                <button class="btn btn-primary" onclick="dispatchFeedbackEmail()" id="sendFeedbackBtn">
+                    Send via SMTP Email
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Sent History Log -->
+    <div class="card">
+        <div class="card-title">Candidate Feedback Log</div>
+        <div class="card-desc">Audit history of candidate feedback letters drafted and dispatched.</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Target Role</th>
+                        <th>Recipient Email</th>
+                        <th>Status</th>
+                        <th>Created / Dispatched</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="feedbackHistoryTable">
+                    {% if feedback_list %}
+                        {% for fb in feedback_list %}
+                        <tr>
+                            <td><strong>{{ fb.candidate_name }}</strong></td>
+                            <td>{{ fb.job_title }}</td>
+                            <td>{{ fb.email or "—" }}</td>
+                            <td>
+                                {% if fb.status == 'SENT' %}
+                                <span class="badge badge-green">DISPATCHED</span>
+                                {% else %}
+                                <span class="badge badge-yellow">DRAFT</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ fb.sent_at or fb.created_at }}</td>
+                            <td>
+                                <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="loadSavedFeedback('{{ fb.candidate_name | escape }}', '{{ fb.email | escape }}', '{{ fb.job_title | escape }}', `{{ fb.feedback_text | escape }}`)">Review</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align:center; color:var(--gray-500); padding:20px;">
+                                No feedback letters drafted yet. Select a candidate above to generate tailored feedback.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Tab Switching ──
+    function switchIntelTab(tabId) {
+        document.querySelectorAll('.intel-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.intel-tab-content').forEach(c => c.classList.remove('active'));
+
+        event.currentTarget.classList.add('active');
+        const target = document.getElementById(tabId);
+        if (target) target.classList.add('active');
+    }
+
+    // ── Semantic Search ──
+    function applySampleQuery(q) {
+        document.getElementById('semanticSearchQuery').value = q;
+        executeSemanticSearch();
+    }
+
+    async function executeSemanticSearch() {
+        const query = document.getElementById('semanticSearchQuery').value.trim();
+        if (!query) return;
+
+        const btn = document.getElementById('searchBtn');
+        const countLabel = document.getElementById('searchResultsCount');
+        const grid = document.getElementById('resultsGrid');
+
+        btn.disabled = true;
+        btn.textContent = 'Searching...';
+        countLabel.textContent = 'Searching vector pool embeddings...';
+
+        try {
+            const res = await fetch('/api/intelligence/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query, top_k: 12 })
+            });
+            const data = await res.json();
+            if (data.success) {
+                renderSearchResults(data.results, query);
+                countLabel.textContent = `Found ${data.count} candidate matches for "${query}"`;
+            } else {
+                alert(data.error || 'Search failed');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Search request failed: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Search Pool';
+        }
+    }
+
+    function renderSearchResults(results, query) {
+        const grid = document.getElementById('resultsGrid');
+        if (!results || results.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--gray-500); background: var(--white); border-radius: 12px; border: 1px dashed var(--gray-300);">
+                    No candidates directly matched the query criteria. Try broadening terms or re-indexing the talent pool.
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        results.forEach(c => {
+            const scoreClass = c.match_score >= 70 ? 'score-high' : (c.match_score >= 50 ? 'score-med' : 'score-low');
+            
+            let matchedTags = (c.matched_skills || []).map(s => `<span class="skill-tag matched">${s}</span>`).join('');
+            let otherTags = (c.all_skills || []).filter(s => !(c.matched_skills || []).includes(s)).slice(0, 4).map(s => `<span class="skill-tag">${s}</span>`).join('');
+
+            html += `
+                <div class="candidate-card">
+                    <div>
+                        <div class="card-top">
+                            <div>
+                                <h4 class="cand-name">${c.candidate_name}</h4>
+                                <div class="cand-domain">${c.domain || 'Software'}</div>
+                            </div>
+                            <span class="score-badge ${scoreClass}">${c.match_score}% Match</span>
+                        </div>
+                        <div class="cand-snippet">${c.snippet}</div>
+                        <div class="tag-container">
+                            ${matchedTags}
+                            ${otherTags}
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px; border-top:1px solid var(--gray-100); padding-top:14px; margin-top:8px;">
+                        <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px;" onclick="prefillComparison('${c.candidate_name}')">
+                            Compare
+                        </button>
+                        <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px;" onclick="prefillFeedback('${c.candidate_name}')">
+                            Feedback
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        grid.innerHTML = html;
+    }
+
+    async function reindexTalentPool() {
+        const btn = document.getElementById('reindexBtn');
+        btn.disabled = true;
+        btn.textContent = 'Indexing...';
+
+        try {
+            const res = await fetch('/api/intelligence/reindex', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('statPoolSize').textContent = data.indexed_count;
+                alert(data.message);
+            } else {
+                alert(data.error || 'Re-indexing failed');
+            }
+        } catch (e) {
+            alert('Re-indexing error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Re-Index Pool';
+        }
+    }
+
+    // ── Pre-fill cross-tab actions ──
+    function prefillComparison(candName) {
+        document.querySelectorAll('.intel-tab')[1].click();
+        const sel1 = document.getElementById('compCand1');
+        if (sel1) sel1.value = candName;
+    }
+
+    function prefillFeedback(candName) {
+        document.querySelectorAll('.intel-tab')[3].click();
+        const sel = document.getElementById('feedbackCandSelect');
+        if (sel) sel.value = candName;
+        generateTailoredFeedback();
+    }
+
+
+    // ── Side-by-Side Comparison & Radar Chart ──
+    async function runCandidateComparison() {
+        const cands = [
+            document.getElementById('compCand1').value,
+            document.getElementById('compCand2').value,
+            document.getElementById('compCand3').value,
+            document.getElementById('compCand4').value
+        ].filter(Boolean);
+
+        const uniqueCands = [...new Set(cands)];
+        if (uniqueCands.length < 2) {
+            alert('Please select at least 2 distinct candidates to compare.');
+            return;
+        }
+
+        const jobCtx = document.getElementById('compJobContext').value.trim();
+        const btn = document.getElementById('compareBtn');
+        btn.disabled = true;
+        btn.textContent = 'Synthesizing...';
+
+        try {
+            const res = await fetch('/api/intelligence/compare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidates: uniqueCands, job_context: jobCtx })
+            });
+            const resp = await res.json();
+            if (resp.success) {
+                renderComparisonResults(resp.data);
+            } else {
+                alert(resp.error || 'Comparison failed');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Comparison synthesis error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Synthesize Comparison';
+        }
+    }
+
+    const CAND_COLORS = ['#10b981', '#6366f1', '#f59e0b', '#ec4899'];
+
+    function renderComparisonResults(data) {
+        document.getElementById('compareResultsWrap').style.display = 'block';
+
+        // 1. Render Radar Chart on Canvas
+        drawRadarChart('radarCanvas', data.radar_categories, data.candidates);
+
+        // 2. Render Legend
+        const legend = document.getElementById('radarLegend');
+        legend.innerHTML = data.candidates.map((c, idx) => `
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600;">
+                <span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:${CAND_COLORS[idx % CAND_COLORS.length]};"></span>
+                ${c.name}
+            </div>
+        `).join('');
+
+        // 3. Render Dossier Cards
+        const dossier = document.getElementById('candidateDossierCards');
+        dossier.innerHTML = data.candidates.map((c, idx) => `
+            <div style="padding:14px; border:1px solid var(--gray-200); border-left:4px solid ${CAND_COLORS[idx % CAND_COLORS.length]}; border-radius:8px; background:var(--gray-50);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:700; font-size:14px;">${c.name}</div>
+                    <span style="font-size:11px; padding:2px 8px; border-radius:10px; background:var(--white); border:1px solid var(--gray-200); font-weight:600;">${c.domain}</span>
+                </div>
+                <div style="font-size:12px; color:var(--gray-600); margin:6px 0;">${c.strength_summary}</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">
+                    ${(c.skills || []).slice(0, 6).map(s => `<span class="skill-tag">${s}</span>`).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        // 4. Render AI Executive Synthesis Text
+        document.getElementById('executiveSynthesisText').textContent = data.executive_synthesis;
+    }
+
+    function drawRadarChart(canvasId, categories, candidates) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+
+        ctx.clearRect(0, 0, W, H);
+
+        const centerX = W / 2;
+        const centerY = H / 2;
+        const radius = Math.min(centerX, centerY) - 50;
+        const numAxes = categories.length;
+
+        // Draw web rings
+        const rings = 5;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        for (let r = 1; r <= rings; r++) {
+            const rDist = (radius / rings) * r;
+            ctx.beginPath();
+            for (let i = 0; i < numAxes; i++) {
+                const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+                const x = centerX + rDist * Math.cos(angle);
+                const y = centerY + rDist * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        // Draw axes and labels
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = '#6b7280';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        for (let i = 0; i < numAxes; i++) {
+            const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#d1d5db';
+            ctx.stroke();
+
+            // Category Label offset
+            const lx = centerX + (radius + 26) * Math.cos(angle);
+            const ly = centerY + (radius + 18) * Math.sin(angle);
+            ctx.fillText(categories[i], lx, ly);
+        }
+
+        // Map radar keys to categories
+        const dimensionKeys = [
+            'technical_skills',
+            'domain_knowledge',
+            'experience',
+            'project_complexity',
+            'interview_readiness'
+        ];
+
+        // Draw candidate polygons
+        candidates.forEach((cand, idx) => {
+            const color = CAND_COLORS[idx % CAND_COLORS.length];
+            const radarVals = cand.radar || {};
+
+            ctx.beginPath();
+            for (let i = 0; i < numAxes; i++) {
+                const key = dimensionKeys[i];
+                const score = radarVals[key] || 70;
+                const dist = (score / 100) * radius;
+                const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+                const px = centerX + dist * Math.cos(angle);
+                const py = centerY + dist * Math.sin(angle);
+
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = color + '2A'; // 16% opacity
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Draw vertex circles
+            for (let i = 0; i < numAxes; i++) {
+                const key = dimensionKeys[i];
+                const score = radarVals[key] || 70;
+                const dist = (score / 100) * radius;
+                const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+                const px = centerX + dist * Math.cos(angle);
+                const py = centerY + dist * Math.sin(angle);
+
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+        });
+    }
+
+
+    // ── Tailored Candidate Feedback Hub ──
+    async function generateTailoredFeedback() {
+        const cand = document.getElementById('feedbackCandSelect').value;
+        const role = document.getElementById('feedbackRole').value.trim() || 'Software Engineer';
+        const btn = document.getElementById('generateFeedbackBtn');
+
+        btn.disabled = true;
+        btn.textContent = 'Drafting Feedback Letter...';
+
+        try {
+            const res = await fetch('/api/intelligence/generate-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidate_name: cand, job_title: role })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const fb = data.feedback;
+                document.getElementById('feedbackReviewArea').style.display = 'block';
+                document.getElementById('currentFeedbackId').value = fb.feedback_id || '';
+                document.getElementById('feedbackEmail').value = fb.email || '';
+                document.getElementById('feedbackSubject').value = `Application Status & Career Feedback — ${role}`;
+                document.getElementById('feedbackBody').value = fb.feedback_text;
+            } else {
+                alert(data.error || 'Failed to generate feedback');
+            }
+        } catch (e) {
+            alert('Feedback drafting error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Draft Constructive Feedback Letter';
+        }
+    }
+
+    function copyFeedbackText() {
+        const text = document.getElementById('feedbackBody').value;
+        navigator.clipboard.writeText(text);
+        alert('Feedback letter copied to clipboard.');
+    }
+
+    async function dispatchFeedbackEmail() {
+        const fid = document.getElementById('currentFeedbackId').value;
+        const email = document.getElementById('feedbackEmail').value.trim();
+        const cand = document.getElementById('feedbackCandSelect').value;
+        const subject = document.getElementById('feedbackSubject').value.trim();
+        const body = document.getElementById('feedbackBody').value.trim();
+
+        if (!email) {
+            alert('Please specify recipient candidate email address.');
+            return;
+        }
+
+        const btn = document.getElementById('sendFeedbackBtn');
+        btn.disabled = true;
+        btn.textContent = 'Dispatching via SMTP...';
+
+        try {
+            const res = await fetch('/api/intelligence/send-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feedback_id: fid,
+                    email: email,
+                    candidate_name: cand,
+                    subject: subject,
+                    feedback_text: body
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.error || 'Failed to dispatch email');
+            }
+        } catch (e) {
+            alert('Dispatch error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Send via SMTP Email';
+        }
+    }
+
+    function loadSavedFeedback(name, email, role, text) {
+        document.getElementById('feedbackCandSelect').value = name;
+        document.getElementById('feedbackRole').value = role;
+        document.getElementById('feedbackEmail').value = email;
+        document.getElementById('feedbackSubject').value = `Application Status & Career Feedback — ${role}`;
+        document.getElementById('feedbackBody').value = text;
+        document.getElementById('feedbackReviewArea').style.display = 'block';
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+    }
+</script>
+{% endblock %}

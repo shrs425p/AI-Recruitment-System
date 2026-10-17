@@ -155,6 +155,7 @@ async def call_ollama_async(system_msg: str, user_msg: str, temperature: float =
 
     def _sync_call():
         current_model = model
+        t0 = time.time()
         for attempt in range(1, attempts + 1):
             try:
                 response = _ollama().chat(
@@ -170,6 +171,16 @@ async def call_ollama_async(system_msg: str, user_msg: str, temperature: float =
                     logger.warning("  [WARNING] Model '%s' returned empty output (done_reason=length). Attempting configured fallback model '%s'...", current_model, fallback_model)
                     current_model = fallback_model
                     continue
+
+                lat = time.time() - t0
+                p_tok = response.get("prompt_eval_count") or (len(system_msg) + len(user_msg)) // 4
+                c_tok = response.get("eval_count") or len(content) // 4
+                try:
+                    from app.database import log_telemetry
+                    log_telemetry("ollama", current_model, p_tok, c_tok, lat, "SUCCESS", 0.0)
+                except Exception:
+                    pass
+
                 return content
             except Exception as e:
                 err_str = str(e)
