@@ -792,7 +792,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="cloudWorkers">Concurrent Cloud Workers</label>
                         <input type="number" class="form-input" id="cloudWorkers" name="cloud_workers"
-                            value="{{ cfg.CLOUD_WORKERS or 4 }}" step="any" min="1" max="20" placeholder="4">
+                            value="{{ cfg.CLOUD_WORKERS or 1 }}" step="any" min="1" max="20" placeholder="1">
                         <span style="font-size:0.75rem; color:var(--gray-400);">Simultaneous API calls (Recommended: 3–5 for Gemini/Groq, 2 for Anthropic/OpenAI)</span>
                     </div>
                 </div>
