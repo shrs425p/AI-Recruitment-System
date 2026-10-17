@@ -422,6 +422,7 @@ Generate an Executive Hiring Committee Brief with:
 2. **Head-to-Head Trade-offs**: Contrast technical depth vs. domain agility vs. experience.
 3. **Recommendation**: Final hiring suggestion and onboarding strategy.
 """
+    synthesis_text = ""
     try:
         t0 = time.time()
         synthesis_text = call_ollama(system_msg, user_prompt)
@@ -429,8 +430,10 @@ Generate an Executive Hiring Committee Brief with:
         log_telemetry("ollama", "synthesis", len(user_prompt)//4, len(synthesis_text)//4, lat)
     except Exception as e:
         logger.warning("AI synthesis failed: %s", e)
+
+    if not synthesis_text or not synthesis_text.strip():
         synthesis_text = (
-            f"### Executive Deliberation Brief\n\n"
+            "### Executive Deliberation Brief\n\n"
             f"- **Comparative Summary**: Evaluated {len(candidates_payload)} candidates across technical depth and experience.\n"
             f"- **Recommendation**: Review radar dimensions above. Candidate `{candidates_payload[0]['name']}` demonstrates strong composite balance."
         )
@@ -487,6 +490,7 @@ Draft a balanced candidate feedback letter:
 5. Professional, warm closing.
 """
 
+    feedback_body = ""
     try:
         t0 = time.time()
         feedback_body = call_ollama(system_msg, prompt)
@@ -494,6 +498,8 @@ Draft a balanced candidate feedback letter:
         log_telemetry("ollama", "feedback", len(prompt)//4, len(feedback_body)//4, lat)
     except Exception as e:
         logger.warning("Feedback generation failed: %s", e)
+
+    if not feedback_body or not feedback_body.strip():
         feedback_body = (
             f"Dear {candidate_name},\n\n"
             f"Thank you for interviewing for the {job_title} position. While we were impressed by your background in {domain} "
