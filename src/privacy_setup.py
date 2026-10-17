@@ -9,7 +9,10 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
-import ai_mode
+try:
+    import ai_mode
+except ImportError:
+    from src import ai_mode
 
 _cancelled = False
 
