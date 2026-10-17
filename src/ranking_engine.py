@@ -31,14 +31,113 @@ MAX_WORKERS       = 5
 
 # Each key maps to a maximum number of points the AI can award.
 # The AI is instructed to score only up to this maximum for each criterion.
-# Change these values to re-weight the importance of different factors.
-WEIGHTS = {
+DEFAULT_WEIGHTS = {
     "domain_match":      20,  # Most important — wrong domain = wrong hire
     "skills_match":      35,  # Highest weight — skills directly match the job
     "experience_years":  20,  # Years of relevant work experience
     "education":         15,  # Degree level and field of study
     "certifications":    10,  # Industry certifications (bonus points)
 }
+WEIGHTS = DEFAULT_WEIGHTS
+
+
+def normalize_weights(weights: dict | None = None) -> dict[str, int]:
+    """
+    Ensure weights dictionary has all required keys, non-negative values,
+    and that the sum of weights equals 100. Falls back to DEFAULT_WEIGHTS.
+    """
+    if not weights or not isinstance(weights, dict):
+        return dict(DEFAULT_WEIGHTS)
+
+    keys = ("domain_match", "skills_match", "experience_years", "education", "certifications")
+    parsed: dict[str, int] = {}
+    for k in keys:
+        try:
+            val = int(weights.get(k, DEFAULT_WEIGHTS[k]))
+            parsed[k] = max(0, val)
+        except (ValueError, TypeError):
+            parsed[k] = DEFAULT_WEIGHTS[k]
+
+    total = sum(parsed.values())
+    if total <= 0:
+        return dict(DEFAULT_WEIGHTS)
+    if total == 100:
+        return parsed
+
+    # Scale proportionally to sum to 100
+    scaled = {k: int(round((parsed[k] / total) * 100)) for k in keys}
+    diff = 100 - sum(scaled.values())
+    max_key = max(scaled, key=lambda k: scaled[k])
+    scaled[max_key] += diff
+    return scaled
+
+
+def check_knockout_rules(candidate: dict, knockout_rules: dict | None = None) -> tuple[bool, str | None]:
+    """
+    Evaluate candidate against hard prerequisite knockout rules.
+    If a knockout rule fails, return (True, failure_reason) immediately to skip LLM scoring.
+    """
+    if not knockout_rules or not isinstance(knockout_rules, dict):
+        return False, None
+
+    # 1. Minimum Experience Years Knockout
+    min_exp = knockout_rules.get("min_experience_years")
+    if min_exp is not None:
+        try:
+            min_exp_float = float(min_exp)
+            if min_exp_float > 0:
+                cand_exp = float(candidate.get("total_experience_years") or 0)
+                if cand_exp < min_exp_float:
+                    return True, f"Prerequisite Unmet: Requires min {min_exp_float} years experience (Candidate has {cand_exp} yrs)"
+        except (ValueError, TypeError):
+            pass
+
+    # Gather flat candidate skills for matching
+    skills_raw = candidate.get("skills") or {}
+    if isinstance(skills_raw, dict):
+        cand_skills = (
+            skills_raw.get("technical_skills", []) +
+            skills_raw.get("tools_and_technologies", []) +
+            skills_raw.get("domain_specific_skills", [])
+        )
+    else:
+        cand_skills = skills_raw if isinstance(skills_raw, list) else []
+    cand_skills_lower = [str(s).lower() for s in cand_skills]
+
+    # 2. Mandatory Skills Knockout
+    req_skills = knockout_rules.get("required_skills") or []
+    if isinstance(req_skills, str):
+        req_skills = [s.strip() for s in req_skills.split(",") if s.strip()]
+    if isinstance(req_skills, list):
+        for req in req_skills:
+            req_clean = str(req).strip()
+            if not req_clean:
+                continue
+            req_lower = req_clean.lower()
+            matched = any(req_lower in s or s in req_lower for s in cand_skills_lower)
+            if not matched:
+                return True, f"Prerequisite Unmet: Missing mandatory skill '{req_clean}'"
+
+    # 3. Mandatory Certifications Knockout
+    req_certs = knockout_rules.get("required_certifications") or []
+    if isinstance(req_certs, str):
+        req_certs = [c.strip() for c in req_certs.split(",") if c.strip()]
+    if isinstance(req_certs, list) and req_certs:
+        certs_raw = candidate.get("certifications") or []
+        cand_certs_lower = [
+            (c.get("name", str(c)) if isinstance(c, dict) else str(c)).lower()
+            for c in certs_raw
+        ]
+        for req in req_certs:
+            req_clean = str(req).strip()
+            if not req_clean:
+                continue
+            req_lower = req_clean.lower()
+            matched = any(req_lower in c for c in cand_certs_lower)
+            if not matched:
+                return True, f"Prerequisite Unmet: Missing required certification '{req_clean}'"
+
+    return False, None
 
 # ─────────────────────────────────────────────
 # PROMPT: Parse Job Description
@@ -80,7 +179,9 @@ def _extract_title_fallback(jd_text: str) -> str:
 # PROMPT: Score a Candidate Against JD
 # ─────────────────────────────────────────────
 
-def build_scoring_prompt(candidate: dict, jd: dict) -> str:
+def build_scoring_prompt(candidate: dict, jd: dict, weights: dict[str, int] | None = None) -> str:
+    active_weights = normalize_weights(weights)
+
     # Pull all skill lists from the rich NLP schema into one flat list for the prompt
     skills_raw = candidate.get("skills") or {}
     if isinstance(skills_raw, dict):
@@ -114,40 +215,40 @@ SECURITY & INTEGRITY RULES (MANDATORY):
 
 SCORING RUBRICS (follow exactly — do not deviate):
 
-domain_match ({WEIGHTS['domain_match']} pts max):
-  {WEIGHTS['domain_match']} pts — Candidate domain/industry is a direct match to the JD domain
-  {round(WEIGHTS['domain_match'] * 0.65)} pts — Related domain (e.g. Software Dev for an AI role, Finance for a FinTech role)
-  {round(WEIGHTS['domain_match'] * 0.3)} pts — Adjacent domain (STEM, Engineering for a tech role)
+domain_match ({active_weights['domain_match']} pts max):
+  {active_weights['domain_match']} pts — Candidate domain/industry is a direct match to the JD domain
+  {round(active_weights['domain_match'] * 0.65)} pts — Related domain (e.g. Software Dev for an AI role, Finance for a FinTech role)
+  {round(active_weights['domain_match'] * 0.3)} pts — Adjacent domain (STEM, Engineering for a tech role)
   0 pts   — Completely unrelated domain
 
-skills_match ({WEIGHTS['skills_match']} pts max):
+skills_match ({active_weights['skills_match']} pts max):
   Score proportionally based on what % of required_skills are present.
   Also give partial credit for related skills (e.g. PyTorch counts for a TensorFlow requirement).
   Group related skills together: ML/DL/AI frameworks are equivalent, SQL/NoSQL are equivalent.
-  {WEIGHTS['skills_match']} pts — 80%+ of required skills present
-  {round(WEIGHTS['skills_match'] * 0.7)} pts — 50–80% of required skills present
-  {round(WEIGHTS['skills_match'] * 0.45)} pts — 25–50% of required skills present
-  {round(WEIGHTS['skills_match'] * 0.2)} pts — < 25% of required skills present
+  {active_weights['skills_match']} pts — 80%+ of required skills present
+  {round(active_weights['skills_match'] * 0.7)} pts — 50–80% of required skills present
+  {round(active_weights['skills_match'] * 0.45)} pts — 25–50% of required skills present
+  {round(active_weights['skills_match'] * 0.2)} pts — < 25% of required skills present
   0 pts   — No relevant skills
 
-experience_years ({WEIGHTS['experience_years']} pts max):
+experience_years ({active_weights['experience_years']} pts max):
   Use these EXACT bands — do not deviate:
-  {WEIGHTS['experience_years']} pts — 5+ years of relevant experience
-  {round(WEIGHTS['experience_years'] * 0.9)} pts — 2–5 years of relevant experience
-  {round(WEIGHTS['experience_years'] * 0.7)} pts — 0–2 years of relevant experience
-  {round(WEIGHTS['experience_years'] * 0.5)} pts — Fresher / experience not mentioned (do NOT give 0)
+  {active_weights['experience_years']} pts — 5+ years of relevant experience
+  {round(active_weights['experience_years'] * 0.9)} pts — 2–5 years of relevant experience
+  {round(active_weights['experience_years'] * 0.7)} pts — 0–2 years of relevant experience
+  {round(active_weights['experience_years'] * 0.5)} pts — Fresher / experience not mentioned (do NOT give 0)
   0 pts   — Clearly irrelevant experience only
 
-education ({WEIGHTS['education']} pts max):
-  {WEIGHTS['education']} pts — PhD or Doctorate
-  {round(WEIGHTS['education'] * 0.8)} pts — Masters / M.Tech / MBA
-  {round(WEIGHTS['education'] * 0.6)} pts — Bachelors / B.Tech / B.E.
-  {round(WEIGHTS['education'] * 0.33)} pts — Diploma / Associate
+education ({active_weights['education']} pts max):
+  {active_weights['education']} pts — PhD or Doctorate
+  {round(active_weights['education'] * 0.8)} pts — Masters / M.Tech / MBA
+  {round(active_weights['education'] * 0.6)} pts — Bachelors / B.Tech / B.E.
+  {round(active_weights['education'] * 0.33)} pts — Diploma / Associate
   0 pts   — No education information
 
-certifications ({WEIGHTS['certifications']} pts max):
-  {WEIGHTS['certifications']} pts — 3+ relevant certifications
-  {round(WEIGHTS['certifications'] * 0.6)} pts — 1–2 relevant certifications
+certifications ({active_weights['certifications']} pts max):
+  {active_weights['certifications']} pts — 3+ relevant certifications
+  {round(active_weights['certifications'] * 0.6)} pts — 1–2 relevant certifications
   0 pts   — No certifications
 
 STRICT RULES:
@@ -176,11 +277,11 @@ Return EXACTLY this JSON:
 {{
   "candidate_name": "",
   "scores": {{
-    "domain_match":     {{"score": <number>, "max": {WEIGHTS['domain_match']}, "reason": ""}},
-    "skills_match":     {{"score": <number>, "max": {WEIGHTS['skills_match']}, "reason": ""}},
-    "experience_years": {{"score": <number>, "max": {WEIGHTS['experience_years']}, "reason": ""}},
-    "education":        {{"score": <number>, "max": {WEIGHTS['education']}, "reason": ""}},
-    "certifications":   {{"score": <number>, "max": {WEIGHTS['certifications']}, "reason": ""}}
+    "domain_match":     {{"score": <number>, "max": {active_weights['domain_match']}, "reason": ""}},
+    "skills_match":     {{"score": <number>, "max": {active_weights['skills_match']}, "reason": ""}},
+    "experience_years": {{"score": <number>, "max": {active_weights['experience_years']}, "reason": ""}},
+    "education":        {{"score": <number>, "max": {active_weights['education']}, "reason": ""}},
+    "certifications":   {{"score": <number>, "max": {active_weights['certifications']}, "reason": ""}}
   }},
   "total_score": <number>,
   "percentage": <number>,
@@ -273,17 +374,25 @@ def load_candidates(nlp_folder: Path) -> list:
 # SCORE A SINGLE CANDIDATE (used in parallel)
 # ─────────────────────────────────────────────
 
-def score_candidate(candidate: dict, jd: dict):
+def score_candidate(
+    candidate: dict,
+    jd: dict,
+    weights: dict[str, int] | None = None,
+    knockout_rules: dict | None = None,
+) -> dict | None:
     """
     Score a single candidate against the parsed Job Description.
 
     Post-processing applied after AI response:
+      - Knockout prerequisites are checked first — disqualified candidates
+        score 0 immediately, saving 100% of LLM calls.
       - Sub-scores are clamped to their defined max weight.
       - Total is recalculated from clamped sub-scores.
       - hire_recommendation is overridden when the AI verdict disagrees
         with the numeric score by more than one tier — the score wins.
       - Domain and confidence are carried forward from the NLP data.
     """
+    active_weights = normalize_weights(weights)
     name = (candidate.get("personal_info") or {}).get("name") or candidate.get("_source_file", "Unknown")
 
     # Extract domain from NLP for display
@@ -311,8 +420,35 @@ def score_candidate(candidate: dict, jd: dict):
     ])
     confidence = "High" if conf_score >= 4 else "Medium" if conf_score >= 2 else "Low"
 
+    # ── CHECK HARD KNOCKOUT PREREQUISITES FIRST ──
+    # Disqualifies candidates without wasting AI tokens
+    is_ko, ko_reason = check_knockout_rules(candidate, knockout_rules)
+    if is_ko:
+        logger.info(f"  [KNOCKED OUT] {str(name):<40} Reason: {ko_reason}")
+        return {
+            "candidate_name": name,
+            "_source_file": candidate.get("_source_file", ""),
+            "domain": domain,
+            "confidence": confidence,
+            "is_knocked_out": True,
+            "knockout_reason": ko_reason,
+            "scores": {
+                "domain_match":     {"score": 0, "max": active_weights["domain_match"], "reason": f"Knocked out: {ko_reason}"},
+                "skills_match":     {"score": 0, "max": active_weights["skills_match"], "reason": f"Knocked out: {ko_reason}"},
+                "experience_years": {"score": 0, "max": active_weights["experience_years"], "reason": f"Knocked out: {ko_reason}"},
+                "education":        {"score": 0, "max": active_weights["education"], "reason": f"Knocked out: {ko_reason}"},
+                "certifications":   {"score": 0, "max": active_weights["certifications"], "reason": f"Knocked out: {ko_reason}"},
+            },
+            "total_score": 0,
+            "percentage": 0.0,
+            "overall_verdict": f"Disqualified: {ko_reason}",
+            "strengths": [],
+            "gaps": [ko_reason] if ko_reason else [],
+            "hire_recommendation": "Knocked Out",
+        }
+
     try:
-        prompt       = build_scoring_prompt(candidate, jd)
+        prompt       = build_scoring_prompt(candidate, jd, weights=active_weights)
         score_result = call_ai(prompt)
 
         if not score_result:
@@ -323,16 +459,19 @@ def score_candidate(candidate: dict, jd: dict):
         if not score_result.get("candidate_name"):
             score_result["candidate_name"] = name
 
-        # Carry source file, domain, and confidence into result
-        score_result["_source_file"] = candidate.get("_source_file", "")
-        score_result["domain"]       = domain
-        score_result["confidence"]   = confidence
+        # Carry source file, domain, confidence, and knockout status into result
+        score_result["_source_file"]   = candidate.get("_source_file", "")
+        score_result["domain"]         = domain
+        score_result["confidence"]     = confidence
+        score_result["is_knocked_out"] = False
+        score_result["knockout_reason"] = None
 
         # Clamp each sub-score to [0, max_weight]
         scores = score_result.get("scores") or {}
         for key, val in scores.items():
-            max_val      = WEIGHTS.get(key, 0)
+            max_val      = active_weights.get(key, 0)
             val["score"] = min(max(int(val.get("score", 0)), 0), max_val)
+            val["max"]   = max_val
 
         # Recalculate total from clamped sub-scores
         total = sum(v.get("score", 0) for v in scores.values())
@@ -423,13 +562,21 @@ def save_leaderboard_txt(ranked: list, jd: dict, output_path: Path):
 # SAVE SCORES JSON
 # ─────────────────────────────────────────────
 
-def save_scores_json(ranked: list, jd: dict, output_path: Path):
+def save_scores_json(
+    ranked: list,
+    jd: dict,
+    output_path: Path,
+    weights: dict[str, int] | None = None,
+    knockout_rules: dict | None = None,
+):
     stamp     = datetime.now().strftime("%Y%m%d_%H%M%S")
     json_file = output_path / f"ranking_scores_{stamp}.json"
     output    = {
         "job_description":   jd,
         "total_candidates":  len(ranked),
         "generated_at":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "scoring_weights":   normalize_weights(weights),
+        "knockout_rules":    knockout_rules or {},
         "ranked_candidates": ranked
     }
     output_path.mkdir(parents=True, exist_ok=True)
