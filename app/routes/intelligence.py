@@ -17,6 +17,7 @@ from src.common import data_path
 from src.email_sender import send_feedback_email
 from src.talent_intelligence import (
     compare_candidates_matrix,
+    extract_flat_skills,
     generate_candidate_feedback_letter,
     index_talent_pool,
     semantic_search_talent,
@@ -42,8 +43,7 @@ def _get_candidate_list() -> list[dict]:
                 or jf.stem.replace("_nlp", "")
             )
             domain = data.get("domain") or "General"
-            raw_skills = data.get("skills") or []
-            skills_flat = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in raw_skills]
+            skills_flat = extract_flat_skills(data.get("skills"))
             candidates.append({
                 "name": cand_name,
                 "domain": domain,

@@ -28,8 +28,17 @@ def run_tests():
     res = semantic_search_talent(query, top_k=3)
     print(f"Search query: '{query}'")
     for r in res:
-        print(f"  Match: {r['candidate_name']} ({r['domain']}) -> {r['match_score']}%")
+        print(f"  Match: {r['candidate_name']} ({r['domain']}) -> {r['match_score']}% | Skills: {r['all_skills'][:3]}")
     assert len(res) > 0, "Expected semantic search results"
+
+    print("--- 3b. Testing Java Query Filtering & Skill Accuracy ---")
+    java_res = semantic_search_talent("java", top_k=5)
+    print(f"Java search match count: {len(java_res)}")
+    for r in java_res:
+        print(f"  Candidate: {r['candidate_name']} ({r['domain']}) -> {r['match_score']}% | Matched: {r['matched_skills']}")
+        # Verify skills are actual skills, not generic schema keys
+        for sk in r['all_skills']:
+            assert sk.lower() not in ("technical_skills", "tools_and_technologies", "soft_skills", "domain_specific_skills"), f"Schema key leaked into skills: {sk}"
 
     print("--- 4. Testing Candidate Comparison Matrix ---")
     candidates = [stored[0]["candidate_name"], stored[1]["candidate_name"]]

@@ -49,20 +49,66 @@ def _tokenize(text: str) -> list[str]:
     return filtered + bigrams
 
 
+def extract_flat_skills(skills_data) -> list[str]:
+    """Extract a flat, deduplicated list of real skill names from either dict or list representation."""
+    if not skills_data:
+        return []
+    flat = []
+    if isinstance(skills_data, dict):
+        for cat, items in skills_data.items():
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, dict):
+                        name = item.get("name") or item.get("skill") or ""
+                    else:
+                        name = str(item)
+                    if name and name.strip():
+                        flat.append(name.strip())
+            elif isinstance(items, str) and items.strip():
+                flat.append(items.strip())
+    elif isinstance(skills_data, list):
+        for item in skills_data:
+            if isinstance(item, dict):
+                if "name" in item:
+                    flat.append(str(item["name"]))
+                else:
+                    for sub_v in item.values():
+                        if isinstance(sub_v, list):
+                            flat.extend(str(x) for x in sub_v if x)
+                        elif isinstance(sub_v, str):
+                            flat.append(sub_v)
+            elif isinstance(item, str) and item.strip():
+                flat.append(item.strip())
+
+    schema_keys = {
+        "technical_skills", "tools_and_technologies", "soft_skills",
+        "domain_specific_skills", "languages_known"
+    }
+    seen = set()
+    result = []
+    for s in flat:
+        cleaned = s.strip()
+        if cleaned.lower() in schema_keys:
+            continue
+        if cleaned.lower() not in seen:
+            seen.add(cleaned.lower())
+            result.append(cleaned)
+    return result
+
+
 def build_candidate_profile_text(cand: dict) -> str:
     """Flatten structured candidate data into a rich textual corpus for semantic indexing."""
     parts = []
     
     # 1. Personal & Domain
     domain = cand.get("domain") or ""
-    strength = cand.get("candidate_strength_summary") or ""
+    strength = cand.get("candidate_strength_summary") or cand.get("summary") or ""
     parts.append(f"Domain: {domain}. Summary: {strength}.")
     
-    # 2. Skills
-    skills = cand.get("skills") or []
-    if isinstance(skills, list):
-        skill_names = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in skills]
-        parts.append(f"Skills: {', '.join(skill_names)}.")
+    # 2. Real Flattened Skills
+    skills_flat = extract_flat_skills(cand.get("skills"))
+    if skills_flat:
+        parts.append(f"Skills: {', '.join(skills_flat)}.")
     
     # 3. Work Experience
     exp = cand.get("work_experience") or []
@@ -114,9 +160,7 @@ def index_talent_pool() -> int:
             )
             profile_text = build_candidate_profile_text(data)
             domain = data.get("domain") or "General"
-            
-            raw_skills = data.get("skills") or []
-            skills_flat = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in raw_skills]
+            skills_flat = extract_flat_skills(data.get("skills"))
             
             candidates.append({
                 "name": cand_name,
@@ -179,7 +223,7 @@ def index_talent_pool() -> int:
     return len(candidates)
 
 
-def semantic_search_talent(query: str, top_k: int = 10, min_score: float = 0.05) -> list[dict]:
+def semantic_search_talent(query: str, top_k: int = 10, min_score: float = 0.1) -> list[dict]:
     """
     Perform semantic vector search against candidate profiles stored in SQLite.
     Returns ranked candidate matches with match scores and highlights.
@@ -199,43 +243,49 @@ def semantic_search_talent(query: str, top_k: int = 10, min_score: float = 0.05)
     if not query_tokens:
         return []
 
-    # Vectorize query against the index dimensions
-    num_dims = len(stored_candidates[0]["vector"]) if stored_candidates[0]["vector"] else 0
     query_terms = set(query_tokens)
+    query_words = [w.lower() for w in re.findall(r"[a-z0-9+#]+", query.lower()) if w not in STOPWORDS]
 
     results = []
     
     for cand in stored_candidates:
-        cand_vec = np.array(cand["vector"], dtype=np.float32)
-        if cand_vec.size == 0 or np.linalg.norm(cand_vec) == 0:
+        cand_vec = np.array(cand.get("vector") or [], dtype=np.float32)
+        cand_tokens = set(_tokenize(cand["profile_text"]))
+        cand_skills = cand.get("skills") or []
+
+        # Calculate term overlap
+        matched_terms = query_terms.intersection(cand_tokens)
+
+        # Match skills against query words
+        matched_skills = []
+        for s in cand_skills:
+            s_low = s.lower()
+            if any(qw in s_low or s_low in qw for qw in query_words):
+                matched_skills.append(s)
+
+        # STRICT FILTER: Candidate must have at least one matched term or matched skill
+        if not matched_terms and not matched_skills:
             continue
 
-        cand_tokens = set(_tokenize(cand["profile_text"]))
-        cand_skills = set(s.lower() for s in cand["skills"])
-        
-        # Calculate term overlap and skill boosts
-        matched_terms = query_terms.intersection(cand_tokens)
-        matched_skills = [s for s in cand["skills"] if s.lower() in query.lower() or any(w in s.lower() for w in query.lower().split())]
-
         overlap_ratio = len(matched_terms) / max(len(query_terms), 1)
-        skill_boost = min(len(matched_skills) * 0.15, 0.4)
+        skill_boost = min(len(matched_skills) * 0.25, 0.55)
 
-        # Baseline similarity combined with skill alignment
-        raw_score = (overlap_ratio * 0.6) + skill_boost
-        final_score = round(min(max(raw_score * 100, 5.0), 98.0), 1)
+        raw_score = (overlap_ratio * 0.5) + skill_boost
+        if raw_score < 0.08:
+            continue
 
-        if final_score >= (min_score * 100):
-            # Extract relevant context snippet
-            snippet = cand["profile_text"][:280] + "..." if len(cand["profile_text"]) > 280 else cand["profile_text"]
-            results.append({
-                "candidate_name": cand["candidate_name"],
-                "domain": cand["domain"],
-                "source_file": cand["source_file"],
-                "match_score": final_score,
-                "matched_skills": matched_skills[:6],
-                "all_skills": cand["skills"][:8],
-                "snippet": snippet
-            })
+        final_score = round(min(max(raw_score * 100, 15.0), 98.0), 1)
+
+        snippet = cand["profile_text"][:280] + "..." if len(cand["profile_text"]) > 280 else cand["profile_text"]
+        results.append({
+            "candidate_name": cand["candidate_name"],
+            "domain": cand["domain"],
+            "source_file": cand["source_file"],
+            "match_score": final_score,
+            "matched_skills": matched_skills[:6],
+            "all_skills": cand_skills[:8],
+            "snippet": snippet
+        })
 
     # Sort descending by match score
     results.sort(key=lambda x: x["match_score"], reverse=True)
@@ -256,10 +306,12 @@ def get_candidate_details(candidate_name: str) -> dict | None:
             name = d.get("personal_info", {}).get("name") or jf.stem.replace("_nlp", "")
             if name.lower() == candidate_name.lower():
                 d["_source_file"] = jf.name
+                d["skills"] = extract_flat_skills(d.get("skills"))
                 return d
         except Exception:
             continue
     return None
+
 
 
 def calculate_radar_dimensions(cand_data: dict) -> dict:
