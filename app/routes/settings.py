@@ -145,6 +145,12 @@ def register_settings_routes(app):
                 cfg.GITHUB_ENABLED    = request.form.get("github_enabled") == "on"
                 cfg.OLLAMA_CLOUD_ENABLED = request.form.get("ollama_cloud_enabled") == "on"
 
+                if "cloud_workers" in request.form:
+                    try:
+                        cfg.CLOUD_WORKERS = max(1, min(20, int(request.form.get("cloud_workers"))))
+                    except (ValueError, TypeError):
+                        pass
+
             # ── Email / SMTP & Templates ──
             if "smtp_email" in request.form or "email_template_subject" in request.form:
                 cfg.SMTP_EMAIL    = request.form.get("smtp_email", cfg.SMTP_EMAIL).strip()
