@@ -148,6 +148,7 @@ def create_app():
     from app.routes.auth import register_auth_routes
     from app.routes.dashboard import register_dashboard_routes
     from app.routes.health import register_health_routes
+    from app.routes.intelligence import register_intelligence_routes
     from app.routes.interview import register_interview_routes
     from app.routes.logs import register_logs_routes
     from app.routes.nlp import register_nlp_routes
@@ -166,6 +167,7 @@ def create_app():
     register_scheduling_routes(app)
     register_interview_routes(app)
     register_reports_routes(app)
+    register_intelligence_routes(app)
     register_settings_routes(app)
     register_logs_routes(app)
 
