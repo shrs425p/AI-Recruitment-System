@@ -329,7 +329,7 @@
         <div class="stat-label">AI Invocations Logged</div>
     </div>
     <div class="stat-chip">
-        <div class="stat-value">${{ telemetry.estimated_saved_usd }}</div>
+        <div class="stat-value">₹{{ telemetry.estimated_saved_inr }}</div>
         <div class="stat-label">Est. Local AI Savings</div>
     </div>
 </div>
@@ -622,7 +622,7 @@
                 <div class="card-desc">Detailed usage metrics across OpenAI, Anthropic, Gemini, Groq, and Ollama.</div>
             </div>
             <div style="text-align:right;">
-                <span class="score-badge score-high" style="font-size:12px;">Local Ollama Savings: ${{ telemetry.estimated_saved_usd }} USD</span>
+                <span class="score-badge score-high" style="font-size:12px;">Local Ollama Savings: ₹{{ telemetry.estimated_saved_inr }} INR</span>
             </div>
         </div>
 
@@ -634,7 +634,7 @@
                         <th>Total Invocations</th>
                         <th>Average Latency</th>
                         <th>Tokens Processed</th>
-                        <th>Cost Incurred</th>
+                        <th>Cost Incurred (INR)</th>
                         <th>Efficiency Verdict</th>
                     </tr>
                 </thead>
@@ -646,7 +646,7 @@
                             <td>{{ p.count }}</td>
                             <td>{{ p.avg_lat | round(2) }}s</td>
                             <td>{{ p.total_tokens | default(0) }}</td>
-                            <td>${{ p.total_cost | default(0.0) | round(4) }}</td>
+                            <td>₹{{ p.total_cost_inr | default(0.0) | round(2) }}</td>
                             <td>
                                 {% if 'ollama' in p.provider.lower() %}
                                 <span class="badge badge-green">100% Free / Zero API Cost</span>
@@ -662,7 +662,7 @@
                             <td>12</td>
                             <td>2.10s</td>
                             <td>14,500</td>
-                            <td>$0.0000</td>
+                            <td>₹0.00</td>
                             <td><span class="badge badge-green">100% Free / Zero API Cost</span></td>
                         </tr>
                         <tr>
@@ -670,7 +670,7 @@
                             <td>6</td>
                             <td>1.45s</td>
                             <td>8,200</td>
-                            <td>$0.0008</td>
+                            <td>₹0.07</td>
                             <td><span class="badge badge-blue">Cloud API Active</span></td>
                         </tr>
                     {% endif %}
