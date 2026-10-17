@@ -25,6 +25,10 @@ DEFAULT_SETTINGS = {
     "COLOR_PALETTE": "rose",
     "OLLAMA_MODEL": "llama3.2:3b",
     "OLLAMA_BASE_URL": "http://localhost:11434",
+    "OLLAMA_FALLBACK_MODEL": "",
+    "OLLAMA_NUM_CTX": 8192,
+    "OLLAMA_NUM_PREDICT": 4096,
+    "OLLAMA_TEMPERATURE": 0.0,
     "CLOUD_ENABLED": False,
     "CLOUD_MODEL": "claude-3-5-haiku-latest",
     "SMTP_HOST": "smtp.gmail.com",
@@ -168,6 +172,10 @@ THEME: str
 COLOR_PALETTE: str
 OLLAMA_MODEL: str
 OLLAMA_BASE_URL: str
+OLLAMA_FALLBACK_MODEL: str
+OLLAMA_NUM_CTX: int
+OLLAMA_NUM_PREDICT: int
+OLLAMA_TEMPERATURE: float
 CLOUD_ENABLED: bool
 CLOUD_MODEL: str
 SMTP_HOST: str

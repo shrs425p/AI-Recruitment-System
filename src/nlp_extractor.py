@@ -138,7 +138,7 @@ def extract_with_ai(resume_text: str) -> dict:
     )
     # call_ollama handles retries; clean_json_response strips markdown fences
     try:
-        raw = call_ollama(system, build_prompt(resume_text), temperature=0.0, num_predict=4096)
+        raw = call_ollama(system, build_prompt(resume_text))
     except Exception as e:
         raise RuntimeError(f"AI provider error: {e}") from e
     return clean_json_response(raw) if raw else {}
@@ -336,8 +336,7 @@ def run_watcher():
     logger.info("=" * 50)
     logger.info(f"> Watching folder : {INPUT_FOLDER}/")
     logger.info(f"> Output folder   : {OUTPUT_FOLDER}/")
-    import config
-    logger.info(f"> Model           : {getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')}")
+    logger.info(f"> Model           : {getattr(config, 'OLLAMA_MODEL', '') or getattr(config, 'PRIVACY_MODEL', '')}")
     logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
     logger.info("> Press Ctrl+C to stop\n")
 

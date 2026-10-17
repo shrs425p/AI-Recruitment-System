@@ -30,10 +30,9 @@ OUTPUT_FOLDER     = data_path("output/reports")
 
 def call_ai(system_msg: str, user_msg: str) -> str:
     """
-    Wrapper that calls the Ollama model with temperature=0.0 (deterministic)
-    and a 4096-token budget to allow detailed reports.
+    Wrapper that calls the Ollama model using user-configured settings.
     """
-    return call_ollama(system_msg, user_msg, 0.0, 4096)
+    return call_ollama(system_msg, user_msg)
 
 # ─────────────────────────────────────────────
 # STEP 1: LOAD INTERVIEW TRANSCRIPTS

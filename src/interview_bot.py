@@ -31,12 +31,12 @@ ANSWER_TIME_LIMIT    = 120
 # HELPER: Call AI model
 # ─────────────────────────────────────────────
 
-def call_ai(system_msg: str, user_msg: str, temperature: float = 0.0) -> str:
+def call_ai(system_msg: str, user_msg: str, temperature: float = None) -> str:
     """
-    Thin wrapper around call_ollama with a fixed token budget of 2048.
+    Thin wrapper around call_ollama using dynamic model and generation parameters.
     Used internally by all question/evaluation functions in this module.
     """
-    return call_ollama(system_msg, user_msg, temperature, num_predict=2048)
+    return call_ollama(system_msg, user_msg, temperature=temperature)
 
 # ─────────────────────────────────────────────
 # STEP 1: LOAD CONFIRMED CANDIDATES
@@ -495,7 +495,7 @@ def generate_interview_question(
 
     try:
         from src.common import call_ollama
-        raw = call_ollama(system_msg, prompt, temperature=0.5, num_predict=512)
+        raw = call_ollama(system_msg, prompt)
         if raw:
             # Strip extra quotes or prefixes if the AI generated them
             cleaned = raw.strip().strip('"').strip("'").strip()

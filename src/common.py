@@ -115,29 +115,69 @@ def clean_json_response(text: str) -> dict:
 
 clean_json = clean_json_response
 
-async def call_ollama_async(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048) -> str:
+async def call_ollama_async(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None) -> str:
     import logging
-
     import config
     logger = logging.getLogger(__name__)
+
+    # Dynamically read all configuration from config proxy / database
+    model = (getattr(config, "OLLAMA_MODEL", "") or getattr(config, "PRIVACY_MODEL", "") or "").strip()
+    fallback_model = (getattr(config, "OLLAMA_FALLBACK_MODEL", "") or "").strip()
     attempts = getattr(config, "AI_RETRY_ATTEMPTS", 3)
     backoff  = getattr(config, "AI_RETRY_BACKOFF", 2)
-    model    = getattr(config, "OLLAMA_MODEL", "llama3.2:3b")
+    num_ctx  = getattr(config, "OLLAMA_NUM_CTX", 8192)
+
+    if temperature is None:
+        temperature = getattr(config, "OLLAMA_TEMPERATURE", 0.0)
+    if num_predict is None:
+        num_predict = getattr(config, "OLLAMA_NUM_PREDICT", 4096)
+
+    try:
+        num_ctx_int = int(num_ctx)
+    except (ValueError, TypeError):
+        num_ctx_int = 8192
+
+    try:
+        num_predict_int = int(num_predict)
+    except (ValueError, TypeError):
+        num_predict_int = 4096
+
+    try:
+        temp_float = float(temperature)
+    except (ValueError, TypeError):
+        temp_float = 0.0
+
+    call_options = {
+        "temperature": temp_float,
+        "num_predict": num_predict_int,
+        "num_ctx": num_ctx_int,
+    }
 
     def _sync_call():
+        current_model = model
         for attempt in range(1, attempts + 1):
             try:
                 response = _ollama().chat(
-                    model=model,
+                    model=current_model,
                     messages=[
                         {"role": "system", "content": system_msg},
                         {"role": "user",   "content": user_msg},
                     ],
-                    options={"temperature": temperature, "num_predict": num_predict},
+                    options=call_options,
                 )
-                return response["message"]["content"]
+                content = response["message"]["content"]
+                if not content and response.get("done_reason") == "length" and fallback_model and current_model != fallback_model:
+                    logger.warning("  [WARNING] Model '%s' returned empty output (done_reason=length). Attempting configured fallback model '%s'...", current_model, fallback_model)
+                    current_model = fallback_model
+                    continue
+                return content
             except Exception as e:
-                logger.error(f"  [ERROR] Ollama attempt {attempt}: {e}")
+                err_str = str(e)
+                logger.error(f"  [ERROR] Ollama attempt {attempt} with '{current_model}': {err_str}")
+                if fallback_model and current_model != fallback_model:
+                    logger.info("  [INFO] Attempting configured fallback model '%s'...", fallback_model)
+                    current_model = fallback_model
+                    continue
                 if attempt < attempts:
                     time.sleep(backoff * attempt)
         return ""
@@ -161,7 +201,7 @@ async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 204
     block = msg.content[0]
     return getattr(block, "text", str(block))
 
-async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048, local_timeout: float = 300.0) -> str:
+async def call_ai_async(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None, local_timeout: float = 300.0) -> str:
     import logging
     logger = logging.getLogger(__name__)
     mode = get_app_mode()
@@ -179,7 +219,7 @@ async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0
             if cloud_enabled and ANTHROPIC_AVAILABLE and anthropic_key and anthropic_key != 'sk-ant-...':
                 logger.info("  [INFO] Attempting Cloud Fallback (Anthropic) because local Ollama timed out...")
                 try:
-                    return await call_cloud_async(system_msg, user_msg, num_predict)
+                    return await call_cloud_async(system_msg, user_msg, num_predict or 2048)
                 except Exception as ce:
                     logger.error(f"  [ERROR] Cloud fallback failed: {ce}")
             return ""
@@ -191,15 +231,15 @@ async def call_ai_async(system_msg: str, user_msg: str, temperature: float = 0.0
             if cloud_enabled and ANTHROPIC_AVAILABLE and anthropic_key and anthropic_key != 'sk-ant-...':
                 logger.info("  [INFO] Attempting Cloud Fallback (Anthropic) due to local failure...")
                 try:
-                    return await call_cloud_async(system_msg, user_msg, num_predict)
+                    return await call_cloud_async(system_msg, user_msg, num_predict or 2048)
                 except Exception as ce:
                     logger.error(f"  [ERROR] Cloud fallback failed: {ce}")
             return ""
     else:
         from src.provider_router import router
-        return await router.call(system_msg, user_msg, max_tokens=num_predict)
+        return await router.call(system_msg, user_msg, max_tokens=num_predict or 2048)
 
-def call_ollama(system_msg: str, user_msg: str, temperature: float = 0.0, num_predict: int = 2048) -> str:
+def call_ollama(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None) -> str:
     import asyncio
     import logging
     import threading
