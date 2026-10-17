@@ -101,9 +101,14 @@ def register_ranking_routes(app):
         output_path = OUTPUT_FOLDER / "ranking"
         output_path.mkdir(exist_ok=True)
 
-        jd_data = call_ai(build_jd_prompt(jd_text))
+        try:
+            jd_data = call_ai(build_jd_prompt(jd_text))
+        except Exception as e:
+            return jsonify({
+                "error": f"AI Parsing Error: {e}. If your Cloud API quota is exhausted, switch to Privacy Mode in Settings to use your offline Ollama model without limits."
+            }), 429 if "429" in str(e) else 500
         if not jd_data:
-            return jsonify({"error": "Failed to parse JD"}), 500
+            return jsonify({"error": "Failed to parse Job Description. Please try again."}), 500
 
         # Fallback if AI returned empty template
         if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):

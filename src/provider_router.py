@@ -223,13 +223,34 @@ class ProviderRouter:
             return active[0]
 
     async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048, candidate_name: str = "") -> str:
-        """Query LLM asynchronously using round-robin provider balancing."""
-        provider = await self.get_provider()
+        """Query LLM asynchronously using round-robin provider balancing with local fallback."""
+        active = self.get_active_providers()
+        if not active:
+            logger.warning("  [WARNING] No cloud providers active. Falling back to local Ollama...")
+            from src.common import call_ollama_async
+            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens)
 
-        def _sync_wrapper():
-            return call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
-
+        last_error = None
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, _sync_wrapper)
+
+        for provider in active:
+            try:
+                def _sync_wrapper():
+                    return call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
+                return await loop.run_in_executor(None, _sync_wrapper)
+            except Exception as e:
+                last_error = e
+                logger.warning(f"  [WARNING] Cloud provider '{provider['name']}' failed ({e}). Checking alternatives...")
+
+        # If all cloud providers are rate-limited or failed, fall back to local Ollama
+        logger.warning(f"  [WARNING] All cloud providers failed or quota exceeded ({last_error}). Falling back to local Ollama...")
+        try:
+            from src.common import call_ollama_async
+            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens)
+        except Exception as oe:
+            logger.error(f"  [ERROR] Fallback to local Ollama also failed: {oe}")
+            if last_error:
+                raise last_error
+            raise oe
 
 router = ProviderRouter()
