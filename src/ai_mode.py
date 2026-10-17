@@ -13,6 +13,13 @@ def get_app_mode():
 def get_privacy_model():
     return getattr(config, 'PRIVACY_MODEL', '') or getattr(config, 'OLLAMA_MODEL', '')
 
+def get_pipeline_workers() -> int:
+    """Return the configured concurrency worker limit based on active AI mode."""
+    mode = get_app_mode()
+    if mode == "cloud":
+        return max(1, min(20, int(getattr(config, "CLOUD_WORKERS", 4) or 4)))
+    return max(1, min(10, int(getattr(config, "OLLAMA_WORKERS", 1) or 1)))
+
 def get_providers():
     return [
         {

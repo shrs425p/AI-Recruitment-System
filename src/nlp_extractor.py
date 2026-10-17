@@ -336,7 +336,8 @@ def run_watcher():
     logger.info("=" * 50)
     logger.info(f"> Watching folder : {INPUT_FOLDER}/")
     logger.info(f"> Output folder   : {OUTPUT_FOLDER}/")
-    workers = max(1, min(10, int(getattr(config, 'OLLAMA_WORKERS', 1) or 1)))
+    from src.ai_mode import get_pipeline_workers
+    workers = get_pipeline_workers()
     logger.info(f"> Workers         : {workers}")
     logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
     logger.info("> Press Ctrl+C to stop\n")
@@ -350,7 +351,7 @@ def run_watcher():
             new_files_found = False
 
             if unprocessed:
-                workers = max(1, min(10, int(getattr(config, 'OLLAMA_WORKERS', 1) or 1)))
+                workers = get_pipeline_workers()
                 if workers > 1:
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:

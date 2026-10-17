@@ -49,8 +49,8 @@ def register_nlp_routes(app):
         import asyncio
 
         from src.nlp_extractor import process_file_async
-        import config
-        workers = max(1, min(10, int(getattr(config, "OLLAMA_WORKERS", 1) or 1)))
+        from src.ai_mode import get_pipeline_workers
+        workers = get_pipeline_workers()
 
         async def run_batch():
             sem = asyncio.Semaphore(workers)

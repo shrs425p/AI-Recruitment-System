@@ -784,6 +784,20 @@
         <div id="panel-cloud" class="ai-mode-panel"
             {% if cfg.APP_MODE != 'cloud' %}style="margin-top:16px; display:none;"{% else %}style="margin-top:16px;"{% endif %}>
 
+            <!-- Cloud Concurrency Card -->
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-title">Cloud Pipeline Concurrency</div>
+                <div class="card-desc">Configure concurrent API workers when processing resumes through cloud AI models (Gemini, Groq, OpenAI, Claude).</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label" for="cloudWorkers">Concurrent Cloud Workers</label>
+                        <input type="number" class="form-input" id="cloudWorkers" name="cloud_workers"
+                            value="{{ cfg.CLOUD_WORKERS or 4 }}" step="any" min="1" max="20" placeholder="4">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">Simultaneous API calls (Recommended: 3–5 for Gemini/Groq, 2 for Anthropic/OpenAI)</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Provider: Anthropic -->
             <div class="provider-card">
                 <div class="provider-header">
