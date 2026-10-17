@@ -307,6 +307,19 @@ def get_candidate_details(candidate_name: str) -> dict | None:
             if name.lower() == candidate_name.lower():
                 d["_source_file"] = jf.name
                 d["skills"] = extract_flat_skills(d.get("skills"))
+
+                # Hydrate real candidate email from raw local text if redacted for cloud privacy
+                pinfo = d.setdefault("personal_info", {})
+                current_email = pinfo.get("email") or ""
+                if not current_email or "REDACTED" in current_email.upper():
+                    txt_stem = jf.stem.replace("_nlp", "")
+                    raw_txt_file = data_path(f"output/txt/{txt_stem}.txt")
+                    if raw_txt_file.exists():
+                        raw_content = raw_txt_file.read_text(encoding="utf-8", errors="ignore")
+                        found_emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", raw_content)
+                        if found_emails:
+                            pinfo["email"] = found_emails[0]
+
                 return d
         except Exception:
             continue
