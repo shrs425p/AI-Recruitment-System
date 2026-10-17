@@ -31,7 +31,7 @@ ANSWER_TIME_LIMIT    = 120
 # HELPER: Call AI model
 # ─────────────────────────────────────────────
 
-def call_ai(system_msg: str, user_msg: str, temperature: float = None) -> str:
+def call_ai(system_msg: str, user_msg: str, temperature: float | None = None) -> str:
     """
     Thin wrapper around call_ollama using dynamic model and generation parameters.
     Used internally by all question/evaluation functions in this module.

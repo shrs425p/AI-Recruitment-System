@@ -145,14 +145,14 @@ def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
         nlp_candidates.extend([nlp_path / f"{source_file}.json", nlp_path / f"{source_file}_nlp.json"])
     c_name = token_data.get("candidate_name", "").lower()
     if nlp_path.exists():
-        for f in nlp_path.glob("*_nlp.json"):
-            nlp_candidates.append(f)
+        for p in nlp_path.glob("*_nlp.json"):
+            nlp_candidates.append(p)
 
     for nf in nlp_candidates:
         if nf.exists():
             try:
-                with open(nf, encoding="utf-8") as f:
-                    ndata = json.load(f)
+                with open(nf, encoding="utf-8") as fh:
+                    ndata = json.load(fh)
                 name = ndata.get("personal_info", {}).get("name", "").lower()
                 if not c_name or name == c_name or c_name in name:
                     domain = ndata.get("domain", "")
@@ -172,8 +172,8 @@ def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
         rfiles = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
         if rfiles:
             try:
-                with open(rfiles[0], encoding="utf-8") as f:
-                    rdata = json.load(f)
+                with open(rfiles[0], encoding="utf-8") as fh:
+                    rdata = json.load(fh)
                     jd = rdata.get("job_description", {})
                     job_title = jd.get("job_title") or job_title
                     if not domain:
@@ -186,8 +186,8 @@ def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
             jfiles = sorted(jd_path.glob("jd_*.json"), reverse=True)
             if jfiles:
                 try:
-                    with open(jfiles[0], encoding="utf-8") as f:
-                        jd_data = json.load(f)
+                    with open(jfiles[0], encoding="utf-8") as fh:
+                        jd_data = json.load(fh)
                         job_title = jd_data.get("job_title") or job_title
                         if not domain:
                             domain = jd_data.get("domain") or domain

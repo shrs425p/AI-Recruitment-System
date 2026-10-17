@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master, "fix/**"]
   pull_request:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +10,7 @@ permissions:
 
 jobs:
   quality-and-tests:
-    name: Ruff & Pytest
+    name: Lint, Type Check & Test Suite
     runs-on: windows-latest
 
     steps:
@@ -33,6 +31,18 @@ jobs:
       - name: Lint with Ruff
         run: python -m ruff check .
 
+      - name: Check formatting with Black
+        continue-on-error: true
+        run: python -m black --check .
+
+      - name: Type check with Mypy
+        continue-on-error: true
+        run: python -m mypy app src main.py
+
+      - name: Check Pre-commit hooks
+        continue-on-error: true
+        run: python -m pre_commit run --all-files
+
       - name: Compile application code
         run: python -m compileall -q main.py app src tests
 
@@ -42,6 +52,10 @@ jobs:
 
       - name: Run environment pre-flight
         run: python scripts/verify_environment.py
+
+      - name: Check SonarCloud Quality Gate
+        continue-on-error: true
+        run: python scripts/check_sonar.py
 
       - name: Upload test & coverage artifacts
         if: always()
