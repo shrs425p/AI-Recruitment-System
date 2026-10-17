@@ -11,7 +11,7 @@ def get_app_mode():
     return getattr(config, 'APP_MODE', 'privacy')
 
 def get_privacy_model():
-    return getattr(config, 'PRIVACY_MODEL', 'llama3.2:3b')
+    return getattr(config, 'PRIVACY_MODEL', '') or getattr(config, 'OLLAMA_MODEL', '')
 
 def get_providers():
     return [
@@ -71,7 +71,7 @@ def get_providers():
             "name":    "ollama_cloud",
             "enabled": getattr(config, 'OLLAMA_CLOUD_ENABLED', False),
             "key":     getattr(config, 'OLLAMA_CLOUD_KEY', ''),
-            "model":   getattr(config, 'OLLAMA_CLOUD_MODEL', 'llama3.2:3b'),
+            "model":   getattr(config, 'OLLAMA_CLOUD_MODEL', ''),
             "base_url": getattr(config, 'OLLAMA_BASE_URL', 'http://localhost:11434'),
             "rpm":     120,
         }
