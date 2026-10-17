@@ -31,12 +31,12 @@ ANSWER_TIME_LIMIT    = 120
 # HELPER: Call AI model
 # ─────────────────────────────────────────────
 
-def call_ai(system_msg: str, user_msg: str, temperature: float = 0.0) -> str:
+def call_ai(system_msg: str, user_msg: str, temperature: float | None = None) -> str:
     """
-    Thin wrapper around call_ollama with a fixed token budget of 2048.
+    Thin wrapper around call_ollama using dynamic model and generation parameters.
     Used internally by all question/evaluation functions in this module.
     """
-    return call_ollama(system_msg, user_msg, temperature, num_predict=2048)
+    return call_ollama(system_msg, user_msg, temperature=temperature)
 
 # ─────────────────────────────────────────────
 # STEP 1: LOAD CONFIRMED CANDIDATES
@@ -168,6 +168,66 @@ def evaluate_answer(question: str, answer: str, job_title: str, domain: str) -> 
             "correctness": 0, "total": 0,
             "feedback": "Evaluation failed.", "strong_points": [], "weak_points": []
         }
+
+
+# ─────────────────────────────────────────────
+# STEP 4B: ADAPTIVE CONVERSATIONAL FOLLOW-UP PROBING
+# ─────────────────────────────────────────────
+
+def should_probe_further(evaluation: dict, answer: str) -> bool:
+    """
+    Determine if a candidate answer is shallow, vague, or high-level
+    and warrants an adaptive conversational follow-up probe.
+    Does not probe blank answers, explicit skips, or answers that already achieved high depth.
+    """
+    cleaned = answer.strip().lower()
+    words = len(cleaned.split())
+    if words < 5 or cleaned in ("pass", "skip", "i don't know", "no idea", "na", "n/a", "none"):
+        return False
+
+    depth = evaluation.get("depth", 0)
+    total = evaluation.get("total", 0)
+    # Probe when depth is low (<= 1) or total is below 7 with at least 5 words to explore
+    return depth <= 1 or (total < 7 and words >= 5)
+
+
+def generate_adaptive_followup(question: str, answer: str, job_title: str, domain: str) -> str:
+    """
+    Generate a dynamic, conversational follow-up probing question when candidate answer lacks depth.
+    Interjects to challenge vague claims with implementation specifics, real-world edge cases, and trade-offs.
+    """
+    system_msg = (
+        "You are an expert technical interviewer conducting a live conversational interview. "
+        "A candidate just gave an answer that was high-level, generic, or lacked implementation depth. "
+        "Formulate ONE direct, conversational follow-up probing question to test whether they truly have "
+        "hands-on experience or are just reciting memorized definitions. "
+        "Ground your follow-up directly in a technology, tool, or concept they mentioned (e.g., 'You mentioned Redis for caching; how did you handle cache invalidation during write spikes?'). "
+        "Return ONLY the single follow-up question text with no markdown, quotes, or preambles."
+    )
+    user_msg = (
+        f"Target Role: {job_title}\n"
+        f"Domain: {domain}\n"
+        f"Original Question: {question}\n"
+        f"Candidate Answer: {answer}\n\n"
+        f"Generate a single, direct follow-up probe:"
+    )
+
+    try:
+        raw = call_ai(system_msg, user_msg, temperature=0.3)
+        if raw:
+            probe = raw.strip().strip('"').strip("'").strip()
+            # If the model added preambles or multiple lines, take the most direct question line
+            lines = [line.strip() for line in probe.splitlines() if line.strip() and "?" in line]
+            if lines:
+                return lines[0]
+            if len(probe) > 15:
+                return probe
+    except Exception as e:
+        logger.warning("Adaptive follow-up generation failed: %s", e)
+
+    # Contextual high-quality fallback probe
+    return f"You mentioned {domain} concepts in your response. Could you walk me through the specific technical edge cases, failure modes, or trade-offs you handled with that implementation?"
+
 
 # ─────────────────────────────────────────────
 # STEP 5: PROCTORING (GUI-less basic checks)
@@ -495,7 +555,7 @@ def generate_interview_question(
 
     try:
         from src.common import call_ollama
-        raw = call_ollama(system_msg, prompt, temperature=0.5, num_predict=512)
+        raw = call_ollama(system_msg, prompt)
         if raw:
             # Strip extra quotes or prefixes if the AI generated them
             cleaned = raw.strip().strip('"').strip("'").strip()

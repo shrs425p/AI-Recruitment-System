@@ -11,7 +11,10 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
-import ai_mode
+try:
+    import ai_mode
+except ImportError:
+    from src import ai_mode
 
 
 def sanitize_prompt_pii(text: str, candidate_name: str = "") -> str:
@@ -79,6 +82,21 @@ def sync_http_post(url, headers, payload):
         ) from e
 
 
+def _calc_provider_cost(provider_name: str, p_tok: int, c_tok: int) -> float:
+    rates = {
+        "gemini": (0.000075 / 1000, 0.0003 / 1000),
+        "openai": (0.00015 / 1000, 0.0006 / 1000),
+        "anthropic": (0.0008 / 1000, 0.004 / 1000),
+        "groq": (0.00005 / 1000, 0.00008 / 1000),
+        "nvidia": (0.0001 / 1000, 0.0002 / 1000),
+        "github": (0.0, 0.0),
+        "openrouter": (0.00015 / 1000, 0.0006 / 1000),
+        "ollama_cloud": (0.0, 0.0),
+    }
+    p_rate, c_rate = rates.get(provider_name.lower(), (0.0001 / 1000, 0.0002 / 1000))
+    return round((p_tok * p_rate) + (c_tok * c_rate), 6)
+
+
 def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=""):
     """Synchronously call a specific cloud provider's API endpoint with PII sanitized."""
     name = provider["name"]
@@ -89,65 +107,89 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_nam
     sanitized_system_msg = sanitize_prompt_pii(system_msg, candidate_name=candidate_name)
     sanitized_user_msg = sanitize_prompt_pii(user_msg, candidate_name=candidate_name)
 
-    if name == "anthropic":
-        url = "https://api.anthropic.com/v1/messages"
-        headers = {
-            "x-api-key": key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": model,
-            "max_tokens": max_tokens,
-            "system": sanitized_system_msg,
-            "messages": [{"role": "user", "content": sanitized_user_msg}],
-        }
-        res = sync_http_post(url, headers, payload)
-        return json.loads(res)["content"][0]["text"]
+    t0 = time.time()
+    try:
+        if name == "anthropic":
+            url = "https://api.anthropic.com/v1/messages"
+            headers = {
+                "x-api-key": key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": model,
+                "max_tokens": max_tokens,
+                "system": sanitized_system_msg,
+                "messages": [{"role": "user", "content": sanitized_user_msg}],
+            }
+            res = sync_http_post(url, headers, payload)
+            result_text = json.loads(res)["content"][0]["text"]
 
-    elif name == "gemini":
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "contents": [
-                {
-                    "parts": [{"text": f"System Instructions:\n{sanitized_system_msg}\n\nUser Question:\n{sanitized_user_msg}"}]
-                }
-            ]
-        }
-        res = sync_http_post(url, headers, payload)
-        return json.loads(res)["candidates"][0]["content"]["parts"][0]["text"]
+        elif name == "gemini":
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [{"text": f"System Instructions:\n{sanitized_system_msg}\n\nUser Question:\n{sanitized_user_msg}"}]
+                    }
+                ]
+            }
+            res = sync_http_post(url, headers, payload)
+            result_text = json.loads(res)["candidates"][0]["content"]["parts"][0]["text"]
 
-    else:
-        # OpenAI compatible (groq, openai, nvidia, github, openrouter, ollama_cloud)
-        base_url = provider.get("base_url")
-        if name == "openai":
-            base_url = "https://api.openai.com/v1"
-        elif name == "groq":
-            base_url = "https://api.groq.com/openai/v1"  # openai not openapi
-        elif name == "ollama_cloud":
-            base_url = provider.get("key") or provider.get("base_url") or ""
-            parsed = urlparse(base_url)
-            if parsed.scheme != "https":
-                raise RuntimeError("Ollama Cloud base URL must use HTTPS.")
+        else:
+            # OpenAI compatible (groq, openai, nvidia, github, openrouter, ollama_cloud)
+            base_url = provider.get("base_url")
+            if name == "openai":
+                base_url = "https://api.openai.com/v1"
+            elif name == "groq":
+                base_url = "https://api.groq.com/openai/v1"  # openai not openapi
+            elif name == "ollama_cloud":
+                base_url = provider.get("key") or provider.get("base_url") or ""
+                parsed = urlparse(base_url)
+                if parsed.scheme != "https":
+                    raise RuntimeError("Ollama Cloud base URL must use HTTPS.")
 
-        url = f"{base_url.rstrip('/')}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-        }
-        if name == "ollama_cloud":
-            headers = {"Content-Type": "application/json"}  # no auth key required
+            url = f"{base_url.rstrip('/')}/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            }
+            if name == "ollama_cloud":
+                headers = {"Content-Type": "application/json"}  # no auth key required
 
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": sanitized_system_msg},
-                {"role": "user", "content": sanitized_user_msg},
-            ],
-        }
-        res = sync_http_post(url, headers, payload)
-        return json.loads(res)["choices"][0]["message"]["content"]
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": sanitized_system_msg},
+                    {"role": "user", "content": sanitized_user_msg},
+                ],
+            }
+            res = sync_http_post(url, headers, payload)
+            result_text = json.loads(res)["choices"][0]["message"]["content"]
+
+        latency = time.time() - t0
+        p_tokens = (len(sanitized_system_msg) + len(sanitized_user_msg)) // 4
+        c_tokens = len(result_text) // 4
+        cost = _calc_provider_cost(name, p_tokens, c_tokens)
+        try:
+            from app.database import log_telemetry
+            log_telemetry(name, model, p_tokens, c_tokens, latency, "SUCCESS", cost)
+        except Exception:
+            pass
+
+        return result_text
+    except Exception:
+        latency = time.time() - t0
+        p_tokens = (len(sanitized_system_msg) + len(sanitized_user_msg)) // 4
+        try:
+            from app.database import log_telemetry
+            log_telemetry(name, model, p_tokens, 0, latency, "ERROR", 0.0)
+        except Exception:
+            pass
+        raise
+
 
 
 class ProviderRouter:
@@ -220,13 +262,34 @@ class ProviderRouter:
             return active[0]
 
     async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048, candidate_name: str = "") -> str:
-        """Query LLM asynchronously using round-robin provider balancing."""
-        provider = await self.get_provider()
+        """Query LLM asynchronously using round-robin provider balancing with local fallback."""
+        active = self.get_active_providers()
+        if not active:
+            logger.warning("  [WARNING] No cloud providers active. Falling back to local Ollama...")
+            from src.common import call_ollama_async
+            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens)
 
-        def _sync_wrapper():
-            return call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
-
+        last_error = None
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, _sync_wrapper)
+
+        for provider in active:
+            try:
+                def _sync_wrapper(prov=provider):
+                    return call_provider_sync(prov, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
+                return await loop.run_in_executor(None, _sync_wrapper)
+            except Exception as e:
+                last_error = e
+                logger.warning(f"  [WARNING] Cloud provider '{provider['name']}' failed ({e}). Checking alternatives...")
+
+        # If all cloud providers are rate-limited or failed, fall back to local Ollama
+        logger.warning(f"  [WARNING] All cloud providers failed or quota exceeded ({last_error}). Falling back to local Ollama...")
+        try:
+            from src.common import call_ollama_async
+            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens)
+        except Exception as oe:
+            logger.error(f"  [ERROR] Fallback to local Ollama also failed: {oe}")
+            if last_error:
+                raise last_error
+            raise oe
 
 router = ProviderRouter()

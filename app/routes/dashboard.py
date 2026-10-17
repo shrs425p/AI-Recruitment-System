@@ -108,8 +108,11 @@ def _run_nlp_stage(results):
     run_id = create_run("nlp", {"file_count": len(txt_files), "source": "auto_pipeline"})
     import asyncio
 
+    from src.ai_mode import get_pipeline_workers
+    workers = get_pipeline_workers()
+
     async def run_batch():
-        sem = asyncio.Semaphore(1)
+        sem = asyncio.Semaphore(workers)
         async def limited_process(f):
             async with sem:
                 try:

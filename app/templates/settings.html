@@ -682,9 +682,62 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label class="form-label" for="ollamaFallbackModelSelect">Fallback Model</label>
+                        <select class="form-input" name="ollama_fallback_model" id="ollamaFallbackModelSelect">
+                            <option value="">None (Disabled)</option>
+                            {% if cfg.OLLAMA_FALLBACK_MODEL %}
+                            <option value="{{ cfg.OLLAMA_FALLBACK_MODEL }}" selected>{{ cfg.OLLAMA_FALLBACK_MODEL }}</option>
+                            {% endif %}
+                        </select>
+                        <span style="font-size:0.75rem; color:var(--gray-400);">Used automatically if active model fails or times out</span>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:14px;">
+                    <div class="form-group">
+                        <label class="form-label" for="ollamaNumCtx">Context Window (num_ctx)</label>
+                        <input type="number" class="form-input" id="ollamaNumCtx" name="ollama_num_ctx"
+                            value="{{ cfg.OLLAMA_NUM_CTX or 8192 }}" step="any" min="512" max="131072"
+                            placeholder="8192">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">e.g. 4096, 8192, 16384, 32768</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ollamaNumPredict">Max Tokens (num_predict)</label>
+                        <input type="number" class="form-input" id="ollamaNumPredict" name="ollama_num_predict"
+                            value="{{ cfg.OLLAMA_NUM_PREDICT or 4096 }}" step="any" min="1" max="65536"
+                            placeholder="4096">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">Tokens for response generation</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ollamaTemperature">Temperature</label>
+                        <input type="number" class="form-input" id="ollamaTemperature" name="ollama_temperature"
+                            value="{{ cfg.OLLAMA_TEMPERATURE if cfg.OLLAMA_TEMPERATURE is not none else 0.0 }}"
+                            step="any" min="0.0" max="2.0" placeholder="0.0">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">0.0 = deterministic, 0.7 = creative</span>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-top:14px;">
+                    <div class="form-group">
                         <label class="form-label" for="ollamaBaseUrl">Local Server URL</label>
                         <input class="form-input" id="ollamaBaseUrl" name="ollama_base_url" value="{{ cfg.OLLAMA_BASE_URL }}"
                             placeholder="http://localhost:11434">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ollamaWorkers">Concurrent Workers</label>
+                        <input type="number" class="form-input" id="ollamaWorkers" name="ollama_workers"
+                            value="{{ cfg.OLLAMA_WORKERS or 1 }}" step="any" min="1" max="10" placeholder="1">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">Parallel resumes (1=sequential, 2=2x, etc.)</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="aiRetryAttempts">Retry Attempts</label>
+                        <input type="number" class="form-input" id="aiRetryAttempts" name="ai_retry_attempts"
+                            value="{{ cfg.AI_RETRY_ATTEMPTS or 3 }}" step="any" min="1" max="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="aiRetryBackoff">Retry Backoff (seconds)</label>
+                        <input type="number" class="form-input" id="aiRetryBackoff" name="ai_retry_backoff"
+                            value="{{ cfg.AI_RETRY_BACKOFF or 2 }}" step="any" min="1" max="30">
                     </div>
                 </div>
 
@@ -730,6 +783,20 @@
         <!-- ============================================= -->
         <div id="panel-cloud" class="ai-mode-panel"
             {% if cfg.APP_MODE != 'cloud' %}style="margin-top:16px; display:none;"{% else %}style="margin-top:16px;"{% endif %}>
+
+            <!-- Cloud Concurrency Card -->
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-title">Cloud Pipeline Concurrency</div>
+                <div class="card-desc">Configure concurrent API workers when processing resumes through cloud AI models (Gemini, Groq, OpenAI, Claude).</div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label" for="cloudWorkers">Concurrent Cloud Workers</label>
+                        <input type="number" class="form-input" id="cloudWorkers" name="cloud_workers"
+                            value="{{ cfg.CLOUD_WORKERS or 1 }}" step="any" min="1" max="20" placeholder="1">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">Simultaneous API calls (Recommended: 3–5 for Gemini/Groq, 2 for Anthropic/OpenAI)</span>
+                    </div>
+                </div>
+            </div>
 
             <!-- Provider: Anthropic -->
             <div class="provider-card">
@@ -1326,23 +1393,45 @@
     // ── Ollama model list ──
     function loadOllamaModels() {
         const sel = document.getElementById('ollamaModelSelect');
-        if (!sel) return;
-        const current = sel.value;
+        const fallbackSel = document.getElementById('ollamaFallbackModelSelect');
+        if (!sel && !fallbackSel) return;
+        const current = sel ? sel.value : '';
+        const currentFallback = fallbackSel ? fallbackSel.value : '';
+
         fetch('/api/ollama/models').then(r => r.json()).then(data => {
             if (data.error) { console.warn('Ollama:', data.error); return; }
-            sel.innerHTML = '';
-            data.models.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m; opt.textContent = m;
-                if (m === current) opt.selected = true;
-                sel.appendChild(opt);
-            });
-            // ensure current value stays selected even if not in list
-            if (!data.models.includes(current)) {
-                const opt = document.createElement('option');
-                opt.value = current; opt.textContent = current + ' (not found)';
-                opt.selected = true;
-                sel.prepend(opt);
+            const models = data.models || [];
+
+            if (sel) {
+                sel.innerHTML = '';
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m; opt.textContent = m;
+                    if (m === current) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                if (current && !models.includes(current)) {
+                    const opt = document.createElement('option');
+                    opt.value = current; opt.textContent = current + ' (not found)';
+                    opt.selected = true;
+                    sel.prepend(opt);
+                }
+            }
+
+            if (fallbackSel) {
+                fallbackSel.innerHTML = '<option value="">None (Disabled)</option>';
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m; opt.textContent = m;
+                    if (m === currentFallback) opt.selected = true;
+                    fallbackSel.appendChild(opt);
+                });
+                if (currentFallback && !models.includes(currentFallback)) {
+                    const opt = document.createElement('option');
+                    opt.value = currentFallback; opt.textContent = currentFallback + ' (not found)';
+                    opt.selected = true;
+                    fallbackSel.appendChild(opt);
+                }
             }
         }).catch(() => { });
     }

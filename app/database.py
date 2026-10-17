@@ -128,11 +128,48 @@ def init_db():
             updated_at     TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS candidate_embeddings (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_name TEXT NOT NULL UNIQUE,
+            source_file    TEXT DEFAULT '',
+            domain         TEXT DEFAULT '',
+            skills_json    TEXT DEFAULT '[]',
+            profile_text   TEXT DEFAULT '',
+            vector_json    TEXT DEFAULT '[]',
+            updated_at     TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_telemetry (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider          TEXT NOT NULL,
+            model             TEXT NOT NULL,
+            prompt_tokens     INTEGER DEFAULT 0,
+            completion_tokens INTEGER DEFAULT 0,
+            latency_seconds   REAL DEFAULT 0.0,
+            status            TEXT DEFAULT 'SUCCESS',
+            cost_usd          REAL DEFAULT 0.0,
+            created_at        TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS candidate_feedback (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_name TEXT NOT NULL,
+            email          TEXT DEFAULT '',
+            job_title      TEXT DEFAULT '',
+            feedback_text  TEXT NOT NULL,
+            status         TEXT DEFAULT 'DRAFT',
+            sent_at        TEXT,
+            created_at     TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_candidates_run_id ON candidates(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_run_id ON schedules(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status);
         CREATE INDEX IF NOT EXISTS idx_interview_tokens_token ON interview_tokens(token);
         CREATE INDEX IF NOT EXISTS idx_interview_sessions_token ON interview_sessions(token);
+        CREATE INDEX IF NOT EXISTS idx_candidate_embeddings_name ON candidate_embeddings(candidate_name);
+        CREATE INDEX IF NOT EXISTS idx_ai_telemetry_created ON ai_telemetry(created_at);
+        CREATE INDEX IF NOT EXISTS idx_candidate_feedback_name ON candidate_feedback(candidate_name);
     """)
     conn.commit()
     conn.close()
@@ -623,4 +660,158 @@ def cleanup_expired_interview_sessions(ttl_seconds: int = 7200) -> int:
     with db_session() as conn:
         cur = conn.execute("DELETE FROM interview_sessions WHERE created_at < ?", (cutoff,))
         return cur.rowcount
+
+
+# ─── Talent Intelligence & Analytics Helpers ───
+
+def upsert_candidate_embedding(candidate_name: str, source_file: str, domain: str, skills: list, profile_text: str, vector: list):
+    """Store or update candidate vector profile in SQLite."""
+    with db_session() as conn:
+        conn.execute("""
+            INSERT INTO candidate_embeddings (candidate_name, source_file, domain, skills_json, profile_text, vector_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(candidate_name) DO UPDATE SET
+                source_file = excluded.source_file,
+                domain = excluded.domain,
+                skills_json = excluded.skills_json,
+                profile_text = excluded.profile_text,
+                vector_json = excluded.vector_json,
+                updated_at = datetime('now')
+        """, (
+            candidate_name,
+            source_file,
+            domain,
+            json.dumps(skills or []),
+            profile_text,
+            json.dumps(vector or [])
+        ))
+
+
+def get_all_candidate_embeddings() -> list:
+    """Fetch all candidate vector profiles from SQLite."""
+    with db_session() as conn:
+        rows = conn.execute("""
+            SELECT id, candidate_name, source_file, domain, skills_json, profile_text, vector_json, updated_at
+            FROM candidate_embeddings
+            ORDER BY candidate_name ASC
+        """).fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                "id": r["id"],
+                "candidate_name": r["candidate_name"],
+                "source_file": r["source_file"],
+                "domain": r["domain"],
+                "skills": json.loads(r["skills_json"]) if r["skills_json"] else [],
+                "profile_text": r["profile_text"],
+                "vector": json.loads(r["vector_json"]) if r["vector_json"] else [],
+                "updated_at": r["updated_at"]
+            })
+        return result
+
+
+def log_telemetry(provider: str, model: str, prompt_tokens: int, completion_tokens: int, latency_seconds: float, status: str = "SUCCESS", cost_usd: float = 0.0):
+    """Log an AI request event for performance and cost tracking."""
+    try:
+        with db_session() as conn:
+            conn.execute("""
+                INSERT INTO ai_telemetry (provider, model, prompt_tokens, completion_tokens, latency_seconds, status, cost_usd, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """, (
+                provider or "unknown",
+                model or "unknown",
+                int(prompt_tokens or 0),
+                int(completion_tokens or 0),
+                float(latency_seconds or 0.0),
+                status or "SUCCESS",
+                float(cost_usd or 0.0)
+            ))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to log AI telemetry: %s", e)
+
+
+def get_telemetry_metrics() -> dict:
+    """Return aggregated AI telemetry metrics for dashboard visualization."""
+    with db_session() as conn:
+        total_calls = conn.execute("SELECT COUNT(*) as count FROM ai_telemetry").fetchone()["count"]
+        avg_latency = conn.execute("SELECT AVG(latency_seconds) as avg_lat FROM ai_telemetry WHERE latency_seconds > 0").fetchone()["avg_lat"] or 0.0
+        total_prompt_tok = conn.execute("SELECT SUM(prompt_tokens) as tok FROM ai_telemetry").fetchone()["tok"] or 0
+        total_comp_tok = conn.execute("SELECT SUM(completion_tokens) as tok FROM ai_telemetry").fetchone()["tok"] or 0
+        total_cost = conn.execute("SELECT SUM(cost_usd) as cost FROM ai_telemetry").fetchone()["cost"] or 0.0
+
+        provider_breakdown = conn.execute("""
+            SELECT provider, COUNT(*) as count, AVG(latency_seconds) as avg_lat,
+                   SUM(prompt_tokens + completion_tokens) as total_tokens,
+                   SUM(cost_usd) as total_cost
+            FROM ai_telemetry
+            GROUP BY provider
+            ORDER BY count DESC
+        """).fetchall()
+
+        # Calculate estimated savings from Ollama (cloud pricing ~$0.003 / 1k tokens = ~₹0.25 / 1k tokens)
+        USD_TO_INR = 85.0
+        ollama_tokens = conn.execute("""
+            SELECT SUM(prompt_tokens + completion_tokens) as tok
+            FROM ai_telemetry
+            WHERE provider LIKE '%ollama%' OR provider LIKE '%privacy%'
+        """).fetchone()["tok"] or 0
+        estimated_saved_usd = round((ollama_tokens / 1000.0) * 0.003, 2)
+        estimated_saved_inr = round(estimated_saved_usd * USD_TO_INR, 2)
+        total_cost_inr = round(total_cost * USD_TO_INR, 2)
+
+        providers = []
+        for r in provider_breakdown:
+            p_dict = dict(r)
+            p_cost_usd = p_dict.get("total_cost") or 0.0
+            p_dict["total_cost_usd"] = round(p_cost_usd, 4)
+            p_dict["total_cost_inr"] = round(p_cost_usd * USD_TO_INR, 2)
+            p_dict["total_cost"] = p_dict["total_cost_inr"]
+            providers.append(p_dict)
+
+        return {
+            "total_calls": total_calls,
+            "avg_latency": round(avg_latency, 2),
+            "total_tokens": total_prompt_tok + total_comp_tok,
+            "total_cost": total_cost_inr,
+            "total_cost_usd": round(total_cost, 4),
+            "total_cost_inr": total_cost_inr,
+            "estimated_saved_usd": estimated_saved_usd,
+            "estimated_saved_inr": estimated_saved_inr,
+            "currency": "INR",
+            "currency_symbol": "₹",
+            "providers": providers
+        }
+
+
+def save_candidate_feedback(candidate_name: str, email: str, job_title: str, feedback_text: str, status: str = "DRAFT") -> int:
+    """Save or update tailored candidate feedback."""
+    with db_session() as conn:
+        cur = conn.execute("""
+            INSERT INTO candidate_feedback (candidate_name, email, job_title, feedback_text, status, created_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        """, (candidate_name, email or "", job_title or "", feedback_text, status))
+        return cur.lastrowid
+
+
+def get_all_candidate_feedback() -> list:
+    """Fetch all candidate feedback items."""
+    with db_session() as conn:
+        rows = conn.execute("""
+            SELECT id, candidate_name, email, job_title, feedback_text, status, sent_at, created_at
+            FROM candidate_feedback
+            ORDER BY id DESC
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
+def mark_feedback_sent(feedback_id: int):
+    """Mark a feedback item as SENT with current timestamp."""
+    with db_session() as conn:
+        conn.execute("""
+            UPDATE candidate_feedback
+            SET status = 'SENT', sent_at = datetime('now')
+            WHERE id = ?
+        """, (feedback_id,))
+
 

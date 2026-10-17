@@ -15,7 +15,13 @@ from app.core import OUTPUT_FOLDER
 from app.database import create_interview_token, get_all_tokens, get_interview_token
 from app.rate_limiter import SimpleRateLimiter
 from app.utils import login_required
-from src.interview_bot import evaluate_answer, generate_interview_question, proctor_check
+from src.interview_bot import (
+    evaluate_answer,
+    generate_adaptive_followup,
+    generate_interview_question,
+    proctor_check,
+    should_probe_further,
+)
 from src.webcam_proctor import start_proctoring as start_proctoring_session
 from src.webcam_proctor import stop_proctoring
 
@@ -145,14 +151,14 @@ def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
         nlp_candidates.extend([nlp_path / f"{source_file}.json", nlp_path / f"{source_file}_nlp.json"])
     c_name = token_data.get("candidate_name", "").lower()
     if nlp_path.exists():
-        for f in nlp_path.glob("*_nlp.json"):
-            nlp_candidates.append(f)
+        for p in nlp_path.glob("*_nlp.json"):
+            nlp_candidates.append(p)
 
     for nf in nlp_candidates:
         if nf.exists():
             try:
-                with open(nf, encoding="utf-8") as f:
-                    ndata = json.load(f)
+                with open(nf, encoding="utf-8") as fh:
+                    ndata = json.load(fh)
                 name = ndata.get("personal_info", {}).get("name", "").lower()
                 if not c_name or name == c_name or c_name in name:
                     domain = ndata.get("domain", "")
@@ -172,8 +178,8 @@ def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
         rfiles = sorted(ranking_path.glob("ranking_scores*.json"), reverse=True)
         if rfiles:
             try:
-                with open(rfiles[0], encoding="utf-8") as f:
-                    rdata = json.load(f)
+                with open(rfiles[0], encoding="utf-8") as fh:
+                    rdata = json.load(fh)
                     jd = rdata.get("job_description", {})
                     job_title = jd.get("job_title") or job_title
                     if not domain:
@@ -186,8 +192,8 @@ def _resolve_candidate_job_context(token_data: dict) -> tuple[str, str, list]:
             jfiles = sorted(jd_path.glob("jd_*.json"), reverse=True)
             if jfiles:
                 try:
-                    with open(jfiles[0], encoding="utf-8") as f:
-                        jd_data = json.load(f)
+                    with open(jfiles[0], encoding="utf-8") as fh:
+                        jd_data = json.load(fh)
                         job_title = jd_data.get("job_title") or job_title
                         if not domain:
                             domain = jd_data.get("domain") or domain
@@ -365,6 +371,42 @@ def register_candidate_interview_routes(app):
         if error:
             return error
         expected_q_num = len(session_data["responses"]) + 1
+        is_followup_turn = bool(session_data.get("is_followup", False))
+
+        # If previous turn was an un-answered follow-up probe and client advances to next question,
+        # finalize the previous question with its initial evaluation.
+        if is_followup_turn and q_num == expected_q_num + 1:
+            prev_q_num = expected_q_num
+            prev_topic = session_data.get("pending_topic", "General")
+            prev_q_type = session_data.get("pending_q_type", "TECHNICAL")
+            initial_q = session_data.get("initial_question", "")
+            initial_ans = session_data.get("initial_answer", "")
+            initial_eval = session_data.get("initial_evaluation") or evaluate_answer(
+                question=initial_q,
+                answer=initial_ans,
+                job_title=session_data.get("job_title", "Technical Role"),
+                domain=session_data.get("domain") or prev_topic,
+            )
+            session_data["responses"].append({
+                "question_num": prev_q_num,
+                "type": prev_q_type,
+                "topic": prev_topic,
+                "question": initial_q,
+                "answer": initial_ans,
+                "was_probed": True,
+                "score": initial_eval.get("total", 0),
+                "evaluation": initial_eval,
+                "answer_flags": [],
+                "time_taken": 0,
+                "server_verified_time": 0.0,
+            })
+            session_data["is_followup"] = False
+            session_data.pop("initial_question", None)
+            session_data.pop("initial_answer", None)
+            session_data.pop("initial_evaluation", None)
+            expected_q_num = len(session_data["responses"]) + 1
+            is_followup_turn = False
+
         if q_num != expected_q_num:
             return jsonify({"error": f"Expected question {expected_q_num}, got {q_num}"}), 409
 
@@ -386,35 +428,115 @@ def register_candidate_interview_routes(app):
         if server_time_taken > 300.0:
             server_proctor_flags.append("PROLONGED_RESPONSE_DELAY")
 
-        evaluation = evaluate_answer(
-            question=question,
-            answer=answer,
-            job_title=session_data.get("job_title", "Technical Role"),
-            domain=session_data.get("domain") or topic,
-        )
-        score = evaluation.get("total", 0)
-        answer_flags = proctor_check(q_num, answer, server_time_taken)
-        all_flags = list(dict.fromkeys(answer_flags.get("flags", []) + server_proctor_flags))
-        answer_flags["flags"] = all_flags
-        answer_flags["flagged"] = len(all_flags) > 0
-        answer_flags["server_verified_time"] = server_time_taken
+        is_followup_turn = bool(session_data.get("is_followup", False))
 
-        session_data["responses"].append({
-            "question_num":        q_num,
-            "type":                q_type,
-            "topic":               topic,
-            "question":            question,
-            "answer":              answer,
-            "score":               score,
-            "evaluation":          evaluation,
-            "answer_flags":        all_flags,
-            "time_taken":          int(server_time_taken),
-            "server_verified_time": server_time_taken,
-        })
+        if is_followup_turn:
+            initial_q = session_data.get("initial_question", question)
+            initial_ans = session_data.get("initial_answer", "")
+            followup_q = session_data.get("pending_question", question)
+
+            if answer.upper() == "SKIP":
+                full_answer = initial_ans
+            else:
+                full_answer = f"{initial_ans}\n\n[Candidate Follow-Up Elaboration]: {answer}"
+
+            evaluation = evaluate_answer(
+                question=initial_q,
+                answer=full_answer,
+                job_title=session_data.get("job_title", "Technical Role"),
+                domain=session_data.get("domain") or topic,
+            )
+            score = evaluation.get("total", 0)
+            answer_flags = proctor_check(q_num, answer, server_time_taken)
+            all_flags = list(dict.fromkeys(answer_flags.get("flags", []) + server_proctor_flags))
+            answer_flags["flags"] = all_flags
+            answer_flags["flagged"] = len(all_flags) > 0
+            answer_flags["server_verified_time"] = server_time_taken
+
+            session_data["responses"].append({
+                "question_num":        q_num,
+                "type":                q_type,
+                "topic":               topic,
+                "question":            initial_q,
+                "followup_question":   followup_q,
+                "answer":              full_answer,
+                "was_probed":          True,
+                "score":               score,
+                "evaluation":          evaluation,
+                "answer_flags":        all_flags,
+                "time_taken":          int(server_time_taken),
+                "server_verified_time": server_time_taken,
+            })
+
+            session_data["is_followup"] = False
+            session_data.pop("initial_question", None)
+            session_data.pop("initial_answer", None)
+        else:
+            evaluation = evaluate_answer(
+                question=question,
+                answer=answer,
+                job_title=session_data.get("job_title", "Technical Role"),
+                domain=session_data.get("domain") or topic,
+            )
+            score = evaluation.get("total", 0)
+            answer_flags = proctor_check(q_num, answer, server_time_taken)
+            all_flags = list(dict.fromkeys(answer_flags.get("flags", []) + server_proctor_flags))
+            answer_flags["flags"] = all_flags
+            answer_flags["flagged"] = len(all_flags) > 0
+            answer_flags["server_verified_time"] = server_time_taken
+
+            probed_questions = session_data.get("probed_questions", [])
+            if q_num not in probed_questions and should_probe_further(evaluation, answer):
+                followup_q = generate_adaptive_followup(
+                    question=question,
+                    answer=answer,
+                    job_title=session_data.get("job_title", "Technical Role"),
+                    domain=session_data.get("domain") or topic,
+                )
+                session_data["is_followup"] = True
+                session_data["initial_question"] = question
+                session_data["initial_answer"] = answer
+                session_data["initial_evaluation"] = evaluation
+                session_data["pending_question"] = followup_q
+                session_data["probed_questions"] = probed_questions + [q_num]
+                session_data["question_issued_at"] = time.time()
+
+                from app.database import save_interview_session
+                save_interview_session(session_data.get("session_id", data.get("session_id")), session_data)
+
+                return jsonify({
+                    "success":           True,
+                    "is_followup":       True,
+                    "done":              False,
+                    "followup_question": followup_q,
+                    "original_question": question,
+                    "question_num":      q_num,
+                    "q_type":            q_type,
+                    "topic":             topic,
+                    "evaluation":        evaluation,
+                    "proctor":           answer_flags,
+                })
+
+            session_data["responses"].append({
+                "question_num":        q_num,
+                "type":                q_type,
+                "topic":               topic,
+                "question":            question,
+                "answer":              answer,
+                "was_probed":          False,
+                "score":               score,
+                "evaluation":          evaluation,
+                "answer_flags":        all_flags,
+                "time_taken":          int(server_time_taken),
+                "server_verified_time": server_time_taken,
+            })
 
         if q_num >= len(INTERVIEW_PLAN):
+            from app.database import save_interview_session
+            save_interview_session(session_data.get("session_id", data.get("session_id")), session_data)
             return jsonify({
                 "success":    True,
+                "is_followup": False,
                 "done":       True,
                 "evaluation": evaluation,
                 "proctor":    answer_flags,
@@ -448,6 +570,7 @@ def register_candidate_interview_routes(app):
 
         return jsonify({
             "success":       True,
+            "is_followup":   False,
             "done":          False,
             "next_q":        next_q,
             "next_question": _question_payload(next_q, next_q_num),

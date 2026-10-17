@@ -85,8 +85,10 @@ def register_ranking_routes(app):
     @app.route("/api/rank", methods=["POST"])
     @login_required
     def api_rank():
-        data    = request.json
-        jd_text = data.get("jd_text", "").strip()
+        data           = request.json or {}
+        jd_text        = data.get("jd_text", "").strip()
+        weights        = data.get("weights")
+        knockout_rules = data.get("knockout_rules")
         if not jd_text:
             return jsonify({"error": "No JD provided"}), 400
 
@@ -101,9 +103,14 @@ def register_ranking_routes(app):
         output_path = OUTPUT_FOLDER / "ranking"
         output_path.mkdir(exist_ok=True)
 
-        jd_data = call_ai(build_jd_prompt(jd_text))
+        try:
+            jd_data = call_ai(build_jd_prompt(jd_text))
+        except Exception as e:
+            return jsonify({
+                "error": f"AI Parsing Error: {e}. If your Cloud API quota is exhausted, switch to Privacy Mode in Settings to use your offline Ollama model without limits."
+            }), 429 if "429" in str(e) else 500
         if not jd_data:
-            return jsonify({"error": "Failed to parse JD"}), 500
+            return jsonify({"error": "Failed to parse Job Description. Please try again."}), 500
 
         # Fallback if AI returned empty template
         if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
@@ -116,7 +123,10 @@ def register_ranking_routes(app):
 
         scored = []
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(score_candidate, c, jd_data): c for c in candidates}
+            futures = {
+                executor.submit(score_candidate, c, jd_data, weights=weights, knockout_rules=knockout_rules): c
+                for c in candidates
+            }
             for future in as_completed(futures):
                 result = future.result()
                 if result:
@@ -124,7 +134,7 @@ def register_ranking_routes(app):
 
         ranked = sorted(scored, key=lambda x: x.get("total_score", 0), reverse=True)
         save_leaderboard_txt(ranked, jd_data, output_path)
-        save_scores_json(ranked, jd_data, output_path)
+        save_scores_json(ranked, jd_data, output_path, weights=weights, knockout_rules=knockout_rules)
         shortlist = save_shortlist_report(ranked, jd_data, output_path)
 
         run_id = create_run("ranking", {"job_title": jd_data.get("job_title"), "count": len(ranked)})

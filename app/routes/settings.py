@@ -73,9 +73,45 @@ def register_settings_routes(app):
                 cfg.HR_COMPANY      = request.form.get("company", "").strip()
 
             # ── Ollama / AI Mode ──
-            if "ollama_model" in request.form:
-                cfg.OLLAMA_MODEL   = request.form.get("ollama_model", cfg.OLLAMA_MODEL).strip()
-                cfg.OLLAMA_BASE_URL = request.form.get("ollama_base_url", cfg.OLLAMA_BASE_URL).strip()
+            if "ollama_model" in request.form or "privacy_model" in request.form or "ollama_base_url" in request.form:
+                new_model = (request.form.get("privacy_model") or request.form.get("ollama_model") or "").strip()
+                if new_model:
+                    cfg.PRIVACY_MODEL = new_model
+                    cfg.OLLAMA_MODEL = new_model
+                if "ollama_base_url" in request.form:
+                    cfg.OLLAMA_BASE_URL = request.form.get("ollama_base_url", cfg.OLLAMA_BASE_URL).strip()
+                if "ollama_fallback_model" in request.form:
+                    cfg.OLLAMA_FALLBACK_MODEL = request.form.get("ollama_fallback_model", "").strip()
+                if "ollama_num_ctx" in request.form:
+                    try:
+                        cfg.OLLAMA_NUM_CTX = int(request.form.get("ollama_num_ctx"))
+                    except (ValueError, TypeError):
+                        pass
+                if "ollama_num_predict" in request.form:
+                    try:
+                        cfg.OLLAMA_NUM_PREDICT = int(request.form.get("ollama_num_predict"))
+                    except (ValueError, TypeError):
+                        pass
+                if "ollama_temperature" in request.form:
+                    try:
+                        cfg.OLLAMA_TEMPERATURE = float(request.form.get("ollama_temperature"))
+                    except (ValueError, TypeError):
+                        pass
+                if "ai_retry_attempts" in request.form:
+                    try:
+                        cfg.AI_RETRY_ATTEMPTS = int(request.form.get("ai_retry_attempts"))
+                    except (ValueError, TypeError):
+                        pass
+                if "ai_retry_backoff" in request.form:
+                    try:
+                        cfg.AI_RETRY_BACKOFF = int(request.form.get("ai_retry_backoff"))
+                    except (ValueError, TypeError):
+                        pass
+                if "ollama_workers" in request.form:
+                    try:
+                        cfg.OLLAMA_WORKERS = max(1, min(10, int(request.form.get("ollama_workers"))))
+                    except (ValueError, TypeError):
+                        pass
 
             if "app_mode" in request.form:
                 cfg.APP_MODE = request.form.get("app_mode", "privacy").strip()
@@ -88,7 +124,9 @@ def register_settings_routes(app):
                 cfg.GITHUB_KEY    = request.form.get("github_key", "").strip()
                 cfg.OLLAMA_CLOUD_KEY = request.form.get("ollama_cloud_key", "").strip()
 
-                cfg.PRIVACY_MODEL   = request.form.get("privacy_model", "llama3.2:3b").strip()
+                if "privacy_model" in request.form:
+                    cfg.PRIVACY_MODEL = request.form.get("privacy_model", cfg.PRIVACY_MODEL).strip()
+                    cfg.OLLAMA_MODEL = cfg.PRIVACY_MODEL
                 cfg.ANTHROPIC_MODEL = request.form.get("anthropic_model", "claude-3-5-haiku-latest").strip()
                 cfg.GEMINI_MODEL    = request.form.get("gemini_model", "gemini-1.5-flash").strip()
                 cfg.GROQ_MODEL      = request.form.get("groq_model", "llama3-8b-8192").strip()
@@ -96,7 +134,7 @@ def register_settings_routes(app):
                 cfg.NVIDIA_MODEL    = request.form.get("nvidia_model", "meta/llama-3.1-nemotron-70b-instruct").strip()
                 cfg.OPENROUTER_MODEL = request.form.get("openrouter_model", "meta-llama/llama-3.1-8b-instruct:free").strip()
                 cfg.GITHUB_MODEL    = request.form.get("github_model", "gpt-4o-mini").strip()
-                cfg.OLLAMA_CLOUD_MODEL = request.form.get("ollama_cloud_model", "llama3.2:3b").strip()
+                cfg.OLLAMA_CLOUD_MODEL = request.form.get("ollama_cloud_model", cfg.OLLAMA_CLOUD_MODEL).strip()
 
                 cfg.ANTHROPIC_ENABLED = request.form.get("anthropic_enabled") == "on"
                 cfg.GEMINI_ENABLED    = request.form.get("gemini_enabled") == "on"
@@ -107,7 +145,11 @@ def register_settings_routes(app):
                 cfg.GITHUB_ENABLED    = request.form.get("github_enabled") == "on"
                 cfg.OLLAMA_CLOUD_ENABLED = request.form.get("ollama_cloud_enabled") == "on"
 
-                cfg.OLLAMA_MODEL = cfg.PRIVACY_MODEL
+                if "cloud_workers" in request.form:
+                    try:
+                        cfg.CLOUD_WORKERS = max(1, min(20, int(request.form.get("cloud_workers"))))
+                    except (ValueError, TypeError):
+                        pass
 
             # ── Email / SMTP & Templates ──
             if "smtp_email" in request.form or "email_template_subject" in request.form:
@@ -177,7 +219,16 @@ def register_settings_routes(app):
             from src.common import _ollama
             client = _ollama()
             resp = client.list()
-            models = [m.get("name") or m.get("model") for m in resp.get("models", [])]
+            models = []
+            raw_models = getattr(resp, "models", None)
+            if raw_models is None and isinstance(resp, dict):
+                raw_models = resp.get("models", [])
+            for m in (raw_models or []):
+                name = getattr(m, "model", None) or getattr(m, "name", None)
+                if not name and isinstance(m, dict):
+                    name = m.get("model") or m.get("name")
+                if name and name not in models:
+                    models.append(name)
             return jsonify({"models": models})
         except Exception as e:
             return jsonify({"error": str(e), "models": []})

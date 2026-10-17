@@ -138,7 +138,7 @@ def extract_with_ai(resume_text: str) -> dict:
     )
     # call_ollama handles retries; clean_json_response strips markdown fences
     try:
-        raw = call_ollama(system, build_prompt(resume_text), temperature=0.0, num_predict=4096)
+        raw = call_ollama(system, build_prompt(resume_text))
     except Exception as e:
         raise RuntimeError(f"AI provider error: {e}") from e
     return clean_json_response(raw) if raw else {}
@@ -336,8 +336,9 @@ def run_watcher():
     logger.info("=" * 50)
     logger.info(f"> Watching folder : {INPUT_FOLDER}/")
     logger.info(f"> Output folder   : {OUTPUT_FOLDER}/")
-    import config
-    logger.info(f"> Model           : {getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')}")
+    from src.ai_mode import get_pipeline_workers
+    workers = get_pipeline_workers()
+    logger.info(f"> Workers         : {workers}")
     logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
     logger.info("> Press Ctrl+C to stop\n")
 
@@ -346,13 +347,26 @@ def run_watcher():
     while True:
         try:
             txt_files = list(input_path.glob("*.txt"))
+            unprocessed = [f for f in txt_files if not (output_path / f"{f.stem}_nlp.json").exists()]
             new_files_found = False
 
-            for txt_file in txt_files:
-                success, _ = process_file(txt_file, output_path)
-                if success:
-                    processed_count += 1
-                    new_files_found = True
+            if unprocessed:
+                workers = get_pipeline_workers()
+                if workers > 1:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                        futures = [executor.submit(process_file, f, output_path) for f in unprocessed]
+                        for fut in concurrent.futures.as_completed(futures):
+                            success, _ = fut.result()
+                            if success:
+                                processed_count += 1
+                                new_files_found = True
+                else:
+                    for txt_file in unprocessed:
+                        success, _ = process_file(txt_file, output_path)
+                        if success:
+                            processed_count += 1
+                            new_files_found = True
 
             if not new_files_found:
                 logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new TXT files...")

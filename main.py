@@ -127,6 +127,7 @@ def _save_config(cfg):
         "LOGIN_ENABLED", "HR_USERNAME", "HR_PASSWORD", "HR_PASSWORD_HASH",
         "FLASK_SECRET_KEY", "HR_DISPLAY_NAME", "HR_EMAIL", "HR_COMPANY",
         "THEME", "COLOR_PALETTE", "OLLAMA_MODEL", "OLLAMA_BASE_URL",
+        "OLLAMA_FALLBACK_MODEL", "OLLAMA_NUM_CTX", "OLLAMA_NUM_PREDICT", "OLLAMA_TEMPERATURE", "OLLAMA_WORKERS", "CLOUD_WORKERS",
         "CLOUD_ENABLED", "CLOUD_MODEL", "SMTP_HOST", "SMTP_PORT",
         "SMTP_EMAIL", "SMTP_PASSWORD", "EMAIL_TEMPLATE_SUBJECT", "EMAIL_TEMPLATE_BODY",
         "AI_RETRY_ATTEMPTS", "AI_RETRY_BACKOFF", "APP_MODE",
@@ -286,6 +287,14 @@ def run_flask_https():
     bind_sock.listen(128)
 
     ssl_sock = ctx.wrap_socket(bind_sock, server_side=True)
+    class _SslHandshakeFilter(logging.Filter):
+        def filter(self, record):
+            if record.exc_info and isinstance(record.exc_info[1], ssl.SSLError):
+                return False
+            return True
+
+    logging.getLogger("waitress").addFilter(_SslHandshakeFilter())
+
     _threads = _env_port("ARS_SERVER_THREADS", 8)
     server = TcpWSGIServer(
         candidate_app,

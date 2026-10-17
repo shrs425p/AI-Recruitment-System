@@ -9,7 +9,12 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
-import ai_mode
+try:
+    import ai_mode
+except ImportError:
+    from src import ai_mode
+
+import config
 
 _cancelled = False
 
@@ -115,8 +120,7 @@ def run_setup_process(progress_callback=None) -> bool:
                     logger.warning('Caught exception: %s', e, exc_info=True)
 
         # Now check/pull model
-        import config
-        model = getattr(config, 'OLLAMA_MODEL', 'llama3.2:3b')
+        model = getattr(config, 'OLLAMA_MODEL', '') or getattr(config, 'PRIVACY_MODEL', '')
         if is_model_pulled(model):
             if progress_callback:
                 progress_callback(100, f"Model {model} already pulled.")
