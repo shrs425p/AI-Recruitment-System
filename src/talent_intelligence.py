@@ -387,19 +387,27 @@ def compare_candidates_matrix(candidate_names: list[str], job_context: str = "")
         skills = data.get("skills") or []
         skills_flat = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in skills]
 
+        summary = (
+            data.get("summary")
+            or data.get("candidate_strength_summary")
+            or "Solid technical profile."
+        )
+        total_yrs = data.get("total_experience_years")
+        exp_txt = f"{total_yrs} years experience" if total_yrs else f"{len(data.get('work_experience') or [])} career roles recorded"
+
         cand_info = {
             "name": name,
             "domain": data.get("domain") or "General",
             "skills": skills_flat[:10],
-            "experience_summary": f"{len(data.get('work_experience') or [])} career roles recorded",
+            "experience_summary": exp_txt,
             "radar": radar,
-            "strength_summary": data.get("candidate_strength_summary") or "Solid technical profile."
+            "strength_summary": summary,
         }
         candidates_payload.append(cand_info)
         comparison_brief_inputs.append(
-            f"- Candidate {name}: Domain={cand_info['domain']}. Key Skills={', '.join(cand_info['skills'][:5])}. "
+            f"- Candidate {name}: Domain={cand_info['domain']} ({exp_txt}). Key Skills={', '.join(cand_info['skills'][:5])}. "
             f"Metrics: Technical={radar['technical_skills']}/100, Experience={radar['experience']}/100, Projects={radar['project_complexity']}/100. "
-            f"Summary: {cand_info['strength_summary']}"
+            f"Career Background: {cand_info['strength_summary']}"
         )
 
     if not candidates_payload:
