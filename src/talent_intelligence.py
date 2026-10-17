@@ -400,10 +400,14 @@ def generate_candidate_feedback_letter(candidate_name: str, job_title: str = "So
     top_skills = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in skills][:4]
 
     system_msg = (
-        "You are an empathetic, highly professional Head of People and Talent. "
-        "Generate a respectful, constructive feedback letter to a candidate who was not selected. "
-        "Highlight 2 genuine strengths they demonstrated, provide 1 thoughtful, encouraging growth recommendation, "
-        "and maintain a warm, world-class employer brand tone. Do NOT include markdown fences."
+        "You are an empathetic, highly professional Head of People and Talent writing a candidate feedback and regret letter. "
+        "Tone and style requirements:\n"
+        "- Grounded, sincere, measured, and professional. Avoid exaggeration, flattery, or sycophancy.\n"
+        "- STRICT RULE: NEVER use superlatives or hyperbole (DO NOT use words like 'rare', 'extraordinary', 'unmatched', 'genius', 'flawless', 'incomparable').\n"
+        "- Keep praise realistic and proportionate to their background so it does not contradict the rejection decision.\n"
+        "- Clearly and politely state that another applicant had closer alignment with the immediate role requirements.\n"
+        "- Provide 1 practical, constructive career development suggestion.\n"
+        "- Keep the letter concise and focused (under 200 words). Return plain text only without markdown fences."
     )
     prompt = f"""
 Candidate: {candidate_name}
@@ -412,12 +416,14 @@ Domain: {domain}
 Demonstrated Strengths: {strength}
 Candidate Key Skills: {', '.join(top_skills)}
 
-Write a professional candidate feedback letter with:
-- Warm opening thanking them for their time and interest.
-- Positive observation of their skills and accomplishments.
-- Constructive, gentle growth guidance for their next career milestone.
-- Encouraging, respectful closing wishing them success.
+Draft a balanced candidate feedback letter:
+1. Courteous opening thanking them for their time and interest in the {job_title} role.
+2. Balanced, grounded recognition of their technical background in {domain} and skills with {', '.join(top_skills[:3])}.
+3. Transparent mention that while their profile is solid, the team selected an applicant whose immediate experience was a closer match for this specific opening.
+4. One constructive, realistic recommendation for their continued professional growth.
+5. Professional, warm closing.
 """
+
     try:
         t0 = time.time()
         feedback_body = call_ollama(system_msg, prompt)
