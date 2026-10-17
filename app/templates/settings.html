@@ -717,21 +717,27 @@
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:14px;">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-top:14px;">
                     <div class="form-group">
                         <label class="form-label" for="ollamaBaseUrl">Local Server URL</label>
                         <input class="form-input" id="ollamaBaseUrl" name="ollama_base_url" value="{{ cfg.OLLAMA_BASE_URL }}"
                             placeholder="http://localhost:11434">
                     </div>
                     <div class="form-group">
+                        <label class="form-label" for="ollamaWorkers">Concurrent Workers</label>
+                        <input type="number" class="form-input" id="ollamaWorkers" name="ollama_workers"
+                            value="{{ cfg.OLLAMA_WORKERS or 1 }}" step="any" min="1" max="10" placeholder="1">
+                        <span style="font-size:0.75rem; color:var(--gray-400);">Parallel resumes (1=sequential, 2=2x, etc.)</span>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label" for="aiRetryAttempts">Retry Attempts</label>
                         <input type="number" class="form-input" id="aiRetryAttempts" name="ai_retry_attempts"
-                            value="{{ cfg.AI_RETRY_ATTEMPTS or 3 }}" min="1" max="10">
+                            value="{{ cfg.AI_RETRY_ATTEMPTS or 3 }}" step="any" min="1" max="10">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="aiRetryBackoff">Retry Backoff (seconds)</label>
                         <input type="number" class="form-input" id="aiRetryBackoff" name="ai_retry_backoff"
-                            value="{{ cfg.AI_RETRY_BACKOFF or 2 }}" min="1" max="30">
+                            value="{{ cfg.AI_RETRY_BACKOFF or 2 }}" step="any" min="1" max="30">
                     </div>
                 </div>
 

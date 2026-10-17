@@ -336,7 +336,8 @@ def run_watcher():
     logger.info("=" * 50)
     logger.info(f"> Watching folder : {INPUT_FOLDER}/")
     logger.info(f"> Output folder   : {OUTPUT_FOLDER}/")
-    logger.info(f"> Model           : {getattr(config, 'OLLAMA_MODEL', '') or getattr(config, 'PRIVACY_MODEL', '')}")
+    workers = max(1, min(10, int(getattr(config, 'OLLAMA_WORKERS', 1) or 1)))
+    logger.info(f"> Workers         : {workers}")
     logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
     logger.info("> Press Ctrl+C to stop\n")
 
@@ -345,13 +346,26 @@ def run_watcher():
     while True:
         try:
             txt_files = list(input_path.glob("*.txt"))
+            unprocessed = [f for f in txt_files if not (output_path / f"{f.stem}_nlp.json").exists()]
             new_files_found = False
 
-            for txt_file in txt_files:
-                success, _ = process_file(txt_file, output_path)
-                if success:
-                    processed_count += 1
-                    new_files_found = True
+            if unprocessed:
+                workers = max(1, min(10, int(getattr(config, 'OLLAMA_WORKERS', 1) or 1)))
+                if workers > 1:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                        futures = [executor.submit(process_file, f, output_path) for f in unprocessed]
+                        for fut in concurrent.futures.as_completed(futures):
+                            success, _ = fut.result()
+                            if success:
+                                processed_count += 1
+                                new_files_found = True
+                else:
+                    for txt_file in unprocessed:
+                        success, _ = process_file(txt_file, output_path)
+                        if success:
+                            processed_count += 1
+                            new_files_found = True
 
             if not new_files_found:
                 logger.info(f"\r> Watching... (processed so far: {processed_count}) | waiting for new TXT files...")

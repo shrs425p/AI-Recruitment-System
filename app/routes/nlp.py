@@ -49,9 +49,11 @@ def register_nlp_routes(app):
         import asyncio
 
         from src.nlp_extractor import process_file_async
+        import config
+        workers = max(1, min(10, int(getattr(config, "OLLAMA_WORKERS", 1) or 1)))
 
         async def run_batch():
-            sem = asyncio.Semaphore(1)
+            sem = asyncio.Semaphore(workers)
             async def limited_process(f):
                 async with sem:
                     try:

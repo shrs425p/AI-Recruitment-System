@@ -107,6 +107,11 @@ def register_settings_routes(app):
                         cfg.AI_RETRY_BACKOFF = int(request.form.get("ai_retry_backoff"))
                     except (ValueError, TypeError):
                         pass
+                if "ollama_workers" in request.form:
+                    try:
+                        cfg.OLLAMA_WORKERS = max(1, min(10, int(request.form.get("ollama_workers"))))
+                    except (ValueError, TypeError):
+                        pass
 
             if "app_mode" in request.form:
                 cfg.APP_MODE = request.form.get("app_mode", "privacy").strip()
