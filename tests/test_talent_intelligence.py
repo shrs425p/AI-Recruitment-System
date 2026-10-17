@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import json
+from unittest.mock import patch
 
 from app import create_app
 from app.database import get_all_candidate_embeddings, init_db
@@ -97,18 +98,27 @@ def test_talent_intelligence_suite():
 
     print("--- 4. Testing Candidate Comparison Matrix ---")
     candidates = [stored[0]["candidate_name"], stored[1]["candidate_name"]]
-    comp = compare_candidates_matrix(candidates, job_context="Senior Infrastructure Engineer")
-    print(f"Compared: {[c['name'] for c in comp['candidates']]}")
-    print(f"Radar axes: {comp['radar_categories']}")
-    print(f"Synthesis preview: {comp['executive_synthesis'][:120]}...")
-    assert "candidates" in comp
-    assert len(comp["candidates"]) == 2
+    with patch("src.talent_intelligence.call_ollama", return_value="### Executive Deliberation Brief\n- Evaluated candidates.\n- Recommendation: Proceed."):
+        comp = compare_candidates_matrix(candidates, job_context="Senior Infrastructure Engineer")
+        print(f"Compared: {[c['name'] for c in comp['candidates']]}")
+        print(f"Radar axes: {comp['radar_categories']}")
+        print(f"Synthesis preview: {comp['executive_synthesis'][:120]}...")
+        assert "candidates" in comp
+        assert len(comp["candidates"]) == 2
+        assert comp.get("executive_synthesis"), "Expected executive synthesis text"
 
     print("--- 5. Testing Candidate Feedback Generation ---")
-    fb = generate_candidate_feedback_letter(candidates[0], "Cloud DevOps Specialist")
-    print(f"Feedback ID: {fb.get('feedback_id')}, Candidate: {fb.get('candidate_name')}")
-    print(f"Feedback letter preview:\n{fb.get('feedback_text')[:160]}...")
-    assert fb.get("feedback_text"), "Expected generated feedback letter text"
+    with patch("src.talent_intelligence.call_ollama", return_value="Dear Candidate,\nThank you for interviewing with us."):
+        fb = generate_candidate_feedback_letter(candidates[0], "Cloud DevOps Specialist")
+        print(f"Feedback ID: {fb.get('feedback_id')}, Candidate: {fb.get('candidate_name')}")
+        print(f"Feedback letter preview:\n{fb.get('feedback_text')[:160]}...")
+        assert fb.get("feedback_text"), "Expected generated feedback letter text"
+
+    # Also explicitly verify fallback template when AI service returns empty or is unreachable
+    with patch("src.talent_intelligence.call_ollama", return_value=""):
+        fb_fallback = generate_candidate_feedback_letter(candidates[0], "Cloud DevOps Specialist")
+        assert fb_fallback.get("feedback_text"), "Expected non-empty fallback feedback letter"
+        assert "Thank you for interviewing" in fb_fallback.get("feedback_text")
 
     print("--- 6. Testing Flask Endpoints ---")
     app = create_app()
