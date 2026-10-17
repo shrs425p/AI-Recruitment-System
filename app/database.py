@@ -749,21 +749,38 @@ def get_telemetry_metrics() -> dict:
             ORDER BY count DESC
         """).fetchall()
 
-        # Calculate estimated savings from Ollama (assuming cloud pricing ~$0.003 / 1k tokens)
+        # Calculate estimated savings from Ollama (cloud pricing ~$0.003 / 1k tokens = ~₹0.25 / 1k tokens)
+        USD_TO_INR = 85.0
         ollama_tokens = conn.execute("""
             SELECT SUM(prompt_tokens + completion_tokens) as tok
             FROM ai_telemetry
             WHERE provider LIKE '%ollama%' OR provider LIKE '%privacy%'
         """).fetchone()["tok"] or 0
         estimated_saved_usd = round((ollama_tokens / 1000.0) * 0.003, 2)
+        estimated_saved_inr = round(estimated_saved_usd * USD_TO_INR, 2)
+        total_cost_inr = round(total_cost * USD_TO_INR, 2)
+
+        providers = []
+        for r in provider_breakdown:
+            p_dict = dict(r)
+            p_cost_usd = p_dict.get("total_cost") or 0.0
+            p_dict["total_cost_usd"] = round(p_cost_usd, 4)
+            p_dict["total_cost_inr"] = round(p_cost_usd * USD_TO_INR, 2)
+            p_dict["total_cost"] = p_dict["total_cost_inr"]
+            providers.append(p_dict)
 
         return {
             "total_calls": total_calls,
             "avg_latency": round(avg_latency, 2),
             "total_tokens": total_prompt_tok + total_comp_tok,
-            "total_cost": round(total_cost, 4),
+            "total_cost": total_cost_inr,
+            "total_cost_usd": round(total_cost, 4),
+            "total_cost_inr": total_cost_inr,
             "estimated_saved_usd": estimated_saved_usd,
-            "providers": [dict(r) for r in provider_breakdown]
+            "estimated_saved_inr": estimated_saved_inr,
+            "currency": "INR",
+            "currency_symbol": "₹",
+            "providers": providers
         }
 
 
