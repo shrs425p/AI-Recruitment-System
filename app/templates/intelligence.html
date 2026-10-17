@@ -405,12 +405,12 @@
                 <div class="card-top">
                     <div>
                         <h4 class="cand-name">{{ cand.name }}</h4>
-                        <div class="cand-domain">{{ cand.domain }}</div>
+                        <div class="cand-domain">{{ cand.domain }}{% if cand.experience_display %} &bull; {{ cand.experience_display }}{% endif %}</div>
                     </div>
                     <span class="score-badge score-med">Available</span>
                 </div>
                 <div class="cand-snippet">
-                    Candidate profile indexed from parsed resume data. Ready for semantic matching and comparison.
+                    {{ cand.snippet or cand.summary }}
                 </div>
                 <div class="tag-container">
                     {% for sk in cand.skills %}
