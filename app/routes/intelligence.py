@@ -1,11 +1,9 @@
 import json
 import logging
-from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import jsonify, render_template, request
 
 import config
-from app.core import OUTPUT_FOLDER
 from app.database import (
     get_all_candidate_embeddings,
     get_all_candidate_feedback,
@@ -35,7 +33,7 @@ def _get_candidate_list() -> list[dict]:
 
     for jf in sorted(nlp_dir.glob("*_nlp.json")):
         try:
-            with open(jf, "r", encoding="utf-8") as f:
+            with open(jf, encoding="utf-8") as f:
                 data = json.load(f)
             cand_name = (
                 data.get("personal_info", {}).get("name")
@@ -72,7 +70,7 @@ def _get_funnel_and_distribution() -> tuple[dict, dict]:
     if rankings_dir.exists():
         for rf in rankings_dir.glob("*.json"):
             try:
-                with open(rf, "r", encoding="utf-8") as f:
+                with open(rf, encoding="utf-8") as f:
                     rdata = json.load(f)
                     c_list = rdata.get("ranked_candidates") or rdata.get("candidates") or []
                     ranked_count = max(ranked_count, len(c_list))
@@ -90,7 +88,7 @@ def _get_funnel_and_distribution() -> tuple[dict, dict]:
     if interviews_dir.exists():
         for int_f in interviews_dir.glob("interview_*.json"):
             try:
-                with open(int_f, "r", encoding="utf-8") as f:
+                with open(int_f, encoding="utf-8") as f:
                     idata = json.load(f)
                     if idata.get("status") == "COMPLETED" or len(idata.get("responses", [])) > 0:
                         completed_interviews += 1

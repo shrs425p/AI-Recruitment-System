@@ -180,7 +180,7 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_nam
             pass
 
         return result_text
-    except Exception as e:
+    except Exception:
         latency = time.time() - t0
         p_tokens = (len(sanitized_system_msg) + len(sanitized_user_msg)) // 4
         try:
@@ -274,8 +274,8 @@ class ProviderRouter:
 
         for provider in active:
             try:
-                def _sync_wrapper():
-                    return call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
+                def _sync_wrapper(prov=provider):
+                    return call_provider_sync(prov, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
                 return await loop.run_in_executor(None, _sync_wrapper)
             except Exception as e:
                 last_error = e

@@ -382,6 +382,8 @@ check("Results ordered by score DESC", all_bulk[0]["score"] >= all_bulk[-1]["sco
 import shutil
 
 shutil.rmtree(_tmp, ignore_errors=True)
+_cm.data_path = _original_data_path
+os.environ.pop("_TEST_DB_OVERRIDE", None)
 
 print("\n" + "="*60)
 total  = len(results)

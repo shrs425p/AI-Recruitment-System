@@ -117,6 +117,7 @@ clean_json = clean_json_response
 
 async def call_ollama_async(system_msg: str, user_msg: str, temperature: float = None, num_predict: int = None) -> str:
     import logging
+
     import config
     logger = logging.getLogger(__name__)
 
