@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "ai-recruitment-system"
-version = "1.0.0"
+version = "3.0.0"
 description = "Offline-first AI-powered recruitment pipeline — resume parsing, NLP extraction, candidate ranking, interview scheduling, and proctoring."
 readme = "README.md"
 requires-python = ">=3.10"

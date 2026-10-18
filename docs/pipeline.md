@@ -1,265 +1,197 @@
 # Pipeline
 
-This document walks through the full recruitment workflow step by step — from uploading resumes to generating interview reports.
+This document walks through the recruitment workflow step by step — from uploading resumes to candidate ranking, interviews, reports, and talent intelligence analytics.
 
 ---
 
 ## Overview
 
 ```
-Upload Resumes
-     │
-     ▼
-Text Extraction (OCR)
-     │
-     ▼
-NLP Extraction (AI)
-     │
-     ▼
-Candidate Ranking (AI)
-     │
-     ▼
-Scheduling
-     │
-     ▼
-Interview
-     │
-     ▼
-Reports
+Upload Resumes (.pdf, .docx, images)
+               │
+               ▼
+   Text Extraction (pypdf, python-docx, OCR)
+               │
+               ▼
+     NLP Extraction (AI Entity Parser)
+               │
+               ▼
+Candidate Ranking (Weights + Knockout Rules)
+  ├── Recruiter Notes & Tags
+  └── One-Click CSV / Excel Export
+               │
+               ▼
+     Interview Scheduling & Calendar Sync
+               │
+               ▼
+Proctored Interview (Configurable Length & Timer)
+  ├── Role-Adaptive Blueprints
+  └── Adaptive Probing for Shallow Answers
+               │
+               ▼
+Evaluation Reports & Real-Time HR Notifications
+  ├── Combined 40/60 Score Calculation
+  └── Material Design 3 PDF Summary
+               │
+               ▼
+Talent Intelligence & Analytics
+  ├── Semantic Vector Talent Search
+  ├── Candidate Comparison Matrix
+  └── 6 Visual Recruitment Analytics Modules
 ```
 
-Each stage produces output files that feed into the next stage. You can stop and resume at any stage — the system never reprocesses files that are already done.
+Each stage produces structured output files that feed into subsequent stages. The pipeline is idempotent: already-processed records are preserved and not recomputed unnecessarily.
 
 ---
 
 ## Stage 1 — Upload Resumes
 
-**Where:** Sidebar → Upload  
-**Input:** PDF, PNG, JPG files  
-**Output:** Files saved to `data/resumes/`
+- **Where:** Sidebar → Upload
+- **Input:** Microsoft Word (`.docx`), PDF (digital and scanned), PNG, JPG
+- **Output:** Stored securely in `data/resumes/` (with optional AES-Fernet encryption at rest)
 
-### What Happens
-- Files are uploaded through the web UI
-- Each file is validated (type + size — max 25 MB by default)
-- Saved to the resumes folder under the original filename
-- Duplicate filenames are not overwritten — rename before re-uploading if needed
-
-### Supported Formats
-| Format | Notes |
-|---|---|
-| `.pdf` | Works for both digital PDFs (text-based) and scanned PDFs (image-only) |
-| `.png`, `.jpg`, `.jpeg` | Resume photos or scanned images — processed via OCR |
-
----
-
-## Stage 2 — Text Extraction
-
-**Where:** Runs automatically after upload, or manually from the NLP page  
-**Module:** `src/pdf_to_txt.py`  
-**Input:** Files in `data/resumes/`  
-**Output:** `.txt` files in `data/output/txt/`
-
-### How It Decides Between Direct Extraction and OCR
-
-1. `pypdf` extracts embedded text from the PDF directly (fast — milliseconds). Resumes encrypted at rest are decrypted in memory transparently.
-2. If the extracted text is **fewer than 800 characters**, the PDF is treated as a scanned document
-3. For scanned PDFs: embedded images are extracted and processed using Tesseract OCR
-4. For image files (PNG/JPG): Tesseract OCR reads them directly
-
-### Text Cleaning
-After extraction, the text is cleaned:
-- Null bytes removed
-- Windows line endings normalised (`\r\n` → `\n`)
-- Runs of 3+ blank lines collapsed to one
-- Multiple spaces/tabs collapsed to single space
-
-### Output
-One `.txt` file per resume, saved as `{original_filename}.txt`. Already-processed files are skipped on re-runs.
-
----
-
-## Stage 3 — NLP Extraction
-
-**Where:** Sidebar → NLP → Run NLP Extraction  
-**Module:** `src/nlp_extractor.py`  
-**Input:** `.txt` files in `data/output/txt/`  
-**Output:** `*_nlp.json` + `*_nlp.txt` in `data/output/nlp/`
-
-### What the AI Extracts
-
-The AI is given the full resume text and asked to return a structured JSON with:
-
-| Field | Description |
-|---|---|
-| `personal_info` | Name, email, phone, location, LinkedIn, GitHub/portfolio |
-| `domain` | Detected industry (IT, Finance, Medical, Legal, etc.) |
-| `summary` | Professional summary |
-| `total_experience_years` | Total years of relevant work experience |
-| `skills.technical_skills` | Programming languages, frameworks, etc. |
-| `skills.tools_and_technologies` | Software tools, platforms |
-| `skills.soft_skills` | Communication, leadership, etc. |
-| `skills.domain_specific_skills` | Industry-specific skills |
-| `skills.languages_known` | Spoken/written languages |
-| `education` | Degree, field, institution, year, grade |
-| `work_experience` | Job titles, companies, dates, responsibilities, achievements |
-| `projects` | Title, description, technologies, outcomes |
-| `certifications` | Name, issuer, year |
-| `awards_and_achievements` | Awards, honours |
-| `publications_or_research` | Papers, research work |
-| `candidate_strength_summary` | AI-written summary of strengths |
-
-### Notes
-- Temperature is set to `0.0` for deterministic output
-- Token budget: 4096 — enough for detailed multi-page resumes
-- If the AI cannot find the candidate's name, the filename is used as the identifier
-- Files are written atomically (temp file first, renamed on success) to prevent partial outputs
-- Already-processed files are skipped — running NLP again is safe
-
-### Output Files
-- `{name}_nlp.json` — machine-readable, used by the ranking engine
-- `{name}_nlp.txt` — human-readable summary for quick review
-
----
-
-## Stage 4 — Candidate Ranking
-
-**Where:** Sidebar → Ranking → Enter JD → Run Ranking  
-**Module:** `src/ranking_engine.py`  
-**Input:** `*_nlp.json` files + Job Description text  
-**Output:** `ranking_scores_<timestamp>.json` + `leaderboard_<timestamp>.json`
-
-### Step 1 — Parse the Job Description
-The AI reads the JD and extracts:
-- Job title and domain
-- Required experience years
-- Required and preferred skills
-- Required education level
-- Required certifications
-- Job summary
-
-### Step 2 — Score Each Candidate
-
-Each candidate is scored on 5 criteria (100 points total):
-
-| Criterion | Max Points | What It Measures |
+### Supported Formats & Whitelisting
+| Format | Handler | Notes |
 |---|---|---|
-| `domain_match` | 20 | Does the candidate's industry match the JD domain? |
-| `skills_match` | 35 | How many required skills does the candidate have? |
-| `experience_years` | 20 | Years of relevant experience |
-| `education` | 15 | Degree level (PhD > Masters > Bachelors > Diploma) |
-| `certifications` | 10 | Number of relevant certifications |
+| `.docx` | `python-docx` | Native Microsoft Word document extraction. Extracts text paragraphs and tables cleanly. |
+| `.pdf` | `pypdf` / OCR | Digital PDFs are read directly via stream parsing. Scanned PDFs fall back to Tesseract OCR. |
+| `.png`, `.jpg`, `.jpeg` | Tesseract OCR | Image-only resumes read via bundled optical character recognition. |
 
-#### Scoring Rubrics (enforced strictly)
-
-**domain_match (20 pts)**
-- 20 pts — Direct domain match
-- 13 pts — Related domain (e.g. Software Dev for an AI role)
-- 6 pts — Adjacent domain (STEM for a tech role)
-- 0 pts — Completely unrelated
-
-**skills_match (35 pts)**
-- 35 pts — 80%+ of required skills present
-- 24 pts — 50–80% present
-- 15 pts — 25–50% present
-- 7 pts — <25% present
-- 0 pts — No relevant skills
-- Related skills get partial credit (e.g. PyTorch counts for TensorFlow requirement)
-
-**experience_years (20 pts)**
-- 20 pts — 5+ years
-- 18 pts — 2–5 years
-- 14 pts — 0–2 years
-- 10 pts — Fresher / not mentioned (never 0 for freshers)
-- 0 pts — Clearly irrelevant experience only
-
-**education (15 pts)**
-- 15 pts — PhD / Doctorate
-- 12 pts — Masters / M.Tech / MBA
-- 9 pts — Bachelors / B.Tech / B.E.
-- 5 pts — Diploma / Associate
-- 0 pts — No education info found
-
-**certifications (10 pts)**
-- 10 pts — 3+ relevant certifications
-- 6 pts — 1–2 relevant certifications
-- 0 pts — No certifications
-
-### Step 3 — Generate Output
-For each candidate, the AI also produces:
-- `overall_verdict` — a one-line assessment
-- `strengths` — list of standout qualities
-- `gaps` — list of missing requirements
-- `hire_recommendation` — Strongly Recommend / Recommend / Maybe / Not Recommended
-
-Candidates are sorted by total score, highest first.
-
-### Deduplication
-Before scoring, candidates are deduplicated by a hash of `name + domain + top 5 skills`. If the same resume was uploaded twice, only one copy is scored.
-
-### Parallelism
-Up to 5 candidates are scored simultaneously using `ThreadPoolExecutor`. You can adjust this in `src/ranking_engine.py` (`MAX_WORKERS`).
+The upload endpoint validates MIME types and file extensions against a strict whitelist. Dangerous file types (executables, scripts, HTML) are immediately rejected with HTTP 400. Duplicate filenames are preserved by appending incremental numeric suffixes.
 
 ---
 
-## Stage 5 — Scheduling
+## Stage 2 — Document Text Extraction
 
-**Where:** Sidebar → Scheduling  
-**Module:** `src/scheduling.py` + `src/google_calendar.py` + `src/email_sender.py`  
-**Input:** Latest `ranking_scores_*.json` + HR availability  
-**Output:** `schedule_<timestamp>.json` + `.ics` files per candidate
+- **Where:** Automated background job after upload, or manually via the Dashboard
+- **Module:** `src/pdf_to_txt.py`
+- **Output:** Plain text files in `data/output/txt/`
 
-### What Happens
-1. The top 10 candidates (configurable) from the latest ranking are selected
-2. HR enters their available time slots
-3. Each candidate is assigned 3 slot options
-4. A `.ics` calendar invite is generated for each candidate (UUID event ID, 60-minute duration)
-5. An interview token (UUID) is generated per candidate and stored
-6. If email is configured, scheduling emails are sent with the slot options and interview link
-
-### Interview Tokens
-Each candidate gets a unique URL like:
-```
-https://<your-ip>:5000/candidate-interview/<token>
-```
-This URL is valid until the interview is completed or the session is closed.
-
-### Google Calendar Integration
-If Google Calendar credentials are configured in Settings, the system can:
-- Create calendar events in HR's Google Calendar
-- Send Google Calendar invites to candidates via the Google API
+### Processing Logic
+1. **Word Documents:** Extracted directly using `extract_docx_text()`.
+2. **Digital PDFs:** Extracted using `pypdf`. Encrypted storage is decrypted in-memory.
+3. **Scanned Documents & Images:** If digital PDF extraction yields fewer than 800 characters or the file is an image, the file is routed to `Tesseract OCR`.
+4. **Sanitization:** Null bytes are stripped, line endings are normalized (`\r\n` to `\n`), runs of blank lines are collapsed, and character encoding is converted to clean UTF-8.
 
 ---
 
-## Stage 6 — Interview
+## Stage 3 — NLP Entity Extraction
 
-**Where:** Candidate accesses their unique URL; HR monitors from Sidebar → Interview  
-**Modules:** `src/interview_bot.py`, `src/webcam_proctor.py`, `src/voice_interview.py`  
-**Input:** Interview token, candidate NLP JSON  
-**Output:** `interview_<name>_<timestamp>.json`
+- **Where:** Sidebar → NLP → Run NLP Extraction
+- **Module:** `src/nlp_extractor.py`
+- **Input:** `.txt` files in `data/output/txt/`
+- **Output:** `*_nlp.json` and `*_nlp.txt` in `data/output/nlp/`
 
-See [Interview System](interview-system.md) for full details.
-
-### Quick Summary
-- 8 questions per candidate (5 technical + 3 behavioral)
-- Questions are personalised based on the candidate's actual skills and experience
-- Candidate can answer via text or voice (Vosk STT)
-- Webcam proctoring runs in the background throughout
-- Each answer is evaluated by AI (score + feedback)
-- Session transcript saved on completion
+### Extracted Entities
+The AI model parses the unstructured text and extracts structured candidate profiles:
+- `personal_info`: Full name, email address, phone number, location, portfolio/GitHub URLs.
+- `domain`: Professional domain (Software Engineering, Data Science, DevOps, Marketing, etc.).
+- `total_experience_years`: Numeric total years of relevant professional experience.
+- `skills`: Categorized into technical skills, tools/technologies, domain-specific skills, and soft skills.
+- `education`: List of degrees, institutions, graduation years, and fields of study.
+- `work_experience`: Job titles, employers, dates, and core responsibilities.
+- `certifications`: Industry certifications and issuing organizations.
 
 ---
 
-## Stage 7 — Reports
+## Stage 4 — Candidate Ranking & Shortlisting
 
-**Where:** Sidebar → Reports  
-**Module:** `src/report_generator.py`  
-**Input:** Interview transcript JSON  
-**Output:** PDF report in `data/output/reports/`
+- **Where:** Sidebar → Ranking
+- **Module:** `src/ranking_engine.py`
+- **Input:** Job Description text and `data/output/nlp/*_nlp.json`
+- **Output:** `data/output/ranking/ranking_scores_*.json` and leaderboard text
 
-### Report Contents
-- Candidate profile summary (name, target job title, domain, experience, education, combined score)
-- AI HR executive assessment (overall summary, technical/behavioral breakdown, key strengths, key gaps, hire recommendation)
-- Proctoring integrity summary (total flags, face absence, multiple faces, tab switches, copy-paste events)
-- Detailed question-by-question evaluation (prompt, category, score out of 10, 4-part rubrics, verbatim answer, AI feedback, response time)
+### Weight Customization & Auto-Balancing
+Scoring uses five criteria. Recruiters can customize weights or choose presets (Balanced, Technical Heavy, Experience Focused). If custom weights do not sum to 100, the system automatically normalizes them proportionally:
+- `skills_match` (default: 35%)
+- `experience_years` (default: 20%)
+- `domain_match` (default: 20%)
+- `education` (default: 15%)
+- `certifications` (default: 10%)
 
-Reports are styled in a clean Material Design 3 monochrome aesthetic using `fpdf2` and saved as PDF files.
+### Knockout Disqualification Criteria
+Recruiters can enforce mandatory prerequisites that disqualify candidates before AI scoring:
+- **Minimum Experience:** Automatically scores 0 if verified experience is below threshold.
+- **Mandatory Skills:** Candidate must possess all mandatory required skills.
+- **Required Certifications:** Must possess specific professional licenses or certifications.
+
+### Recruiter Notes, Tags & CSV Export
+- **Notes & Tags:** Recruiters can attach notes (e.g. *"Strong distributed systems background"*) and status tags (e.g. *"Shortlisted"*, *"Review Later"*) directly on candidate rows. These persist in the SQLite database.
+- **One-Click CSV Export:** The `/api/ranking/export/csv` endpoint generates an RFC 4180 compliant spreadsheet containing candidate rank, name, email, scores, strengths, and recommendations for ATS sharing.
+
+---
+
+## Stage 5 — Interview Scheduling
+
+- **Where:** Sidebar → Scheduling
+- **Module:** `src/scheduling.py`
+- **Input:** Ranked candidates and candidate preferences
+- **Output:** Slot allocations, `.ics` files, and optional Google Calendar invites
+
+### Functionality
+- Automatically shortlists the Top-N ranked candidates.
+- Generates 3 prospective interview time slots per candidate.
+- Generates standard `.ics` calendar invitation attachments.
+- Integrates with Google Calendar API when configured.
+- Dispatches SMTP interview invitation emails with dynamic placeholder replacement (`{candidate_name}`, `{job_title}`, `{interview_link}`).
+
+---
+
+## Stage 6 — Proctored Candidate Interview
+
+- **Where:** Standalone Candidate Portal (`https://<host-ip>:5000`)
+- **Modules:** `app/routes/interview.py`, `src/interview_bot.py`, `src/webcam_proctor.py`
+- **Access:** Candidate enters via one-time cryptographically random UUID token
+
+### Configurable Interview Parameters (Settings)
+Recruiters can customize interview session parameters in Settings:
+- **Technical Questions Count:** Configurable (e.g. 3 to 10 questions).
+- **Behavioral Questions Count:** Configurable (e.g. 1 to 5 STAR questions).
+- **Per-Question Time Limit:** Configurable (e.g. 60s, 90s, 120s, 180s).
+
+### Adaptive Question Generation & Probing
+- **Role-Adaptive Blueprints:** The engine checks `is_tech_role` to branch between software/engineering topics and domain-specific non-technical competencies.
+- **Adaptive Probing (`should_probe_further`):** When a candidate gives a shallow, vague, or high-level response, the bot dynamically interjects with a follow-up probe demanding implementation trade-offs or edge-case handling.
+
+### Proctoring Integrity Checks
+- **Face Tracking:** Background thread monitors webcam frames using MediaPipe with OpenCV Haar cascade fallback.
+- **Violation Logging:** Tracks zero-face absences, multiple faces, window tab switches, copy-paste events, and prolonged response timeouts.
+- **Anti-Tamper Timing:** The server calculates response duration based on its own high-resolution monotonic timer, rejecting client-side timing manipulation.
+
+---
+
+## Stage 7 — Evaluation Reports & Real-Time HR Notifications
+
+- **Where:** Sidebar → Reports
+- **Module:** `src/report_generator.py`
+- **Input:** Resume fit scores and completed interview transcripts
+- **Output:** Comprehensive PDF report in `data/output/reports/`
+
+### Combined Fit Score
+The overall score combines resume suitability with live interview performance:
+$$\text{Final Score} = (\text{Resume Fit} \times 0.40) + (\text{Interview Score} \times 0.60)$$
+
+### Real-Time HR Notification Event
+When a candidate completes their interview on `https://<host-ip>:5000`, the system automatically:
+1. Emits a desktop pop-up notification on the HR manager's workstation: *"Jane Doe has completed the interview for Senior Python Developer. Report is ready."*
+2. Records an entry in the `hr_notifications` SQLite table.
+3. Updates the real-time notification badge and drawer in the HR web interface.
+
+---
+
+## Stage 8 — Talent Intelligence & Analytics
+
+- **Where:** Sidebar → Intelligence
+- **Module:** `src/talent_intelligence.py`
+
+Provides post-interview analytics and talent pool analysis:
+- **Semantic Vector Search:** Natural language search across the talent pool.
+- **Candidate Comparison Matrix:** Side-by-side technical trade-off evaluation and executive brief.
+- **Personalized Feedback Letters:** Constructive feedback generation with strengths and study topics.
+- **Six Visual Analytics Modules:**
+  1. Skill Supply vs. Demand Gap Analytics
+  2. Experience vs. Score Quadrant Matrix
+  3. Interview Question Difficulty Breakdown
+  4. Proctoring Integrity & Risk Distribution
+  5. Hiring Velocity & Bottleneck Tracker
+  6. Education & Domain Talent Mix

@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through installing the AI Recruitment System, running it for the first time, and completing initial configuration.
+This guide details installing the AI Recruitment System, verifying dependencies, running tests, and performing initial configuration.
 
 ---
 
@@ -10,191 +10,86 @@ This guide walks you through installing the AI Recruitment System, running it fo
 |---|---|---|
 | OS | Windows 10 (64-bit) | Windows 11 (64-bit) |
 | RAM | 8 GB | 16 GB |
-| Storage | 4 GB free | 10 GB free |
-| CPU | 4-core x64 | 8-core x64 |
-| GPU | Not required | NVIDIA GPU (for local Ollama with GPU acceleration) |
-| Python | 3.10+ | 3.11 |
-| Internet | Optional | Required only for cloud AI providers |
+| Storage | 4 GB free disk space | 10 GB free disk space |
+| CPU | 4-core x64 processor | 8-core x64 processor |
+| GPU | Optional | NVIDIA GPU (recommended for local Ollama acceleration) |
+| Python | 3.10+ | 3.11 / 3.12 |
+| Internet | Optional | Required only when using cloud AI providers |
 
-> **Note:** The Vosk speech model and Tesseract OCR engine are bundled in the `models/` directory. No separate download is needed for offline operation.
+Bundled local dependencies include Tesseract OCR (`models/Tesseract-OCR/`) and local web assets (`app/static/`). The system functions in air-gapped environments without external network connections.
 
 ---
 
 ## Installation
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/shrs425p/AI-Recruitment-System.git
 cd AI-Recruitment-System
 ```
 
-### 2. Create a Virtual Environment
-
+### 2. Create and Activate Virtual Environment
 ```bash
 python -m venv venv
 venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
-
+### 3. Install Required Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-For development (includes linting, testing tools):
-
+### 4. Verify the Installation (Run Tests)
+Execute the complete test suite to verify all 14 domain modules:
 ```bash
-pip install -r requirements-dev.txt
+pytest -v
 ```
-
-### 4. Verify Your Environment
-
-Run the environment checker to confirm all required packages and bundled models are present:
-
-```bash
-python scripts/verify_environment.py
-```
-
-This script checks for:
-- Python version compatibility
-- All required pip packages
-- Tesseract OCR binary at `models/Tesseract-OCR/tesseract.exe`
-- Vosk model at `models/vosk-model-small-en-in-0.4/`
-- OpenCV availability
-- MediaPipe (optional — falls back to Haar cascade if missing)
+All 140 tests should pass cleanly.
 
 ---
 
-## Running the Application
+## Launching the Application
 
-### Standard Launch
-
+### Standard Desktop Launch
 ```bash
 python main.py
 ```
+Upon execution, the launcher:
+1. Initializes or migrates the SQLite schema across all 9 relational tables at `data/recruitment.db`.
+2. Starts the **HR Desktop Server** (Waitress WSGI) on `http://127.0.0.1:5001`.
+3. Starts the **Candidate Interview Server** (Flask HTTPS) on `https://<LAN-IP>:5000`.
+4. Launches the desktop application shell via `pywebview`.
 
-The application will:
-1. Initialise the SQLite database at `%LOCALAPPDATA%\AI Recruitment System\data\ars.db`
-2. Start the **HR Desktop Server** (Waitress, HTTP) on port `5001` (localhost only)
-3. Start the **Candidate Interview Server** (Flask, HTTPS) on port `5000` (all interfaces)
-4. Open the desktop window via pywebview pointing to `http://127.0.0.1:5001`
-
-### Alternative Launch (No Desktop Window)
-
-If you want to run just the Flask server (e.g. for debugging in a browser):
-
+### Headless / Browser-Only Mode
+If running on a remote workstation or without `pywebview`:
 ```bash
 python main.py
-# then open http://127.0.0.1:5001 in your browser
 ```
-
-### Using the Batch Scripts
-
-```
-scripts\run.bat          ← Standard launch (activates venv automatically)
-scripts\kill.bat         ← Force-kill all Python processes
-```
+Then navigate to `http://127.0.0.1:5001` in your web browser.
 
 ---
 
-## Environment Variables
+## First-Time Setup Workflow
 
-All of these are optional overrides. The application works without any of them.
+### Step 1 — Review Application Settings
+Navigate to the **Settings** tab in the sidebar:
+- **Interview Configuration:** Adjust technical question counts, behavioral question counts, and per-question timers.
+- **AI Providers:** Select your active provider (`ollama` for local privacy mode, or configure API keys for NVIDIA NIM, OpenAI, Gemini, Groq, Anthropic).
+- **Security:** Configure or update the HR password.
+- **SMTP Settings:** Configure outbound email host, port, and credentials for candidate invitations.
 
-| Variable | Default | Description |
-|---|---|---|
-| `ARS_DESKTOP_PORT` | `5001` | Port for the HR desktop UI server |
-| `ARS_CANDIDATE_PORT` | `5000` | Port for the candidate interview portal |
-| `ARS_CANDIDATE_HOST` | `0.0.0.0` | Host interface for the candidate server |
-| `ARS_SERVER_THREADS` | `8` | Number of Waitress worker threads |
-| `ARS_MAX_UPLOAD_BYTES` | `26214400` (25 MB) | Maximum resume upload file size |
-| `ARS_DEBUG` | (unset) | Set to `1` to enable Flask debug mode (dev only) |
-| `FLASK_SECRET_KEY` | Auto-generated | Override the Flask session secret key |
+### Step 2 — Ingest Resumes
+Navigate to **Upload** in the sidebar. The system accepts:
+- Microsoft Word (`.docx`)
+- Digital and scanned PDF (`.pdf`)
+- Image resumes (`.png`, `.jpg`, `.jpeg`)
 
----
-
-## First-Time Setup
-
-On first launch, the application creates the database and seeds all default settings. No manual configuration file is needed.
-
-### Step 1 — Open Settings
-
-Click the **Settings** icon in the sidebar. You will see tabs for:
-- **General** — display name, company, HR email
-- **AI Providers** — API keys and model selection
-- **Email** — SMTP configuration for scheduling emails
-- **Security** — login enable/disable, password change
-- **Theme** — light/dark mode, colour palette
-
-### Step 2 — Configure an AI Provider
-
-The system needs at least one AI provider to run NLP extraction, ranking, and interview question generation.
-
-**Fastest setup (free):** Enable NVIDIA NIM — it provides free API credits with a generous rate limit.
-
-See [AI Providers](ai-providers.md) for full setup instructions for each provider.
-
-### Step 3 — Test the Provider
-
-```bash
-python scripts/verify_providers.py
-```
-
-This sends a test prompt to all enabled providers and reports which ones respond successfully.
-
-### Step 4 — Upload Resumes
-
-Navigate to **Upload** in the sidebar. Supported formats:
-- `.pdf` — digital (text-based) or scanned
-- `.png`, `.jpg`, `.jpeg` — resume images (processed via OCR)
-
-The uploaded files are saved to `%LOCALAPPDATA%\AI Recruitment System\data\resumes\`.
-
-### Step 5 — Run the Pipeline
-
-Follow the pipeline in order:
-1. **Upload** → resumes ingested
-2. **NLP** → AI extracts structured candidate profiles
-3. **Ranking** → AI scores candidates against your job description
-4. **Scheduling** → shortlist created, interview slots generated
-5. **Interview** → candidates complete the AI interview via their browser
-6. **Reports** → PDF reports generated for each candidate
-
-See [Pipeline](pipeline.md) for a full walkthrough.
-
----
-
-## Data Storage
-
-All runtime data is stored in the user's `LOCALAPPDATA` directory to avoid requiring admin privileges:
-
-```
-%LOCALAPPDATA%\AI Recruitment System\
-├── data\
-│   ├── ars.db              ← SQLite database (settings + schema)
-│   ├── resumes\            ← Uploaded resume files
-│   └── output\
-│       ├── txt\            ← Plain-text extracted from PDFs
-│       ├── nlp\            ← AI-extracted candidate JSON profiles
-│       ├── ranking\        ← Ranked candidate leaderboards
-│       ├── scheduling\     ← Schedule files + .ics invites
-│       ├── interviews\     ← Interview transcripts
-│       ├── reports\        ← Generated PDF reports
-│       └── ssl\            ← Self-signed TLS certificate (auto-generated)
-└── .secret_salt            ← Random salt for credential encryption
-```
-
-> **Important:** Never move or delete `.secret_salt`. This file is used to derive the encryption key for all stored API keys and passwords. Losing it means encrypted credentials cannot be recovered.
-
----
-
-## Updating
-
-```bash
-git pull origin main
-pip install -r requirements.txt   # install any new dependencies
-python main.py
-```
-
-The database schema is automatically migrated on startup via `app/database.py`.
+### Step 3 — Execute Recruitment Pipeline
+1. **Upload:** Ingest applicant resumes into `data/resumes/`.
+2. **Text Extraction:** Converts resumes into plain text in `data/output/txt/`.
+3. **NLP Extraction:** Extracts structured JSON profiles into `data/output/nlp/`.
+4. **Candidate Ranking:** Evaluates candidates against a target Job Description with customizable weights and knockout rules. Annotate candidate rows with notes and tags, or click **Export to CSV**.
+5. **Scheduling:** Shortlist finalists, allocate time slots, and issue interview tokens.
+6. **Live Interview:** Candidates connect to `https://<host-ip>:5000/candidate-interview/<token>` to complete the proctored interview.
+7. **Reports:** Generate final PDF dossiers with combined fit scores (40% resume + 60% interview). Real-time desktop notifications alert HR upon completion.
+8. **Talent Intelligence:** Query the talent pool using semantic vector search and review executive analytics.

@@ -1,351 +1,314 @@
-# Data Formats
+# Data Formats & Schemas
 
-This document describes the exact structure of every JSON file the system produces. Understanding these formats is useful if you want to read output files programmatically, build integrations, or debug pipeline stages.
+This document defines the database schemas, file system structures, and JSON/CSV data formats used across the application.
 
 ---
 
-## NLP Output — `*_nlp.json`
+## 1. SQLite Database Schema
 
-**Location:** `%LOCALAPPDATA%\AI Recruitment System\data\output\nlp\`  
-**Produced by:** `src/nlp_extractor.py`  
-**Used by:** `src/ranking_engine.py`
+The database file is stored at `data/ars.db`. The transactional schema created and maintained by `app/database.py` contains the following relational tables:
+
+```sql
+-- 1. Pipeline Execution Runs
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_type   TEXT NOT NULL,
+    run_date   TEXT NOT NULL DEFAULT (date('now')),
+    run_ts     TEXT NOT NULL DEFAULT (datetime('now')),
+    status     TEXT DEFAULT 'RUNNING',
+    metadata   TEXT DEFAULT '{}'
+);
+
+-- 2. Candidates
+CREATE TABLE IF NOT EXISTS candidates (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id       INTEGER NOT NULL REFERENCES pipeline_runs(id),
+    name         TEXT NOT NULL,
+    email        TEXT DEFAULT '',
+    source_file  TEXT DEFAULT '',
+    score        REAL DEFAULT 0,
+    skills       TEXT DEFAULT '[]',
+    created_at   TEXT DEFAULT (datetime('now'))
+);
+
+-- 3. Candidate Interview Schedules
+CREATE TABLE IF NOT EXISTS schedules (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id         INTEGER NOT NULL REFERENCES pipeline_runs(id),
+    candidate_name TEXT NOT NULL,
+    job_title      TEXT DEFAULT '',
+    rank           INTEGER DEFAULT 0,
+    score          REAL DEFAULT 0,
+    offered_slots  TEXT DEFAULT '[]',
+    selected_slot  TEXT DEFAULT '',
+    status         TEXT DEFAULT 'PENDING',
+    email_sent     INTEGER DEFAULT 0,
+    created_at     TEXT DEFAULT (datetime('now'))
+);
+
+-- 4. Outbound Email Dispatch Log
+CREATE TABLE IF NOT EXISTS email_log (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id        INTEGER REFERENCES pipeline_runs(id),
+    schedule_id   INTEGER REFERENCES schedules(id),
+    recipient     TEXT NOT NULL,
+    subject       TEXT DEFAULT '',
+    status        TEXT DEFAULT 'SENT',
+    error         TEXT DEFAULT '',
+    sent_at       TEXT DEFAULT (datetime('now'))
+);
+
+-- 5. Candidate Access Tokens
+CREATE TABLE IF NOT EXISTS interview_tokens (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    token           TEXT NOT NULL UNIQUE,
+    candidate_name  TEXT NOT NULL,
+    source_file     TEXT NOT NULL,
+    job_title       TEXT DEFAULT '',
+    rank            INTEGER DEFAULT 0,
+    score           REAL DEFAULT 0,
+    used            INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- 6. Job Description Templates
+CREATE TABLE IF NOT EXISTS job_templates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    jd_text     TEXT NOT NULL,
+    created_at  TEXT DEFAULT (datetime('now'))
+);
+
+-- 7. Application Configuration Settings
+CREATE TABLE IF NOT EXISTS app_settings (
+    key          TEXT PRIMARY KEY,
+    value        TEXT NOT NULL,
+    is_encrypted INTEGER DEFAULT 0,
+    updated_at   TEXT DEFAULT (datetime('now'))
+);
+
+-- 8. Live Candidate Interview Sessions
+CREATE TABLE IF NOT EXISTS interview_sessions (
+    session_id     TEXT PRIMARY KEY,
+    token          TEXT NOT NULL,
+    candidate_name TEXT NOT NULL,
+    job_title      TEXT DEFAULT '',
+    session_data   TEXT NOT NULL,
+    created_at     REAL NOT NULL,
+    updated_at     TEXT DEFAULT (datetime('now'))
+);
+
+-- 9. Talent Intelligence Vector Embeddings
+CREATE TABLE IF NOT EXISTS candidate_embeddings (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_name TEXT NOT NULL UNIQUE,
+    source_file    TEXT DEFAULT '',
+    domain         TEXT DEFAULT '',
+    skills_json    TEXT DEFAULT '[]',
+    profile_text   TEXT DEFAULT '',
+    vector_json    TEXT DEFAULT '[]',
+    updated_at     TEXT DEFAULT (datetime('now'))
+);
+
+-- 10. AI Telemetry & Usage Monitoring
+CREATE TABLE IF NOT EXISTS ai_telemetry (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider          TEXT NOT NULL,
+    model             TEXT NOT NULL,
+    prompt_tokens     INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
+    latency_seconds   REAL DEFAULT 0.0,
+    status            TEXT DEFAULT 'SUCCESS',
+    cost_usd          REAL DEFAULT 0.0,
+    created_at        TEXT DEFAULT (datetime('now'))
+);
+
+-- 11. Candidate Feedback Records
+CREATE TABLE IF NOT EXISTS candidate_feedback (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_name TEXT NOT NULL,
+    email          TEXT DEFAULT '',
+    job_title      TEXT DEFAULT '',
+    feedback_text  TEXT NOT NULL,
+    status         TEXT DEFAULT 'DRAFT',
+    sent_at        TEXT,
+    created_at     TEXT DEFAULT (datetime('now'))
+);
+
+-- 12. Candidate Notes and Tags
+CREATE TABLE IF NOT EXISTS candidate_notes (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_name TEXT NOT NULL UNIQUE,
+    source_file    TEXT DEFAULT '',
+    note           TEXT DEFAULT '',
+    tags           TEXT DEFAULT '',
+    updated_at     TEXT DEFAULT (datetime('now'))
+);
+
+-- 13. Real-Time HR Notifications
+CREATE TABLE IF NOT EXISTS hr_notifications (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    type           TEXT NOT NULL,
+    title          TEXT NOT NULL,
+    message        TEXT NOT NULL,
+    candidate_name TEXT DEFAULT '',
+    job_title      TEXT DEFAULT '',
+    link           TEXT DEFAULT '',
+    is_read        INTEGER DEFAULT 0,
+    created_at     TEXT DEFAULT (datetime('now'))
+);
+```
+
+---
+
+## 2. Structured NLP Profile (`*_nlp.json`)
+
+Saved to `data/output/nlp/{filename}_nlp.json`:
 
 ```json
 {
   "personal_info": {
-    "name": "John Doe",
-    "email": "john@example.com",
-    "phone": "+91 98765 43210",
-    "location": "Bangalore, India",
-    "linkedin": "linkedin.com/in/johndoe",
-    "portfolio_or_github": "github.com/johndoe"
+    "name": "Jane Doe",
+    "email": "jane.doe@example.com",
+    "phone": "+1-555-0199",
+    "location": "San Francisco, CA",
+    "linkedin": "https://linkedin.com/in/janedoe",
+    "portfolio": "https://github.com/janedoe"
   },
   "domain": "Software Engineering",
-  "summary": "Experienced backend developer with 4 years in Python and distributed systems.",
-  "total_experience_years": 4,
+  "summary": "Full-stack engineer with 6 years building distributed Python backends.",
+  "total_experience_years": 6.0,
   "skills": {
-    "technical_skills": ["Python", "FastAPI", "PostgreSQL", "Docker"],
-    "tools_and_technologies": ["Git", "Redis", "Kubernetes", "AWS"],
-    "soft_skills": ["Communication", "Problem Solving", "Team Leadership"],
-    "domain_specific_skills": ["REST API Design", "Microservices", "CI/CD"],
-    "languages_known": ["English", "Hindi"]
+    "technical_skills": ["Python", "FastAPI", "Go", "PostgreSQL"],
+    "tools_and_technologies": ["Docker", "Kubernetes", "Redis", "Git"],
+    "domain_specific_skills": ["Microservices", "Event-Driven Architecture"],
+    "soft_skills": ["Team Leadership", "Code Review"]
   },
   "education": [
     {
-      "degree": "B.Tech",
+      "degree": "Bachelor of Science",
       "field_of_study": "Computer Science",
-      "institution": "IIT Bangalore",
-      "year_of_completion": "2020",
-      "grade_or_cgpa": "8.4"
+      "institution": "University of California, Berkeley",
+      "year": 2018
     }
   ],
   "work_experience": [
     {
-      "job_title": "Backend Engineer",
-      "company": "TechCorp India",
-      "start_date": "Jun 2020",
+      "job_title": "Senior Backend Engineer",
+      "employer": "TechCorp",
+      "start_date": "2021",
       "end_date": "Present",
-      "duration": "4 years",
-      "responsibilities": [
-        "Designed and maintained REST APIs serving 1M+ daily requests",
-        "Led migration from monolith to microservices"
-      ],
-      "achievements": [
-        "Reduced API latency by 40% through caching layer redesign"
-      ]
-    }
-  ],
-  "projects": [
-    {
-      "title": "Real-time Analytics Dashboard",
-      "description": "Built a streaming data pipeline using Kafka and ClickHouse for real-time metrics.",
-      "technologies_used": ["Kafka", "ClickHouse", "Python", "React"],
-      "outcome": "Reduced report generation time from 10 minutes to under 5 seconds"
+      "description": "Led migration of monolithic services to event-driven microservices."
     }
   ],
   "certifications": [
-    {
-      "name": "AWS Certified Solutions Architect",
-      "issuer": "Amazon",
-      "year": "2022"
-    }
-  ],
-  "awards_and_achievements": [
-    "Best Performer Q3 2022 — TechCorp India"
-  ],
-  "publications_or_research": [],
-  "volunteer_or_extracurricular": [
-    "Technical blogger — 5K+ monthly readers"
-  ],
-  "languages": ["English", "Hindi"],
-  "candidate_strength_summary": "Strong backend engineer with proven experience in high-traffic systems, cloud infrastructure, and API design. Particularly strong in Python ecosystem."
+    { "name": "AWS Certified Solutions Architect", "year": 2022 }
+  ]
 }
 ```
 
-**Notes:**
-- Any field the AI cannot find is set to `null` (numbers) or `[]` (lists) or `""` (strings)
-- `personal_info.name` falls back to `CANDIDATE_UNKNOWN_{filename}` if the AI cannot find a name
-- `_source_file` (the filename stem) is added when this file is loaded by `ranking_engine.py`
-- A companion `*_nlp.txt` human-readable summary is also generated in the same folder
-
 ---
 
-## Ranking Output — `ranking_scores_<timestamp>.json`
+## 3. Candidate Ranking Scores (`ranking_scores_*.json`)
 
-**Location:** `%LOCALAPPDATA%\AI Recruitment System\data\output\ranking\`  
-**Produced by:** `src/ranking_engine.py`
+Saved to `data/output/ranking/ranking_scores_{job_title}_{timestamp}.json`:
 
 ```json
 {
-  "job_title": "Senior Python Developer",
-  "jd_summary": {
-    "job_title": "Senior Python Developer",
+  "job_description": {
+    "job_title": "Senior Backend Engineer",
     "domain": "Software Engineering",
-    "required_experience_years": 4,
-    "required_education": "Bachelors in Computer Science or related field",
-    "required_skills": ["Python", "FastAPI", "PostgreSQL", "Docker"],
-    "preferred_skills": ["Kubernetes", "AWS", "Redis"],
-    "required_certifications": [],
-    "job_summary": "We are looking for a senior backend developer..."
+    "required_skills": ["Python", "FastAPI", "Docker", "PostgreSQL"],
+    "min_experience_years": 3.0
+  },
+  "applied_weights": {
+    "skills_match": 35,
+    "experience_years": 20,
+    "domain_match": 20,
+    "education": 15,
+    "certifications": 10
+  },
+  "knockout_rules": {
+    "min_experience_years": 3.0,
+    "required_skills": ["Python"]
   },
   "ranked_candidates": [
     {
-      "candidate_name": "John Doe",
-      "total_score": 84,
-      "percentage": 84,
-      "overall_verdict": "Strong candidate with directly relevant skills and solid experience.",
+      "candidate_name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "total_score": 92.5,
+      "percentage": 92.5,
       "hire_recommendation": "Strongly Recommend",
-      "strengths": ["4 years Python experience", "AWS certified", "Microservices background"],
-      "gaps": ["No PostgreSQL certification mentioned"],
+      "is_knocked_out": false,
       "scores": {
-        "domain_match": {
-          "score": 18,
-          "max": 20,
-          "reason": "Direct domain match — Software Engineering for a Python backend role."
-        },
-        "skills_match": {
-          "score": 30,
-          "max": 35,
-          "reason": "80%+ of required skills present including Python, FastAPI, Docker, PostgreSQL."
-        },
-        "experience_years": {
-          "score": 18,
-          "max": 20,
-          "reason": "4 years of directly relevant backend experience."
-        },
-        "education": {
-          "score": 9,
-          "max": 15,
-          "reason": "B.Tech in Computer Science from a reputable institution."
-        },
-        "certifications": {
-          "score": 6,
-          "max": 10,
-          "reason": "1 relevant certification (AWS Solutions Architect)."
-        }
+        "domain_match": { "score": 20, "max": 20, "reason": "Exact domain alignment" },
+        "skills_match": { "score": 35, "max": 35, "reason": "All required skills present" },
+        "experience_years": { "score": 20, "max": 20, "reason": "6 years exceeds requirement" },
+        "education": { "score": 9, "max": 15, "reason": "Bachelor of Science" },
+        "certifications": { "score": 8, "max": 10, "reason": "AWS Solutions Architect" }
       },
-      "_source_file": "john_doe_nlp",
-      "_dedup_id": "a3f8b21c"
-    }
-  ],
-  "generated_at": "2026-08-14T15:00:00"
-}
-```
-
-**Notes:**
-- Candidates are sorted by `total_score` descending — index 0 is the top candidate
-- `_dedup_id` is a 16-char SHA-256 hash used to detect duplicate resumes
-- A `leaderboard_<timestamp>.json` file is also produced with a simplified list (name + score only)
-
----
-
-## Schedule Output — `schedule_<timestamp>.json`
-
-**Location:** `%LOCALAPPDATA%\AI Recruitment System\data\output\scheduling\`  
-**Produced by:** `src/scheduling.py`
-
-```json
-{
-  "job_title": "Senior Python Developer",
-  "generated_at": "2026-08-14T16:00:00",
-  "hr_slots": [
-    "2026-08-20 10:00",
-    "2026-08-20 14:00",
-    "2026-08-21 09:00"
-  ],
-  "schedule": [
-    {
-      "rank": 1,
-      "candidate_name": "John Doe",
-      "email": "john@example.com",
-      "score": 84,
-      "hire_recommendation": "Strongly Recommend",
-      "offered_slots": [
-        "2026-08-20 10:00",
-        "2026-08-20 14:00",
-        "2026-08-21 09:00"
-      ],
-      "selected_slot": "2026-08-20 10:00",
-      "status": "CONFIRMED",
-      "token": "550e8400-e29b-41d4-a716-446655440000",
-      "ics_file": "john_doe_interview.ics",
-      "source_file": "john_doe_nlp"
+      "strengths": ["Strong distributed systems background", "Direct stack match"],
+      "gaps": []
     }
   ]
 }
 ```
 
-**Candidate status values:**
-| Status | Meaning |
-|---|---|
-| `SCHEDULED` | Slots offered, awaiting confirmation |
-| `CONFIRMED` | Candidate confirmed their slot |
-| `COMPLETED` | Interview finished |
-| `CANCELLED` | Interview cancelled |
-
 ---
 
-## Interview Transcript — `interview_<name>_<timestamp>.json`
+## 4. RFC 4180 CSV Export Format
 
-**Location:** `%LOCALAPPDATA%\AI Recruitment System\data\output\interviews\`  
-**Produced by:** `src/interview_bot.py` / `app/routes/interview.py`
+Generated via `GET /api/ranking/export/csv`:
 
-```json
-{
-  "session_id": "abc123-...",
-  "candidate_name": "John Doe",
-  "job_title": "Senior Python Developer",
-  "source_file": "john_doe_nlp",
-  "started_at": "2026-08-20T10:05:00",
-  "completed_at": "2026-08-20T10:47:00",
-  "mode": "text",
-  "responses": [
-    {
-      "question_number": 1,
-      "question_type": "technical",
-      "topic": "Python",
-      "difficulty": "medium",
-      "question": "How would you implement rate limiting in a FastAPI application?",
-      "answer": "I would use a combination of Redis and a token bucket algorithm...",
-      "score": 8,
-      "max_score": 10,
-      "feedback": "Excellent answer. Correctly identifies Redis as a distributed store and explains the token bucket algorithm clearly.",
-      "answer_time_seconds": 67
-    },
-    {
-      "question_number": 6,
-      "question_type": "behavioral",
-      "topic": "Teamwork",
-      "question": "Describe a situation where you had to resolve a conflict within your team.",
-      "answer": "During a sprint at TechCorp, two developers disagreed on the architecture...",
-      "score": 7,
-      "max_score": 10,
-      "feedback": "Good use of STAR format. Could have elaborated more on the measurable outcome.",
-      "answer_time_seconds": 89
-    }
-  ],
-  "proctor_summary": {
-    "webcam_available": true,
-    "total_checks": 23,
-    "no_face_events": 1,
-    "multi_face_events": 0,
-    "tab_switches": 2,
-    "copy_paste_events": 0,
-    "total_flags": 3,
-    "risk_level": "Low"
-  },
-  "overall_score": 72,
-  "max_possible_score": 80,
-  "percentage": 90
-}
+```csv
+Rank,Name,Email,Total Score,Skills Match,Experience Score,Strengths,Hire Recommendation
+1,Jane Doe,jane.doe@example.com,92.5,35,20,"Python, FastAPI, Docker",Strongly Recommend
+2,John Smith,john.smith@example.com,81.0,28,18,"Python, PostgreSQL",Recommend
 ```
 
 ---
 
-## AI Report Output — `report_<name>_<timestamp>.json`
+## 5. Interview Transcript (`interview_*.json`)
 
-**Location:** `%LOCALAPPDATA%\AI Recruitment System\data\output\reports\`  
-**Produced by:** `src/report_generator.py` (JSON companion file)
+Saved to `data/output/interviews/interview_{candidate_name}_{timestamp}.json`:
 
 ```json
 {
-  "candidate_name": "John Doe",
-  "source_file": "john_doe_nlp",
-  "scores": {
-    "ranking_score": 85,
-    "interview_score": 72,
-    "interview_max": 80,
-    "interview_pct": 90,
-    "technical_score": 45,
-    "technical_max": 50,
-    "technical_pct": 90,
-    "behavioral_score": 27,
-    "behavioral_max": 30,
-    "behavioral_pct": 90,
-    "combined_score": 88
-  },
-  "proctoring": {
-    "status": "CLEAN",
-    "flagged_count": 1,
-    "log": [
-      {
-        "timestamp": "2026-08-20T10:15:30",
-        "type": "tab_switch",
-        "details": "Candidate switched browser tab"
+  "candidate_name": "Jane Doe",
+  "job_title": "Senior Backend Engineer",
+  "total_score": 74,
+  "max_score": 80,
+  "percentage": 92.5,
+  "technical_score": 46,
+  "technical_max": 50,
+  "behavioral_score": 28,
+  "behavioral_max": 30,
+  "proctoring_status": "Clean Session",
+  "flagged_count": 0,
+  "flags": [],
+  "responses": [
+    {
+      "question_num": 1,
+      "type": "TECHNICAL",
+      "topic": "Microservices & Caching",
+      "question": "How do you prevent cache stampedes in a high-concurrency Redis setup?",
+      "answer": "We implemented distributed locking using Redis mutexes with randomized exponential backoff and probabilistic early cache expiration.",
+      "evaluation": {
+        "relevance": 3,
+        "depth": 3,
+        "clarity": 2,
+        "correctness": 2,
+        "total": 10,
+        "feedback": "Comprehensive technical answer demonstrating practical concurrency experience.",
+        "strong_points": ["Probabilistic early expiration", "Distributed mutex backoff"],
+        "weak_points": []
+      },
+      "time_taken": 38.2,
+      "proctor": {
+        "flagged": false,
+        "flags": []
       }
-    ]
-  },
-  "ai_report": {
-    "overall_summary": "John demonstrated strong technical competence across all domains tested...",
-    "technical_assessment": "Scored 45/50 on technical questions. Particular strength in Python internals and system design.",
-    "behavioral_assessment": "Solid STAR-format responses. Communication is clear and structured.",
-    "key_strengths": [
-      "Deep Python knowledge",
-      "Clear communication style",
-      "Relevant AWS experience"
-    ],
-    "key_gaps": [
-      "Limited mention of testing practices",
-      "No experience with PostgreSQL at scale"
-    ],
-    "proctoring_remarks": "One minor tab-switch event recorded. Overall integrity verified.",
-    "risk_level": "Low",
-    "hire_recommendation": "Recommend",
-    "hire_justification": "Strong technical fit with demonstrated experience directly relevant to the role.",
-    "suggested_next_steps": [
-      "Schedule a follow-up technical round with the engineering team",
-      "Request a code sample or GitHub portfolio review"
-    ]
-  },
-  "responses": [
-    {
-      "question_number": 1,
-      "question_type": "technical",
-      "topic": "Python",
-      "question": "How would you implement rate limiting in a FastAPI application?",
-      "answer": "I would use a combination of Redis and a token bucket algorithm...",
-      "score": 9,
-      "feedback": "Strong answer demonstrating solid architecture grasp.",
-      "answer_time_seconds": 45
     }
   ]
-}
-```
-
----
-
-## Token Record (in database)
-
-Tokens are stored in the `app_settings` table as a JSON blob under the key `interview_tokens`.
-
-Each token entry:
-```json
-{
-  "token": "550e8400-e29b-41d4-a716-446655440000",
-  "candidate_name": "John Doe",
-  "job_title": "Senior Python Developer",
-  "source_file": "john_doe_nlp",
-  "created_at": "2026-08-14T16:00:00",
-  "used": false
 }
 ```

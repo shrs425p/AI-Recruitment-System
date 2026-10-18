@@ -1,239 +1,131 @@
 # Interview System
 
-This document covers how the candidate interview portal works — token authentication, question generation, voice mode, proctoring, and how sessions are stored.
+This document explains the candidate interview portal architecture, including token authentication, configurable interview lengths, adaptive conversational follow-up probing, proctoring integrity, and real-time completion notifications.
 
 ---
 
-## Overview
+## Architecture
 
-The interview system runs as a separate HTTPS server (port 5000) that candidates access from their own browsers. Each candidate gets a unique one-time URL. The HR manager monitors sessions from the dashboard.
+The interview system runs as a dedicated HTTPS service (port 5000) that candidates access from their own browsers. It is completely isolated from the administrative HR server (`127.0.0.1:5001`).
 
-The flow for each candidate:
 ```
-Candidate opens their URL
-        │
-Token validated
-        │
-Interview session created
-        │
-8 questions generated (AI, personalised)
-        │
-Candidate answers each question
-(text input or voice via Vosk)
-        │
-Each answer evaluated by AI
-        │
-Webcam proctor runs throughout
-        │
-Session ends → transcript saved
-        │
-HR generates PDF report
+Candidate Browser                          Candidate Server (Port 5000)
+       │                                                │
+       │─── 1. Access https://<host-ip>:5000/candidate-interview/<token> ──►
+       │                                                │ Validate Token
+       │                                                │ Check Candidate Consent
+       │◄── 2. Render Interview UI + Web Speech / Cam ──│
+       │                                                │
+       │─── 3. Request Start (POST /start) ─────────────► Create Session ID & Key
+       │                                                │ Generate Question Plan
+       │◄── 4. Deliver Q1 ──────────────────────────────│
+       │                                                │
+       │─── 5. Submit Answer A1 ────────────────────────► Server Records Monotonic Time
+       │                                                │ Score Answer (4-Part Rubric)
+       │                                                │ Check should_probe_further()
+       │◄── 6. Adaptive Probe or Next Question ─────────│
+       │                                                │
+       │─── 7. Final Question Completed ────────────────► Save Transcript (JSON + TXT)
+       │                                                │ Emit HR Desktop Notification
+       │◄── 8. Completion Confirmation ─────────────────│ Update Session in DB
 ```
 
 ---
 
-## Interview Tokens
+## 1. Interview Tokens & Security Isolation
 
-Each candidate gets a unique interview token generated during the scheduling stage. The token is a UUID stored in the database.
+Each shortlisted candidate receives a unique, cryptographically random interview token generated during the scheduling stage.
 
-**Candidate URL format:**
+### Candidate Access URL
 ```
 https://<server-ip>:5000/candidate-interview/<token>
 ```
 
-**How token validation works:**
-1. Candidate opens the URL
-2. Server looks up the token in the database
-3. If valid: session is created, interview starts
-4. If invalid/expired: candidate sees an error page
-
-The token is associated with:
-- Candidate name
-- Job title
-- NLP source file (used to load their profile for personalised questions)
+### Access Control Rules
+1. **Candidate Consent:** Candidates must explicitly check a privacy consent acknowledgment agreeing to webcam monitoring and answer processing before the session commences.
+2. **Session Key Validation:** Upon starting, the server returns an HMAC session key (`session_key`). All subsequent answer submissions must provide this key via the `X-Interview-Session-Key` header and request body.
+3. **HR Route Protection:** The candidate application explicitly rejects all administrative HR endpoints (`/dashboard`, `/ranking`, `/reports`, etc.), returning HTTP 404.
 
 ---
 
-## Question Generation
+## 2. Configurable Interview Length & Limits
 
-Questions are generated at the start of the interview by combining the verified job title, candidate domain, and extracted technical skills from the candidate's NLP profile.
+Recruiters can adjust interview duration and difficulty directly from the Settings page without modifying source code:
 
-### Role Title & Skill Targeting
-The interview engine resolves the actual job title from the scheduling configuration or parsed job description. It explicitly avoids defaulting to generic placeholder titles ("Open Position"). The question generator receives:
-- Target Job Title (e.g. "Senior Python Developer", "Frontend Engineer")
-- Candidate Domain (e.g. "Software Engineering", "Data Science")
-- Extracted Technical Skills and Tools (e.g. Python, FastAPI, Docker, PostgreSQL)
+| Setting Parameter | Configuration Key | Default Value | Configurable Range |
+|---|---|---|---|
+| Technical Questions Count | `INTERVIEW_TECH_QUESTIONS` | 5 | 3 to 10 questions |
+| Behavioral Questions Count | `INTERVIEW_BEHAVIORAL_QUESTIONS` | 3 | 1 to 5 STAR questions |
+| Per-Question Time Limit | `INTERVIEW_TIME_LIMIT` | 120 seconds | 60s, 90s, 120s, 180s |
 
-### Question Plan
-- **5 technical questions** — tailored directly to the target role and the candidate's technology stack, graded in ascending complexity
-- **3 behavioral questions** — structured around real engineering scenarios using the STAR format (Situation, Task, Action, Result)
-
-If the candidate's NLP profile is not yet generated, the system falls back to questions derived directly from the job title and domain requirements.
-
-### Temperature & Determinism
-Question generation uses `temperature=0.3` to ensure natural variety while maintaining role relevance. Subsequent answer evaluation strictly uses `temperature=0.0` for deterministic scoring.
+These settings are stored dynamically in the `app_settings` SQLite table and immediately apply to new interview sessions.
 
 ---
 
-## The Interview Session (INTERVIEW_PLAN)
+## 3. Adaptive Question Generation & Blueprints
 
-The questions are presented in a fixed order defined by `INTERVIEW_PLAN` in `app/routes/interview.py`. Each entry specifies the question type (technical/behavioral) and topic.
+Questions are generated dynamically based on the verified job title, domain, and extracted technical skills from the candidate's NLP profile.
 
-A session contains:
-- `session_id` — UUID for this interview session
-- `session_key` — HMAC-signed key used to authenticate API calls during the session
-- `transcript` — list of Q&A pairs built up as the interview progresses
-- `pending_question` — the current question stored server-side (the client cannot modify it)
-- `proctor_data` — running proctor summary
+### Role-Adaptive Blueprints (`is_tech_role`)
+The engine dynamically analyzes job title and domain keywords to determine role type:
+- **Technical Roles:** Emphasizes architecture, algorithmic problem solving, concurrency, data structures, and concrete framework implementations.
+- **Non-Technical Roles (e.g. Marketing, Sales, Operations, HR):** Bypasses software questions and dynamically structures topics around strategic planning, ROI metrics, stakeholder negotiations, conflict resolution, and operational crisis management.
 
-> **Security note:** Questions are stored server-side. The client sends answers but cannot modify or skip questions. The server issues each question and validates answers against its own record — not what the client claims.
-
----
-
-## Answer Evaluation
-
-After each answer is submitted, the AI evaluates it and returns:
-
-| Field | Description |
-|---|---|
-| `score` | 0–10 integer score |
-| `feedback` | 2—3 sentence constructive feedback |
-| `follow_up` | Optional follow-up question if the answer was incomplete |
-
-Evaluation uses `temperature=0.0` for consistent, deterministic scoring.
-
-> **Note on Prompt Tuning for Small Models:** The system prompt for grading has been explicitly relaxed to grant **partial credit** for incomplete answers. Previously, strict rules caused small local models (like `qwen2.5:1.5b`) to aggressively give 0/10 scores and hallucinate feedback if a candidate missed part of a multi-part question. The prompt now securely supports smaller LLMs.
-
-The answer and evaluation are appended to the transcript immediately. If AI evaluation fails (provider error, timeout), the answer is still saved — just without a score.
+### Adaptive Conversational Probing (`should_probe_further`)
+If a candidate submits a shallow, high-level, or textbook-definition answer, the interview bot dynamically interjects with a follow-up probing question:
+- **Trigger Conditions:** Depth score $\le 1$ or total rubric score $< 7$ with at least 5 words provided. Blank answers or explicit skips are not probed.
+- **Probe Construction (`generate_adaptive_followup`):** Extracts technologies or concepts mentioned in the candidate's answer and asks for practical implementation specifics, real-world edge cases, or trade-offs.
 
 ---
 
-## Answer Time Limit
+## 4. Multi-Dimensional Answer Evaluation
 
-Each answer has a soft time limit of **120 seconds**. If a candidate takes longer:
-- The proctoring system records an "answer time exceeded" flag
-- The interview is not automatically stopped — the candidate can still finish
+Each candidate answer is evaluated across four rubric dimensions using deterministic AI evaluation (`temperature=0.0`):
 
----
-
-## Voice Mode
-
-The platform provides a native Voice Mode built on HTML5 Web Speech APIs (`SpeechSynthesis` and `SpeechRecognition`), which works entirely in the browser without requiring external Python speech libraries.
-
-### How Voice Mode Works
-
-1. The candidate clicks **Voice Mode** in their interview session.
-2. The browser's TTS engine reads the current question aloud. *Note: Browser autoplay policies require this to be triggered by a click event.*
-3. The candidate speaks their answer, and the browser's native STT API continuously transcribes it into the text box in real time.
-4. The transcribed text is shown to the candidate for review before submission.
-5. Candidate submits the text.
-
-### Requirements for Voice Mode
-
-| Component | Requirement |
-|---|---|
-| Browser | A modern browser supporting HTML5 Web Speech API (Chrome, Edge, Safari) |
-| Microphone | Any working system microphone (permissions must be granted in browser) |
-| Audio Output | Speakers or headphones for Text-to-Speech |
-
-The `candidate_interview.html` template automatically detects if `window.speechSynthesis` and `window.webkitSpeechRecognition` are available. If not, the Voice Mode button is automatically disabled and the interview proceeds in text-only mode.
-
----
-
-## Webcam Proctoring
-
-Proctoring runs as a **background thread** throughout the interview. The candidate's webcam is captured and analysed without interrupting the interview flow.
-
-### How It Works
-
-The `WebcamProctor` class in `src/webcam_proctor.py`:
-
-1. Opens the webcam via OpenCV on `start()`
-2. Reads frames continuously at ~30fps in a background thread
-3. Every **2 seconds** (`CHECK_INTERVAL`), analyses the current frame for faces
-4. Encodes frames as base64 JPEG (quality 60) for live streaming to the browser
-5. Stops on `stop()` and returns a summary report
-
-### Face Detection
-
-Two detection methods are available:
-
-| Method | When Used | How to Enable |
+| Rubric Dimension | Max Score | Evaluation Criteria |
 |---|---|---|
-| **MediaPipe** | Primary — more accurate | `pip install mediapipe>=0.10.9` |
-| **OpenCV Haar cascade** | Fallback — always available | No setup needed |
+| **Relevance** | 3 pts | Did the candidate directly answer the specific question asked? |
+| **Depth** | 3 pts | Did they provide practical implementation details, edge cases, and trade-offs rather than generic definitions? |
+| **Clarity** | 2 pts | Is the answer articulate, structured, and easy to follow? |
+| **Correctness** | 2 pts | Is the technical explanation accurate according to domain standards? |
+| **Total** | **10 pts** | Sum of component dimensions. |
 
-MediaPipe is used if installed; otherwise the system automatically falls back to OpenCV's built-in Haar cascade face detector.
-
-### Violation Flags
-
-| Violation | Trigger Condition |
-|---|---|
-| **No face detected** | Face absent for 3 consecutive checks (6 seconds) |
-| **Multiple faces detected** | 2+ faces visible for 2 consecutive checks (4 seconds) |
-| **Tab switch** | Browser visibility API fires `visibilitychange` event |
-| **Copy-paste** | `copy`, `cut`, or `paste` events fired in the interview window |
-
-All violations are timestamped and included in the interview transcript and PDF report.
-
-### Thresholds Explained
-
-- `CHECK_INTERVAL = 2.0` seconds — face check frequency
-- `NO_FACE_THRESHOLD = 3` — 3 consecutive "no face" checks = 6 seconds before flagging
-- `MULTI_FACE_THRESHOLD = 2` — 2 consecutive "multiple faces" checks before flagging
-
-The thresholds exist to avoid false positives from brief occlusion (e.g. candidate adjusting glasses, looking down at notes for a second).
-
-### Frame Resolution
-
-Frames are captured at 320×240 pixels — small enough for smooth real-time streaming, sufficient for face detection accuracy.
-
-### What HR Sees
-
-From the Interview dashboard, HR can:
-- See a live feed of the candidate's webcam (base64 JPEG stream)
-- See the current proctor status (face count, active flags)
-- See the running violation count
+The evaluation returns a JSON payload including numerical breakdown, constructive feedback, identified strengths, and technical gaps.
 
 ---
 
-## Interview Transcript
+## 5. Proctoring & Anti-Tampering Safeguards
 
-At the end of the session, a JSON transcript is saved to `data/output/interviews/`:
+A background thread monitors integrity continuously during the interview:
 
-```json
-{
-  "session_id": "...",
-  "candidate_name": "...",
-  "job_title": "...",
-  "started_at": "2026-08-14T15:00:00",
-  "completed_at": "2026-08-14T15:45:00",
-  "transcript": [
-    {
-      "question_number": 1,
-      "question_type": "technical",
-      "topic": "Python",
-      "question": "...",
-      "answer": "...",
-      "score": 7,
-      "feedback": "...",
-      "answer_time_seconds": 45
-    }
-  ],
-  "proctor_summary": {
-    "total_flags": 2,
-    "no_face_events": 1,
-    "multi_face_events": 0,
-    "tab_switches": 1,
-    "copy_paste_events": 0
-  }
-}
-```
+### Face Absence and Multi-Face Detection
+- Uses `MediaPipe` face detection with `OpenCV` Haar cascade fallback.
+- **No Face Detected:** Flagged if no face is detected for 5 consecutive frames.
+- **Multiple Faces Detected:** Flagged if more than 1 face appears in the webcam frame for 3 consecutive frames.
+
+### Copy-Paste & Speed Ingestion
+- If a candidate submits an answer longer than 100 characters in less than 2.0 seconds, the system logs a `SUSPICIOUSLY_FAST_ANSWER` / `COPY_PASTE_DETECTED` violation.
+
+### Anti-Tamper Elapsed Time Calculation
+- Client-submitted timestamps are not trusted for duration calculations.
+- The server records high-resolution monotonic timestamps (`time.monotonic()`) when a question is issued and when the answer is received.
+- If duration exceeds the configured `INTERVIEW_TIME_LIMIT`, a `TIME_LIMIT_EXCEEDED` flag is raised.
 
 ---
 
-## Multiple Sessions
+## 6. Voice Synthesis and Transcription
 
-Each candidate token can only be used for one active session at a time. If a session is interrupted (browser closed, network drop), the candidate can re-open their URL to resume from the last saved question.
+Candidates can conduct the interview via text or interactive voice mode:
+- **Speech Synthesis (TTS):** Browser-native `window.speechSynthesis` speaks questions aloud. Markdown headers, asterisks, and code backticks are stripped server-side prior to synthesis to produce natural speech.
+- **Speech Recognition (STT):** Browser-native `window.webkitSpeechRecognition` transcribes speech into text in real time. Backend Vosk or Google speech fallback is available if browser STT is unsupported.
 
-Sessions are stored in an in-memory dictionary (`interview_session`) and flushed to disk as JSON on completion.
+---
+
+## 7. Automated Real-Time HR Completion Notification
+
+When the final question is answered, the session finalizes:
+1. Complete transcripts and evaluation metrics are written to `data/output/interviews/interview_<name>.json` and `.txt`.
+2. The server calls `app.database.create_hr_notification`:
+   - Title: *"Candidate Interview Completed"*
+   - Message: *"Jane Doe has completed the interview for Senior Python Developer. Report is ready."*
+3. The HR manager's desktop interface displays an immediate notification and increments the unread notification badge.

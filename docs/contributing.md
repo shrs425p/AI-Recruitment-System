@@ -188,24 +188,50 @@ value = getattr(config, "MY_NEW_SETTING", "default_value")
 
 ---
 
-## Running Tests
+## Running Tests and Code Quality
 
+The test suite contains 14 domain-scoped modules covering 140 automated tests:
+
+| Test Module | Coverage Domain |
+|---|---|
+| `test_airgap.py` | Bundled fonts, local Chart.js, zero external CDN calls |
+| `test_api.py` | HR admin routes, candidate management, CSV export, CSRF |
+| `test_auth.py` | Passwords, sessions, rate limiting, single-use nonces |
+| `test_db.py` | SQLite schema, migrations, encryption, and CRUD |
+| `test_intelligence.py` | Vector search, candidate compare, feedback, and 6 talent analytics calculators |
+| `test_interview.py` | Question generation, timers, follow-up probes, blueprints |
+| `test_nlp.py` | Information extraction, regex parsing, contact details |
+| `test_proctor.py` | Tab switch detection, webcam integrity, face count |
+| `test_ranking.py` | Score calculation, weights, knockouts, leaderboards |
+| `test_reports.py` | PDF generation, Latin-1 encoding, score weighting |
+| `test_resume.py` | PDF, DOCX text extraction, OCR fallback |
+| `test_schedule.py` | Slot generation, ICS calendar files, email dispatch |
+| `test_security.py` | Fernet encryption, key derivation, PII purging |
+| `test_voice.py` | Speech-to-text, audio chunk handling |
+
+Run the test suite:
 ```bash
-pytest                          # run all tests
-pytest -v                       # verbose
-pytest tests/test_myfeature.py  # specific file
-pytest -k "test_login"          # specific test by name
+pytest -v --no-cov                     # run all 140 tests
+pytest tests/test_intelligence.py      # run specific domain module
+pytest -k "test_csv_export"            # filter by test function name
+```
+
+Run static analysis and code formatting:
+```bash
+ruff check .                           # verify code style and lint rules
+ruff format --check .                  # check code formatting
 ```
 
 ---
 
 ## Common Mistakes to Avoid
 
-- **Don't call AI providers directly from routes.** Always go through `call_ollama()` in `src/common.py`.
-- **Don't use `print()` for logging.** Use `logger.info()`, `logger.error()` etc.
-- **Don't hardcode paths.** Use `data_path()` and `resource_path()` from `src/common.py`.
-- **Don't write sensitive values unencrypted.** Use `app.database.set_setting(key, value, is_encrypted=True)` for keys in `SENSITIVE_KEYS`.
-- **Don't forget `@login_required`** on new HR-only routes.
-- **Don't forget CSRF protection.** State-changing HR endpoints (`POST`, `PUT`, `DELETE`) require `X-CSRF-Token` validation.
-- **Maintain permissive licensing.** Use MIT, BSD, or Apache-2.0 licensed packages; avoid AGPL dependencies.
-- **Don't write to the project directory at runtime.** Write to `data_path()` locations in `APP_DATA_DIR` — the project directory may be read-only in installed builds.
+- **Do not introduce external CDN dependencies.** All frontend JavaScript libraries and fonts must be bundled locally in `app/static/js/` and `app/static/fonts/` to ensure offline air-gapped functionality.
+- **Do not call AI providers directly from routes.** Always dispatch via `call_ollama()` in `src/common.py`.
+- **Do not use `print()` for logging.** Use `logger.info()`, `logger.error()`, or `logger.warning()`.
+- **Do not hardcode paths.** Use `data_path()` and `resource_path()` from `src/common.py`.
+- **Do not store sensitive keys in plaintext.** Mark sensitive keys in `SENSITIVE_KEYS` (`src/security.py`) and encrypt via `app.database.set_setting(key, value, is_encrypted=True)`.
+- **Do not omit `@login_required`** on protected HR administration endpoints.
+- **Do not bypass CSRF protection.** State-modifying endpoints (`POST`, `PUT`, `DELETE`) require `X-CSRF-Token` headers.
+- **Maintain permissive licensing.** Use MIT, BSD, or Apache-2.0 licensed dependencies; do not introduce AGPL dependencies.
+- **Do not write to the project root at runtime.** Write all runtime outputs to `data_path()` under `%LOCALAPPDATA%\AI Recruitment System\` so installed builds operate cleanly.
