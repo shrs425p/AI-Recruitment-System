@@ -1,16 +1,33 @@
-# AI Recruitment System — Comprehensive Master System Manual & Technical Reference
+# AI Recruitment System — Complete Master System Manual & Technical Reference
 
-## 1. System Overview & Operational Concept
+## 1. System Overview & Core Operational Tenets
 
-The AI Recruitment System (ARS) is a privacy-focused, offline-first desktop application designed to orchestrate and execute the complete technical hiring workflow. The software enables talent acquisition teams, engineering hiring managers, and recruitment operators to ingest resumes, extract structured candidate profiles, rank applicants against customized job descriptions, schedule interviews, host proctored live technical assessments on an isolated local-network portal, evaluate candidate responses, and analyze aggregate talent metrics.
+The AI Recruitment System (ARS) is an offline-capable, privacy-first desktop application designed to orchestrate and automate the complete technical hiring workflow. The software enables talent acquisition teams, engineering hiring managers, and recruitment operators to ingest resumes, extract structured candidate profiles, rank applicants against customized job descriptions, schedule interviews, host proctored live technical assessments on an isolated local-network portal, evaluate candidate responses, and analyze aggregate talent metrics.
 
-### Core Operating Philosophy
+### 1.1 The Three Core Operational Tenets
 
-The application is built on three core operational pillars:
+1. **Local Data Sovereignty:**
+   - All candidate resumes, extracted personal information, interview transcripts, video/audio proctoring metrics, evaluation scorecards, and system configurations are stored locally on the host machine.
+   - Data does not leave the operating workstation unless an operator explicitly enables and configures an external cloud AI provider.
+   - Operating under local data ownership guarantees compliance with strict corporate confidentiality rules and data protection mandates.
 
-1. **Local Data Sovereignty:** All candidate resumes, extracted personal information, interview video/audio analyses, transcripts, evaluation scorecards, and system configurations are stored locally on the host machine. Data does not leave the operating workstation unless an operator explicitly configures a cloud AI provider.
-2. **Two-Server Network Isolation:** Administrative functions and public candidate assessment portals run on separate network ports with distinct access boundaries. Administrators control the system via a local-loopback native desktop window, while candidates connect to an isolated, TLS-secured assessment portal across the local area network.
-3. **Air-Gapped Offline Operation:** The platform contains bundled typography, offline JavaScript visualization libraries, local optical character recognition binaries, local speech recognition models, and support for local on-device large language models via Ollama. It can execute the entire recruitment lifecycle without an active internet connection.
+2. **Two-Server Network Isolation:**
+   - Administrative functions and candidate assessment portals run on separate network ports with distinct access boundaries.
+   - Administrators control the platform through a local-loopback native desktop window on Port 5001, which rejects any incoming network traffic from outside the local computer.
+   - Candidates connect across the local area network or VPN to an isolated, TLS-secured assessment portal on Port 5000 that prevents access to administrative, ranking, or configuration endpoints.
+
+3. **Air-Gapped Offline Operation:**
+   - The platform contains bundled typography, offline JavaScript visualization libraries, local optical character recognition binaries, local speech recognition models, and support for local on-device large language models via Ollama.
+   - It can execute the entire recruitment lifecycle—from resume parsing to proctored interviewing and PDF report generation—without an active internet connection.
+
+### 1.2 System Execution Topology & Threading Model
+
+The application operates as a single multi-threaded Windows process coordinating multiple concurrent runtimes:
+- **Main GUI Thread:** Manages the pywebview desktop container lifecycle, handles operating system window events, and terminates child services upon window closure.
+- **Waitress WSGI Thread Pool (Port 5001):** A multi-threaded WSGI server handling administrative web dashboard requests, pipeline orchestration triggers, settings updates, and database queries.
+- **Candidate Portal Thread (Port 5000):** A multi-threaded HTTPS server serving candidate interview sessions, receiving proctoring anomaly events, and streaming active questions.
+- **Asynchronous Log Streaming Thread:** A background worker pulling log records from a thread-safe Queue and pushing them over Server-Sent Events (SSE) to the desktop console.
+- **Desktop Notification Worker Thread:** Dispatches non-blocking Win32 / plyer pop-up alerts to the Windows operating system shell upon interview completion events.
 
 ---
 
@@ -18,28 +35,30 @@ The application is built on three core operational pillars:
 
 ### 2.1 Hardware Requirements
 
-- **Processor (CPU):** 64-bit multi-core x86_64 processor (Intel Core i5/i7/i9 8th Generation or AMD Ryzen 5/7/9 equivalent or higher). A minimum of 4 physical cores is recommended for local PDF parsing, computer vision processing, and concurrent audio transcription.
+- **Processor (CPU):**
+  - Minimum: 64-bit multi-core x86_64 processor (Intel Core i5 8th Generation or AMD Ryzen 5 equivalent).
+  - Recommended: Intel Core i7/i9 or AMD Ryzen 7/9 with 8 or more physical cores to support concurrent OCR rasterization, facial landmark tracking, and local neural network inference.
 - **System Memory (RAM):**
-  - Minimum: 8 Gigabytes of RAM for running the application in Cloud Mode.
-  - Recommended: 16 Gigabytes to 32 Gigabytes of RAM when operating in Privacy Mode with on-device local LLM execution via Ollama.
+  - Minimum: 8 Gigabytes of RAM when operating in Cloud Mode.
+  - Recommended: 16 Gigabytes to 32 Gigabytes of RAM when operating in Privacy Mode with local on-device LLM inference via Ollama.
 - **Storage Space:**
-  - Application Installation: Approximately 500 Megabytes.
-  - Bundled OCR and Voice Models: Approximately 300 Megabytes.
-  - Local AI Models (Ollama): 2 Gigabytes to 8 Gigabytes depending on the selected model parameter size (e.g., llama3.2:3b requires approximately 2.0 GB of disk space).
-  - Candidate Resumes and Generated Reports: 1 Megabyte to 5 Megabytes per evaluated candidate.
-- **Camera & Audio (Candidate Device):** Standard USB or integrated webcam capable of 720p video capture at 15 frames per second, and a functional microphone for verbal answers.
+  - Base Application & Source Tree: Approximately 500 Megabytes.
+  - Bundled OCR & Voice Models: Approximately 300 Megabytes.
+  - Local Ollama AI Models: 2 Gigabytes to 8 Gigabytes depending on parameter scale (e.g., llama3.2:3b requires approximately 2.0 GB of disk storage).
+  - Candidate Data & Report Output: 1 Megabyte to 5 Megabytes per evaluated candidate.
+- **Candidate Hardware:** Standard integrated or USB webcam supporting 720p resolution at 15 frames per second, and a functional microphone for verbal responses.
 
 ### 2.2 Operating System & Platform Dependencies
 
-- **Supported Operating Systems:** Microsoft Windows 10 (64-bit) and Windows 11 (64-bit).
-- **Desktop Runtime Shell:** Microsoft Edge WebView2 Runtime (installed by default on modern Windows 10 and 11 builds).
-- **Core Software Dependencies (Bundled or Virtual Environment):**
-  - Python Runtime: Python version 3.10, 3.11, or 3.12 (64-bit).
+- **Supported Operating Systems:** Microsoft Windows 10 (64-bit) and Microsoft Windows 11 (64-bit).
+- **Desktop Runtime Shell:** Microsoft Edge WebView2 Runtime (pre-installed on modern Windows 10 and 11 builds).
+- **Core Software Dependencies:**
+  - Python Runtime: 64-bit Python 3.10, 3.11, or 3.12.
   - WSGI Web Server: Waitress multi-threaded production WSGI server.
   - Web Application Framework: Flask.
-  - Native Desktop Wrapper: pywebview.
+  - Desktop Shell Container: pywebview.
   - Database Engine: SQLite 3.
-  - PDF & Document Parsers: pypdf (digital PDF text stream decoder) and python-docx (Office Open XML Word document parser).
+  - Document & PDF Parsers: pypdf (digital PDF text stream decoder) and python-docx (Office Open XML Word parser).
   - Optical Character Recognition (OCR): Google Tesseract OCR 5.3 (pre-compiled Windows distribution bundled in models/Tesseract-OCR/) paired with pytesseract and pdf2image.
   - Computer Vision & Proctoring: Google MediaPipe (468-point face mesh tracking) and OpenCV (Haar cascade frontal face classifier fallback).
   - Voice & Speech Systems: HTML5 Web Speech API (in-browser SpeechRecognition and SpeechSynthesis) with offline fallbacks via pyttsx3 and Vosk (vosk-model-small-en-in-0.4 bundled in models/).
@@ -48,19 +67,17 @@ The application is built on three core operational pillars:
 
 ### 2.3 Network Architecture & Port Binding
 
-The platform establishes two distinct HTTP network listeners:
-
 1. **Administrative Desktop Port (Port 5001):**
-   - Bound Address: 127.0.0.1 (Loopback).
-   - Protocol: HTTP via Waitress WSGI.
-   - Purpose: Hosts the administrative dashboard, pipeline control engines, settings management, and talent analytics.
-   - Access Rule: Inbound requests originating from outside the host machine are rejected at the operating system socket layer. Outside devices on the local network cannot view or connect to Port 5001.
+   - Binding: Local loopback address (127.0.0.1) exclusively.
+   - WSGI Server: Waitress.
+   - Purpose: Hosts administrative controls, pipeline execution engines, ranking leaderboards, and settings.
+   - Security: Operating system socket layer rejects all incoming packets originating from outside the host computer. Outside LAN devices cannot connect to Port 5001.
 
 2. **Candidate Assessment Portal (Port 5000):**
-   - Bound Address: 0.0.0.0 (All Host Interfaces).
+   - Binding: All host network interfaces (0.0.0.0).
    - Protocol: HTTPS via Flask with auto-generated 2048-bit RSA self-signed TLS certificates.
-   - Purpose: Hosts the candidate assessment portal, question progression engine, audio input handler, and proctoring event receiver.
-   - Access Rule: Reachable across the local area network or VPN via the host machine's LAN IP address (e.g., https://192.168.1.100:5000/candidate-interview/<token>). All administrative routes are blocked on this port.
+   - Purpose: Hosts candidate assessment sessions, question progression, audio inputs, and proctoring event receivers.
+   - Security: Accessible across the local area network or VPN via the host IPv4 address (e.g., https://192.168.1.100:5000/candidate-interview/<token>). All administrative endpoints are blocked on this port.
 
 ---
 
@@ -68,42 +85,53 @@ The platform establishes two distinct HTTP network listeners:
 
 ### 3.1 Dashboard & Pipeline Control Console (/)
 
-The primary dashboard serves as the operational cockpit for executing recruitment batches:
-- **Pipeline Stage Cards:** Displays the eight recruitment stages (Upload, Extraction, NLP Parsing, Ranking, Scheduling, Interview, Evaluation, Reporting) with visual status indicators (Pending, In Progress, Completed, Failed).
-- **Batch Control Buttons:**
-  - Run Pipeline: Initiates the automated end-to-end processing pipeline across all uploaded candidate resumes.
-  - Reset Pipeline: Wipes temporary pipeline outputs (parsed text, scorecards, schedules, reports) to allow a clean run while preserving system settings, API keys, and database configurations.
-  - Open Output Folder: Invokes Windows File Explorer directly to the dynamic output directory in AppData.
-- **Real-Time Live Console Log:** An interactive terminal card that streams live server logs via Server-Sent Events (SSE). Operators can watch text extraction, AI prompt dispatches, scoring calculations, and scheduling operations in real time.
+The primary dashboard provides recruitment operators with central orchestration controls:
+- **Pipeline Stage Cards:** Eight visual cards representing the end-to-end recruitment stages:
+  1. Upload Resumes
+  2. Text Extraction & OCR
+  3. NLP Profile Parsing
+  4. Candidate Ranking
+  5. Interview Scheduling
+  6. Candidate Assessment
+  7. Interview Evaluation
+  8. Final Report Generation
+  - Each card displays real-time execution states: Pending, In Progress, Completed, or Failed.
+- **Batch Action Buttons:**
+  - Run Auto Pipeline: Triggers sequential execution of all pipeline stages across all uploaded resumes.
+  - Reset Pipeline: Wipes temporary pipeline outputs (extracted text, parsed JSONs, scorecards, schedules, reports) to allow a clean run while preserving system settings, API keys, and database records.
+  - Open Output Folder: Invokes Windows File Explorer directly to the dynamic output folder in AppData.
+- **Live Terminal Log Console:** An interactive console window streaming real-time server logs via Server-Sent Events (SSE). Displays detailed timestamps, processing milestones, AI token usage, and diagnostic tracebacks.
 
 ### 3.2 Candidate Ranking & Leaderboard (/ranking)
 
-The ranking dashboard displays evaluated candidates ordered by composite fit:
-- **Leaderboard Table:**
-  - Rank: Numerical ranking position based on final score.
-  - Candidate Name & Contact: Full name, verified email address, and phone number.
-  - Composite Fit Score: Normalized score (0 to 100) reflecting weighted alignment with the job description.
+The candidate ranking interface presents evaluated applicants ordered by composite fit score:
+- **Leaderboard Table Columns:**
+  - Rank: Numerical ranking position based on composite fit.
+  - Candidate Name: Extracted full name.
+  - Contact Details: Email address and phone number.
+  - Total Experience: Computed professional tenure in years.
+  - Composite Fit Score: Normalized 0 to 100 score reflecting weighted alignment with the job description.
   - Criteria Breakdown: Individual scores for Skills Match, Experience Relevance, Education Fit, Projects, and Domain Alignment.
-  - Status / Knockout Badge: Indicates candidate tier (Strong Match, Potential Match, Review Required, Unmatched) or Knockout flags.
-  - Actions: Buttons to inspect qualitative strengths/gaps, add recruiter notes, assign triage tags, or purge candidate data.
-- **Recruiter Notes & Tags Modal:** An interactive dialog where recruiters can type qualitative observations (e.g., notice period, salary requirements, interview impressions) and assign color-coded triage tags (Shortlisted, On Hold, Follow Up, Interviewed, Rejected).
-- **Export to CSV Button:** Downloads an RFC 4180-compliant comma-separated spreadsheet of the current leaderboard.
+  - Tiers & Knockouts: Visual badges indicating candidate tier (Strong Match, Potential Match, Review Required, Unmatched) or Knockout disqualifications.
+  - Actions: Buttons to inspect qualitative summaries, add recruiter notes, assign triage tags, or purge candidate data.
+- **Recruiter Notes & Tags Modal:** An interactive dialog allowing recruiters to record qualitative observations (e.g., notice period, salary expectations, interview impressions) and assign color-coded triage tags (Shortlisted, On Hold, Follow Up, Interviewed, Rejected).
+- **Export to CSV Button:** Generates and downloads an RFC 4180-compliant comma-separated values spreadsheet of the complete leaderboard.
 
 ### 3.3 Interview Timetable & Scheduling (/scheduling)
 
-The scheduling interface allows recruiters to coordinate interview windows:
-- **Shortlist Selection:** Displays the top N shortlisted candidates selected for interview scheduling based on ranking scores.
-- **Timetable View:** Displays allocated calendar slots mapped across upcoming working weekdays with start times, end times, and duration blocks.
-- **Calendar Synchronization Controls:**
+The scheduling interface allows recruiters to coordinate candidate interview slots:
+- **Shortlist Candidate View:** Displays the top N shortlisted candidates selected for interview scheduling based on ranking scores.
+- **Timetable Slot Mapper:** Generates a structured calendar timetable mapping candidates to discrete interview windows across upcoming working weekdays.
+- **Calendar Integration Controls:**
   - Connect Google Calendar: Initiates OAuth 2.0 authorization to link the recruiter's Google Calendar.
   - Scan Free/Busy Slots: Queries Google Calendar for available openings within configured working hours.
-- **Dispatch Invites Button:** Generates unique candidate portal tokens, creates iCalendar (.ics) files, and dispatches automated invitation emails via SMTP.
+- **Dispatch Invites Action:** Generates unique candidate portal tokens, creates iCalendar (.ics) files, and dispatches automated invitation emails via SMTP STARTTLS.
 
 ### 3.4 Candidate Assessment Portal (/candidate-interview/<token>)
 
-The candidate-facing interface rendered on Port 5000:
-- **Onboarding & Consent Screen:** Introduces the candidate to the automated interview process, explains the evaluation criteria, and requests informed consent for webcam proctoring and audio recording.
-- **Hardware Permission & Preview Card:** Displays a live video preview from the candidate's webcam to verify framing, lighting, and camera angle, alongside an interactive audio volume meter to verify microphone levels.
+The candidate-facing interface hosted on Port 5000:
+- **Onboarding & Consent Screen:** Outlines the automated assessment process, explains evaluation criteria, and requests informed consent for webcam proctoring and audio recording.
+- **Hardware Permission & Verification Card:** Displays a live video preview from the candidate's webcam to verify framing, lighting, and camera angle, alongside an interactive audio volume meter to verify microphone levels.
 - **Assessment Workspace:**
   - Question Header: Displays the current question sequence index (e.g., Question 3 of 8) and topic classification.
   - Question Card: Formatted question prompt, with optional audible text-to-speech playback.
@@ -111,7 +139,7 @@ The candidate-facing interface rendered on Port 5000:
   - Dual Answering Interface: An interactive text editor for typed responses, paired with a microphone button for verbal speech-to-text dictation.
   - Real-Time Proctoring Overlay: A floating video container showing the candidate's live camera feed with MediaPipe facial landmark tracking indicators.
 
-### 3.5 Evaluation Reports & Transcript Viewer (/reports)
+### 3.5 Evaluation Reports & Transcripts (/reports)
 
 The reports catalog enables hiring managers to review completed interview assessments:
 - **Report Catalog Table:** Lists all evaluated candidates, associated role titles, completion timestamps, combined fit scores, and proctoring risk ratings.
@@ -126,9 +154,9 @@ The executive intelligence dashboard provides deep aggregate insights:
 - **Personalized Feedback Generator:** Generates structured, professional candidate feedback letters.
 - **The Six Talent Analytics Widgets:** Interactive visual charts rendering skill gaps, experience-to-score quadrants, question difficulty ratings, proctoring integrity distributions, hiring velocity timelines, and candidate talent demographics.
 
-### 3.7 Settings & Provider Configuration (/settings)
+### 3.7 Settings & Configuration Hub (/settings)
 
-The central configuration hub:
+The central configuration console:
 - **General Settings:** Recruiter display name, company name, working hours, and lookahead calendar horizon.
 - **AI Mode Toggle:** Switch between Cloud Mode (ProviderRouter) and Privacy Mode (Local Ollama).
 - **AI Provider Cards:** Individual configuration panels for NVIDIA NIM, Anthropic, Gemini, Groq, OpenAI, OpenRouter, GitHub Models, and Ollama. Includes API key input, live model discovery buttons, and model selector dropdowns.
@@ -140,13 +168,13 @@ The central configuration hub:
 
 ## 4. End-to-End Recruitment Pipeline Operational Guide
 
-The recruitment pipeline consists of eight sequential, automated stages:
+The recruitment pipeline executes across eight automated stages:
 
-### Stage 1: Document Upload & Ingestion
+### Stage 1: Resume Upload & Ingestion
 
-1. The recruiter places candidate resume files into the data/resumes/ directory or uploads them via the dashboard interface.
-2. The ingestion validator checks each file against format extensions (.pdf, .docx, .png, .jpg, .jpeg) and verifies binary magic byte signatures.
-3. Filenames are sanitized to remove path traversal sequences and special characters. Colliding filenames receive timestamped unique suffixes. Files exceeding 16 MB are rejected.
+1. The recruiter places candidate resume files into data/resumes/ or uploads them via the dashboard interface.
+2. The ingestion validator checks each file against allowed extensions (.pdf, .docx, .png, .jpg, .jpeg) and verifies binary magic byte signatures.
+3. Filenames are sanitized to remove path traversal sequences (such as ../) and special characters. Colliding filenames receive timestamped unique suffixes. Files exceeding 16 MB are rejected with HTTP 413.
 
 ### Stage 2: Text Extraction & OCR Recovery
 
@@ -161,20 +189,21 @@ The recruitment pipeline consists of eight sequential, automated stages:
 1. The raw extracted text is segmented using regex pattern recognition to identify contact markers (email, phone, URLs).
 2. The segmented text is encapsulated inside strict XML delimiters (<resume_text>...</resume_text>) and dispatched to the active AI provider with a standardized JSON extraction schema.
 3. The AI normalizes dates, categorizes technical and soft skills, structures employment chronologies, parses academic degrees, and classifies the profile into a technical domain archetype.
-4. The structured output is validated and written to data/output/nlp/<candidate_id>_nlp.json.
+4. The structured output is validated and written to data/output/nlp/<candidate_id>_nlp.json and summarized in <candidate_id>_nlp.txt.
 
 ### Stage 4: Candidate Ranking & Fit Scoring
 
 1. The ranking engine loads the target job description and parses required skills, preferred skills, and minimum tenure requirements.
 2. Each candidate profile is evaluated across five criteria: Skills Match (35%), Experience Relevance (25%), Education Fit (15%), Projects (15%), and Domain Alignment (10%).
-3. If user-configured weights do not sum to 100%, the engine dynamically normalizes each weight proportionately.
+3. If user-configured weights do not sum to 100%, the engine dynamically normalizes each weight proportionately:
+   - Normalized Weight = User Weight divided by Sum of All User Weights.
 4. Knockout filters evaluate candidate tenure and mandatory skills. Candidates failing minimum criteria are flagged with knockout disqualifications.
 5. Composite fit scores (0 to 100) are computed. Candidates are assigned to recruitment tiers (Strong Match, Potential Match, Review Required, Unmatched), and qualitative strength/gap summaries are generated.
-6. The evaluated leaderboard is saved to data/output/ranking/ranking_scores_<job_id>.json.
+6. The evaluated leaderboard is saved to data/output/ranking/ranking_scores_<job_id>.json and persisted in the candidates table.
 
 ### Stage 5: Interview Scheduling & Calendar Synchronization
 
-1. The scheduling engine isolates the top N candidates from the ranking leaderboard, bypassing knocked-out applicants.
+1. The scheduling engine isolates the top N candidates from the ranking leaderboard (configurable in Settings, defaulting to top 5), bypassing knocked-out applicants.
 2. The scheduler generates sequential interview slots across working weekdays within configured working hours (e.g., 09:00 to 18:00), factoring in duration and buffer spacing.
 3. If Google Calendar integration is active, the engine queries the recruiter's calendar via the FreeBusy API to detect conflicting events and selects only unoccupied time windows.
 4. For each candidate, the system generates a secure access token (e.g., T_1792180299_151492) stored in interview_tokens, creates an RFC 5545 .ics calendar invite, and dispatches a confirmation email via SMTP STARTTLS.
@@ -317,7 +346,7 @@ The application is engineered to operate in secure, air-gapped corporate intrane
 
 - Traditional web applications rely on remote Content Delivery Networks (CDNs) for fonts and JavaScript libraries.
 - The AI Recruitment System bundles all frontend dependencies locally in app/static/.
-- Template Verification: An automated audit verifies that no external script tags (<script src="https://...">) or remote stylesheet links (<link href="https://...">) exist in any HTML template.
+- Template Verification: An automated audit verifies that no external script tags or remote stylesheet links exist in any HTML template.
 - Network Behavior: The application makes zero outbound HTTP/HTTPS requests to external hosts when running in Privacy Mode.
 
 ### 7.2 Bundled Local Typography Assets
@@ -334,7 +363,7 @@ All application fonts are stored locally and loaded via standard CSS @font-face 
 
 ### 7.4 On-Device Large Language Model Inference (Ollama)
 
-When configured in Privacy Mode, all natural language processing, question generation, and transcript scoring run locally:
+When configured in Privacy Mode, all natural language processing, question generation, and candidate evaluations are processed locally:
 - Daemon Endpoint: http://localhost:11434.
 - Default Model: llama3.2:3b.
 - Execution Architecture: Runs on local CPU or GPU hardware via the Ollama server.
