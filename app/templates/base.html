@@ -503,7 +503,7 @@
                 if (notifs && notifs.length > 0) {
                     const n = notifs[0];
                     if (typeof showToast === 'function') {
-                        showToast(`🔔 ${n.title}: ${n.message}`, 'info');
+                        showToast(`${n.title}: ${n.message}`, 'info');
                     }
                     if ('Notification' in window && Notification.permission === 'granted') {
                         new Notification(n.title, {
@@ -546,7 +546,7 @@
                     const link = n.link || '/reports';
                     return `
                     <a href="${link}" class="notif-item ${unreadCls}" onclick="markNotificationRead(${n.id})">
-                        <div style="font-size:16px; line-height:1;">🎓</div>
+                        <div style="width:8px; height:8px; border-radius:50%; background:#3b82f6; margin-top:5px; flex-shrink:0;"></div>
                         <div style="flex:1;">
                             <div class="notif-item-title">${n.title}</div>
                             <div class="notif-item-desc">${n.message}</div>

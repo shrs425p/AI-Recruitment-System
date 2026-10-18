@@ -875,7 +875,7 @@
                         <!-- Adaptive conversational follow-up probe alert -->
                         <div id="followupProbeBox" style="display:none; margin: 12px 0 16px 0; padding: 14px 16px; background: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 8px; box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);">
                             <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:#1d4ed8; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
-                                <span style="font-size:16px;">💡</span> AI Adaptive Follow-Up Probe
+                                <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:#1d4ed8; background:#dbeafe; padding:2px 6px; border-radius:4px;">[PROBE]</span> Adaptive Follow-Up Question
                             </div>
                             <div style="font-size:12px; color:#1e40af; margin-bottom:8px;">
                                 Your initial response touched on key concepts. The interviewer wants to drill deeper into your hands-on technical specifics:
@@ -1206,7 +1206,7 @@
                     document.getElementById('followupProbeText').textContent = data.followup_question || '';
                     probeBox.style.display = 'block';
                 }
-                showToast('💡 AI Interviewer: Follow-up question to probe deeper!', 'info');
+                showToast('Interviewer Follow-Up: Probing technical specifics', 'info');
 
                 // Prepare input for candidate elaboration
                 document.getElementById('answerInput').value = '';
