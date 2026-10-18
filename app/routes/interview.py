@@ -19,6 +19,7 @@ from src.interview_bot import (
     evaluate_answer,
     generate_adaptive_followup,
     generate_interview_question,
+    is_tech_role,
     proctor_check,
     should_probe_further,
 )
@@ -31,13 +32,31 @@ rate_limiter = SimpleRateLimiter(requests_per_minute=30)
 interview_session: dict = {}
 candidate_tokens: dict = {}
 active_token_sessions: dict = {}
-INTERVIEW_PLAN = [
+
+TECHNICAL_INTERVIEW_PLAN = [
     ("TECHNICAL", "Introduction"),
     ("TECHNICAL", "Problem Solving"),
     ("TECHNICAL", "System Design"),
     ("BEHAVIORAL", "Teamwork"),
     ("BEHAVIORAL", "Conflict Resolution"),
 ]
+
+NON_TECHNICAL_INTERVIEW_PLAN = [
+    ("DOMAIN EXPERTISE", "Introduction"),
+    ("DOMAIN EXPERTISE", "Problem Solving & Scenarios"),
+    ("DOMAIN EXPERTISE", "Strategy & Execution"),
+    ("BEHAVIORAL", "Teamwork"),
+    ("BEHAVIORAL", "Conflict Resolution"),
+]
+
+INTERVIEW_PLAN = TECHNICAL_INTERVIEW_PLAN
+
+
+def get_interview_plan_for_role(job_title: str = "", domain: str = "") -> list[tuple[str, str]]:
+    """Determine the optimal 5-question interview plan based on whether role is technical or domain-specific."""
+    if is_tech_role(job_title, domain):
+        return list(TECHNICAL_INTERVIEW_PLAN)
+    return list(NON_TECHNICAL_INTERVIEW_PLAN)
 
 SESSION_TTL_SECONDS = 7200  # 2 hours
 
@@ -133,8 +152,12 @@ def _get_candidate_session(data):
     return session_data, None
 
 
-def _question_payload(question_text: str, q_num: int):
-    q_type, topic = INTERVIEW_PLAN[q_num - 1]
+def _question_payload(question_text: str, q_num: int, plan: list[tuple[str, str]] | None = None):
+    active_plan = plan or INTERVIEW_PLAN
+    if 1 <= q_num <= len(active_plan):
+        q_type, topic = active_plan[q_num - 1]
+    else:
+        q_type, topic = "GENERAL", "Wrap-up"
     return {"question": question_text, "type": q_type, "topic": topic, "question_num": q_num}
 
 
@@ -307,6 +330,7 @@ def register_candidate_interview_routes(app):
                 return jsonify({"error": "Interview already in progress for this token."}), 409
 
         job_title, domain, skills = _resolve_candidate_job_context(token_data)
+        plan = get_interview_plan_for_role(job_title, domain)
         session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
@@ -328,6 +352,7 @@ def register_candidate_interview_routes(app):
             "started_at":        time.time(),
             "webcam_log":        [],
             "browser_log":       [],
+            "interview_plan":    plan,
         }
         active_token_sessions[token] = session_id
 
@@ -336,16 +361,16 @@ def register_candidate_interview_routes(app):
         first_q = generate_interview_question(
             candidate_name=token_data["candidate_name"],
             job_title=job_title,
-            topic=INTERVIEW_PLAN[0][1],
+            topic=plan[0][1],
             q_num=1,
-            q_type=INTERVIEW_PLAN[0][0],
+            q_type=plan[0][0],
             transcript="",
             skills=skills,
-            domain=domain
+            domain=domain,
         )
         interview_session[session_id]["pending_question"] = first_q
-        interview_session[session_id]["pending_topic"]    = INTERVIEW_PLAN[0][1]
-        interview_session[session_id]["pending_q_type"]   = INTERVIEW_PLAN[0][0]
+        interview_session[session_id]["pending_topic"]    = plan[0][1]
+        interview_session[session_id]["pending_q_type"]   = plan[0][0]
         interview_session[session_id]["question_issued_at"] = time.time()
         save_interview_session(session_id, interview_session[session_id])
 
@@ -354,7 +379,7 @@ def register_candidate_interview_routes(app):
             "session_id":  session_id,
             "session_key": session_key,
             "first_q":     first_q,
-            "questions":   [_question_payload(first_q, 1)],
+            "questions":   [_question_payload(first_q, 1, plan=plan)],
         })
 
     @app.route("/api/candidate/interview/answer", methods=["POST"])
@@ -531,7 +556,12 @@ def register_candidate_interview_routes(app):
                 "server_verified_time": server_time_taken,
             })
 
-        if q_num >= len(INTERVIEW_PLAN):
+        plan = session_data.get("interview_plan") or get_interview_plan_for_role(
+            session_data.get("job_title", ""),
+            session_data.get("domain", ""),
+        )
+
+        if q_num >= len(plan):
             from app.database import save_interview_session
             save_interview_session(session_data.get("session_id", data.get("session_id")), session_data)
             return jsonify({
@@ -543,7 +573,7 @@ def register_candidate_interview_routes(app):
             })
 
         next_q_num  = q_num + 1
-        next_q_type, next_topic = INTERVIEW_PLAN[next_q_num - 1]
+        next_q_type, next_topic = plan[next_q_num - 1]
 
         t_str = ""
         for r in session_data["responses"]:
@@ -573,7 +603,7 @@ def register_candidate_interview_routes(app):
             "is_followup":   False,
             "done":          False,
             "next_q":        next_q,
-            "next_question": _question_payload(next_q, next_q_num),
+            "next_question": _question_payload(next_q, next_q_num, plan=plan),
             "q_num":         next_q_num,
             "q_type":        next_q_type,
             "topic":         next_topic,

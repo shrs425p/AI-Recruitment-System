@@ -134,9 +134,9 @@ def evaluate_answer(question: str, answer: str, job_title: str, domain: str) -> 
         f"<candidate_answer>\n{answer}\n</candidate_answer>\n\n"
         f"Score on these criteria:\n"
         f"- relevance   : 0-3 (Does the answer address the question? 0 for completely irrelevant)\n"
-        f"- depth       : 0-3 (Does it show technical understanding? 0 for blank/gibberish)\n"
+        f"- depth       : 0-3 (Does it show deep domain understanding, practical experience, and role expertise? 0 for blank/gibberish)\n"
         f"- clarity     : 0-2 (Is the answer structured? 0 for fragmented)\n"
-        f"- correctness : 0-2 (Is it accurate? 0 if fundamentally wrong)\n\n"
+        f"- correctness : 0-2 (Is it accurate to industry/role standards? 0 if fundamentally wrong)\n\n"
         f"If the candidate provided a partial answer, score them appropriately. ONLY give 0 on all if the response is completely blank or gibberish.\n"
         f"Return ONLY valid JSON:\n"
         f'{{"relevance": 0, "depth": 0, "clarity": 0, "correctness": 0, "total": 0, '
@@ -197,11 +197,11 @@ def generate_adaptive_followup(question: str, answer: str, job_title: str, domai
     Interjects to challenge vague claims with implementation specifics, real-world edge cases, and trade-offs.
     """
     system_msg = (
-        "You are an expert technical interviewer conducting a live conversational interview. "
+        "You are an expert interviewer conducting a live conversational interview. "
         "A candidate just gave an answer that was high-level, generic, or lacked implementation depth. "
         "Formulate ONE direct, conversational follow-up probing question to test whether they truly have "
         "hands-on experience or are just reciting memorized definitions. "
-        "Ground your follow-up directly in a technology, tool, or concept they mentioned (e.g., 'You mentioned Redis for caching; how did you handle cache invalidation during write spikes?'). "
+        "Ground your follow-up directly in a technology, tool, methodology, scenario, or concept they mentioned (e.g., 'You mentioned Redis for caching; how did you handle cache invalidation during write spikes?' or 'You mentioned reducing customer churn; what specific retention campaigns did you test?'). "
         "Return ONLY the single follow-up question text with no markdown, quotes, or preambles."
     )
     user_msg = (
@@ -226,7 +226,8 @@ def generate_adaptive_followup(question: str, answer: str, job_title: str, domai
         logger.warning("Adaptive follow-up generation failed: %s", e)
 
     # Contextual high-quality fallback probe
-    return f"You mentioned {domain} concepts in your response. Could you walk me through the specific technical edge cases, failure modes, or trade-offs you handled with that implementation?"
+    domain_label = domain or job_title or "this field"
+    return f"You mentioned key {domain_label} concepts in your response. Could you walk me through the specific practical edge cases, challenges, or trade-offs you handled in that scenario?"
 
 
 # ─────────────────────────────────────────────
@@ -518,6 +519,30 @@ def run_interview_bot():
     logger.info(f"{'='*55}")
 
 
+def is_tech_role(job_title: str = "", domain: str = "") -> bool:
+    """Check if the position is technical/software engineering vs non-technical professional."""
+    import re
+
+    combined = f"{job_title} {domain}".lower()
+    tech_patterns = [
+        r"\bsoftware\b", r"\bdeveloper\b", r"\bengineer\b", r"\bengineering\b",
+        r"\bprogramming\b", r"\bprogrammer\b", r"\bcoding\b", r"\bdevops\b", r"\bcloud\b",
+        r"\bfrontend\b", r"\bbackend\b", r"\bfullstack\b", r"\bfull-stack\b", r"\bfull stack\b",
+        r"\bpython\b", r"\bjava\b", r"\bc\+\+\b", r"\bc#\b", r"\bgolang\b", r"\brust\b",
+        r"\bjavascript\b", r"\btypescript\b", r"\breact\b", r"\bangular\b", r"\bvue\b",
+        r"\bnode\b", r"\bdatabase\b", r"\bdba\b", r"\bsre\b", r"\bmachine learning\b",
+        r"\bai\b", r"\bdata science\b", r"\bdata scientist\b", r"\bdata engineer\b",
+        r"\bqa\b", r"\btester\b", r"\bquality assurance\b", r"\bcybersecurity\b",
+        r"\bsecurity\b", r"\bcyber\b", r"\bsysadmin\b", r"\binfrastructure\b",
+        r"\bnetwork\b", r"\barchitect\b", r"\barchitecture\b", r"\bembedded\b",
+        r"\bfirmware\b", r"\bdevsecops\b", r"\bmlops\b", r"\bdeep learning\b",
+        r"\bnlp\b", r"\bcomputer science\b", r"\binformation technology\b",
+        r"\bweb dev\b", r"\bmobile dev\b", r"\bios\b", r"\bandroid\b",
+        r"\btech lead\b", r"\bcto\b",
+    ]
+    return any(re.search(pat, combined) is not None for pat in tech_patterns)
+
+
 def generate_interview_question(
     candidate_name: str,
     job_title: str,
@@ -532,7 +557,9 @@ def generate_interview_question(
     system_msg = "You are a professional HR interviewer. Return ONLY the question text itself. Do not include any intro, outro, greeting, or conversational filler."
 
     skills_str = ", ".join(skills) if skills else ""
-    domain_str = domain or "Technical Engineering"
+    tech = is_tech_role(job_title, domain)
+    domain_str = domain or ("Software Engineering" if tech else "Professional Domain")
+    skills_label = "Technical Skills" if tech else "Key Skills & Competencies"
 
     prompt = (
         f"Candidate: {candidate_name}\n"
@@ -540,7 +567,7 @@ def generate_interview_question(
         f"Domain: {domain_str}\n"
     )
     if skills_str:
-        prompt += f"Candidate Technical Skills: {skills_str}\n"
+        prompt += f"Candidate {skills_label}: {skills_str}\n"
 
     prompt += (
         f"Question Number: {q_num}\n"
@@ -549,9 +576,9 @@ def generate_interview_question(
     )
     if transcript:
         prompt += f"\nConversation History so far:\n{transcript}\n"
-        prompt += f"\nBased on the history and the current topic ({topic}), ask the next logical, deep, and engaging interview question specifically tailored for the {job_title} role."
+        prompt += f"\nBased on the history and the current topic ({topic}), ask the next logical, deep, and engaging interview question specifically tailored for the {job_title} role in {domain_str}."
     else:
-        prompt += f"\nAsk an introductory question testing their background, alignment, and interest in the {job_title} position ({domain_str}), specializing in {topic}."
+        prompt += f"\nAsk an introductory question testing their background, core competencies, alignment, and interest in the {job_title} position ({domain_str}), focusing on {topic}."
 
     try:
         from src.common import call_ollama
@@ -568,9 +595,9 @@ def generate_interview_question(
     # Fallback questions
     if q_num == 1:
         return f"Welcome, {candidate_name}. To start off, please introduce yourself and tell us what interests you most about the {job_title} position."
-    elif q_type == "TECHNICAL":
+    elif q_type in ("TECHNICAL", "DOMAIN EXPERTISE", "ROLE SPECIFIC", "DOMAIN"):
         topic_context = f"{topic} in the context of {job_title}"
-        return f"Can you explain a complex technical challenge you faced when working with {topic_context}, and how you solved it?"
+        return f"Can you explain a key professional challenge or complex situation you faced when working with {topic_context}, and how you handled it?"
     else:
         return f"Can you tell me about a time when you had to collaborate with a team to solve a difficult problem relevant to {job_title}? What was your role and the outcome?"
 
