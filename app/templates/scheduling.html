@@ -11,7 +11,9 @@
 {% if not has_ranking %}
 <div class="card">
     <div class="empty-state">
-        <div class="empty-icon">📊</div>
+        <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        </div>
         <div class="empty-text">No ranking found. Please run candidate ranking first.</div>
         <a href="/ranking" class="btn btn-primary" style="margin-top:16px;">Go to Ranking →</a>
     </div>
@@ -31,7 +33,7 @@
                     {% if cal_status.authenticated %}
                     Connected — {{ cal_status.calendar_name }}
                     {% elif cal_status.api_not_enabled %}
-                    ⚠️ Calendar API not enabled in Google Cloud Console —
+                    <span style="color:#b45309; font-weight:600;">Action required:</span> Calendar API not enabled in Google Cloud Console —
                     <a href="{{ cal_status.enable_url }}" target="_blank"
                         style="color:#1a73e8; text-decoration:underline; font-weight:600;">
                         Click here to enable it →
@@ -47,7 +49,8 @@
         <div id="gcalBtnArea" style="display:flex; gap:8px; flex-wrap:wrap;">
             {% if cal_status.authenticated %}
             <button class="btn btn-secondary" style="font-size:12px;" onclick="importFromCalendar()">
-                📥 Import Free Slots
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Import Free Slots
             </button>
             {% else %}
             <button class="btn btn-primary" style="font-size:12px;" onclick="connectCalendar()">
@@ -57,7 +60,7 @@
         </div>
         <div id="gcalBadge" style="display:flex; align-items:center;">
             {% if cal_status.authenticated %}
-            <span class="badge badge-green" style="align-self:center;">✓ Connected</span>
+            <span class="badge badge-green" style="align-self:center;">Connected</span>
             {% else %}
             <span class="badge badge-amber" style="align-self:center;">Not connected</span>
             {% endif %}
@@ -150,7 +153,8 @@
         <div id="gcalExportWrap" style="display:none; margin-top:10px;"
             data-has-schedule="{{ 'true' if schedule else 'false' }}">
             <button class="btn btn-secondary" style="width:100%;" onclick="createCalendarEvents()">
-                📅 Create Google Calendar Events
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                Create Google Calendar Events
             </button>
             <div id="gcalExportProgress" style="display:none; margin-top:8px;">
                 <div class="loading-row"><span class="spinner"></span><span>Creating calendar events...</span></div>
@@ -162,7 +166,8 @@
         <div id="emailExportWrap" style="display:none; margin-top:10px;"
             data-has-schedule="{{ 'true' if schedule else 'false' }}">
             <button class="btn btn-secondary" style="width:100%;" id="sendEmailBtn" onclick="sendEmailInvites()">
-                ✉ Send Email Invitations
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:6px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                Send Email Invitations
             </button>
             <div id="emailProgress" style="display:none; margin-top:8px;">
                 <div class="loading-row"><span class="spinner"></span><span>Sending invitation emails...</span></div>
@@ -212,7 +217,9 @@
         {% else %}
         <div class="card" id="scheduleEmpty">
             <div class="empty-state">
-                <div class="empty-icon">📅</div>
+                <div class="empty-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                </div>
                 <div class="empty-text">No schedule yet. Fill in the form and click Schedule.</div>
             </div>
         </div>
@@ -306,12 +313,13 @@
             statusText.style.color = 'var(--green, #1e8a44)';
             if (btnArea) btnArea.innerHTML = `
             <button class="btn btn-secondary" style="font-size:12px;" onclick="importFromCalendar()">
-                📥 Import Free Slots
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Import Free Slots
             </button>`;
-            if (badgeArea) badgeArea.innerHTML = `<span class="badge badge-green" style="align-self:center;">✓ Connected</span>`;
+            if (badgeArea) badgeArea.innerHTML = `<span class="badge badge-green" style="align-self:center;">Connected</span>`;
             _stopCalPoll();
         } else if (data.api_not_enabled) {
-            statusText.innerHTML = `⚠️ Calendar API not enabled —
+            statusText.innerHTML = `<span style="color:#b45309; font-weight:600;">Action required:</span> Calendar API not enabled —
             <a href="${data.enable_url}" target="_blank" style="color:#1a73e8;text-decoration:underline;font-weight:600;">
                 Enable it here →
             </a>`;
@@ -392,7 +400,7 @@
         document.getElementById('gcalExportProgress').style.display = 'none';
 
         if (data.error) { showToast(data.error, 'error'); return; }
-        const msg = `✓ Created ${data.created?.length || 0} events, ${data.failed?.length || 0} failed`;
+        const msg = `Created ${data.created?.length || 0} events, ${data.failed?.length || 0} failed`;
         document.getElementById('gcalExportResult').textContent = msg;
         showToast(msg, 'success');
     }

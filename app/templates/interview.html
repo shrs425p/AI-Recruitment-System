@@ -30,7 +30,9 @@
 {% if not candidates %}
 <div class="card">
     <div class="empty-state">
-        <div class="empty-icon">📅</div>
+        <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        </div>
         <div class="empty-text">No confirmed candidates found. Complete scheduling first.</div>
         <a href="/scheduling" class="btn btn-primary" style="margin-top:16px;">Go to Scheduling →</a>
     </div>
@@ -551,7 +553,7 @@
             document.getElementById('voiceStatusText').textContent = 'Ready to listen';
             document.getElementById('voiceWave').classList.remove('active');
             document.getElementById('listenBtn').disabled = false;
-            document.getElementById('listenBtn').textContent = '🎤 Start Speaking';
+            document.getElementById('listenBtn').innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>Start Speaking';
 
             // Auto speak question
             speakQuestion(index + 1, allQuestions.length, q.type, q.question);
@@ -581,7 +583,7 @@
         const transcript = document.getElementById('voiceTranscript');
 
         listenBtn.disabled = true;
-        listenBtn.textContent = '⏳ Listening...';
+        listenBtn.textContent = 'Listening...';
         wave.classList.add('active');
         statusText.textContent = 'Listening... speak now';
         transcript.textContent = '';
@@ -597,22 +599,22 @@
             wave.classList.remove('active');
 
             if (res.ok && data.success && data.text) {
-                statusText.textContent = '✓ Answer recorded';
+                statusText.textContent = 'Answer recorded';
                 transcript.textContent = `"${data.text}"`;
-                listenBtn.textContent = '✓ Got it — Submitting...';
+                listenBtn.textContent = 'Submitting answer...';
 
                 // Auto submit the voice answer
                 await submitVoiceAnswer(data.text, data.duration || 0);
             } else {
-                statusText.textContent = `⚠ ${data.error || 'Could not hear you'}`;
+                statusText.textContent = data.error || 'Could not hear speech input';
                 listenBtn.disabled = false;
-                listenBtn.textContent = '🎤 Try Again';
+                listenBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>Try Again';
             }
         } catch (err) {
             wave.classList.remove('active');
-            statusText.textContent = '⚠ Voice request failed';
+            statusText.textContent = 'Voice request failed';
             listenBtn.disabled = false;
-            listenBtn.textContent = '🎤 Try Again';
+            listenBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:6px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>Try Again';
         }
     }
 
@@ -670,7 +672,7 @@
         document.getElementById('evalResult').style.display = 'block';
 
         if (data.proctor.flagged) {
-            showToast(`⚠ ${data.proctor.flags.join(', ')}`, 'error');
+            showToast(`Integrity Alert: ${data.proctor.flags.join(', ')}`, 'error');
         }
     }
 
@@ -807,16 +809,16 @@
         const indicator = document.getElementById('proctorIndicator');
 
         if (faceCount === 0) {
-            faceIcon.textContent = '👤';
+            faceIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
             faceText.textContent = 'No face detected';
             indicator.className = 'proctor-indicator proctor-danger';
         } else if (faceCount > 1) {
-            faceIcon.textContent = '👥';
-            faceText.textContent = `${faceCount} faces detected!`;
+            faceIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
+            faceText.textContent = `${faceCount} faces detected`;
             indicator.className = 'proctor-indicator proctor-warn';
         } else {
-            faceIcon.textContent = '▪️';
-            faceText.textContent = 'Candidate present';
+            faceIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            faceText.textContent = 'Candidate verified';
             indicator.className = 'proctor-indicator proctor-ok';
         }
 
@@ -825,7 +827,7 @@
         const flagList = document.getElementById('flagList');
         if (data.flags && data.flags.length > 0) {
             flagList.innerHTML = data.flags.slice(-3).map(f =>
-                `<div style="color:var(--red); margin-bottom:2px;">⚠ ${f.type.replace(/_/g, ' ')}</div>`
+                `<div style="color:var(--red); font-size:12px; margin-bottom:2px;"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); margin-right:6px; vertical-align:middle;"></span>${f.type.replace(/_/g, ' ')}</div>`
             ).join('');
         } else {
             flagList.textContent = 'None';
@@ -878,7 +880,7 @@
         // Add visually to flag list
         flagCount++;
         const flagList = document.getElementById('flagList');
-        const flagHtml = `<div style="color:var(--red); margin-bottom:2px;">⚠ ${flagType.replace(/_/g, ' ')}</div>`;
+        const flagHtml = `<div style="color:var(--red); font-size:12px; margin-bottom:2px;"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); margin-right:6px; vertical-align:middle;"></span>${flagType.replace(/_/g, ' ')}</div>`;
         if (flagList.textContent === 'None') flagList.innerHTML = flagHtml;
         else flagList.innerHTML += flagHtml;
 
@@ -897,7 +899,7 @@
         const btn = document.getElementById('genLinksBtn');
         const status = document.getElementById('linksStatus');
         btn.disabled = true;
-        btn.textContent = '⏳ Generating...';
+        btn.textContent = 'Generating...';
         status.textContent = '';
 
         const res = await fetch('/api/generate-interview-links', {
@@ -906,14 +908,14 @@
         });
         const data = await res.json();
         btn.disabled = false;
-        btn.textContent = '🔗 Generate Links';
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:6px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Generate Links';
 
         if (data.error) {
-            status.innerHTML = `<span style="color:var(--red);">❌ ${data.error}</span>`;
+            status.innerHTML = `<span style="color:var(--red); font-weight:600;">Error: ${data.error}</span>`;
             return;
         }
 
-        status.innerHTML = `<span style="color:var(--green);">▪️ ${data.links.length} links generated. Share these with candidates on the same WiFi network.</span>`;
+        status.innerHTML = `<span style="color:var(--green); font-weight:600;">${data.links.length} links generated. Share these with candidates on the same network.</span>`;
         renderLinksTable(data.links);
     }
 
@@ -921,7 +923,7 @@
         const btn = document.getElementById('sendLinksBtn');
         const status = document.getElementById('linksStatus');
         btn.disabled = true;
-        btn.textContent = '⏳ Sending...';
+        btn.textContent = 'Sending...';
         status.textContent = '';
 
         const res = await fetch('/api/send-interview-links', {
@@ -930,16 +932,16 @@
         });
         const data = await res.json();
         btn.disabled = false;
-        btn.textContent = '✉️ Generate & Email Links';
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:6px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>Generate & Email Links';
 
         if (data.error) {
-            status.innerHTML = `<span style="color:var(--red);">❌ ${data.error}</span>`;
+            status.innerHTML = `<span style="color:var(--red); font-weight:600;">Error: ${data.error}</span>`;
             return;
         }
 
-        let msg = `<span style="color:var(--green);">▪️ Sent: ${data.sent}</span>`;
+        let msg = `<span style="color:var(--green); font-weight:600;">Sent: ${data.sent}</span>`;
         if (data.failed > 0) {
-            msg += ` &nbsp;|&nbsp; <span style="color:var(--red);">Failed: ${data.failed}</span>`;
+            msg += ` &nbsp;|&nbsp; <span style="color:var(--red); font-weight:600;">Failed: ${data.failed}</span>`;
         }
         if (data.errors && data.errors.length > 0) {
             msg += '<br><small style="color:var(--gray-400);">' + data.errors.join('<br>') + '</small>';

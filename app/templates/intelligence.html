@@ -704,31 +704,39 @@
 
                 <!-- Quadrant Legend / Metric Badges -->
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
-                    <div class="quadrant-stat-pill" style="border-left:3.5px solid #10b981;">
-                        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:#10b981;">[+]</span>
+                    <div class="quadrant-stat-pill" style="border-left:3px solid #10b981; background:var(--white); padding:8px 12px; display:flex; align-items:center; gap:10px;">
+                        <div style="width:26px; height:26px; border-radius:6px; background:#ecfdf5; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                        </div>
                         <div>
-                            <div style="font-weight:700; color:#065f46;">Rising Stars ({{ analytics.experience_matrix.quadrants.rising_stars.count }})</div>
+                            <div style="font-weight:700; color:#065f46; font-size:12px;">Rising Stars ({{ analytics.experience_matrix.quadrants.rising_stars.count }})</div>
                             <div style="font-size:10px; color:var(--gray-500);">Low Exp, High Fit Score</div>
                         </div>
                     </div>
-                    <div class="quadrant-stat-pill" style="border-left:3.5px solid #3b82f6;">
-                        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:#3b82f6;">[*]</span>
+                    <div class="quadrant-stat-pill" style="border-left:3px solid #3b82f6; background:var(--white); padding:8px 12px; display:flex; align-items:center; gap:10px;">
+                        <div style="width:26px; height:26px; border-radius:6px; background:#eff6ff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        </div>
                         <div>
-                            <div style="font-weight:700; color:#1e40af;">Veterans ({{ analytics.experience_matrix.quadrants.seasoned_veterans.count }})</div>
+                            <div style="font-weight:700; color:#1e40af; font-size:12px;">Seasoned Veterans ({{ analytics.experience_matrix.quadrants.seasoned_veterans.count }})</div>
                             <div style="font-size:10px; color:var(--gray-500);">High Exp, High Fit Score</div>
                         </div>
                     </div>
-                    <div class="quadrant-stat-pill" style="border-left:3.5px solid #8b5cf6;">
-                        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:#8b5cf6;">[~]</span>
+                    <div class="quadrant-stat-pill" style="border-left:3px solid #8b5cf6; background:var(--white); padding:8px 12px; display:flex; align-items:center; gap:10px;">
+                        <div style="width:26px; height:26px; border-radius:6px; background:#f5f3ff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                        </div>
                         <div>
-                            <div style="font-weight:700; color:#6d28d9;">Entry Level ({{ analytics.experience_matrix.quadrants.entry_level.count }})</div>
+                            <div style="font-weight:700; color:#6d28d9; font-size:12px;">Entry Level ({{ analytics.experience_matrix.quadrants.entry_level.count }})</div>
                             <div style="font-size:10px; color:var(--gray-500);">Low Exp, Needs Prep</div>
                         </div>
                     </div>
-                    <div class="quadrant-stat-pill" style="border-left:3.5px solid #f59e0b;">
-                        <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:#f59e0b;">[!]</span>
+                    <div class="quadrant-stat-pill" style="border-left:3px solid #f59e0b; background:var(--white); padding:8px 12px; display:flex; align-items:center; gap:10px;">
+                        <div style="width:26px; height:26px; border-radius:6px; background:#fffbeb; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        </div>
                         <div>
-                            <div style="font-weight:700; color:#b45309;">Mismatched ({{ analytics.experience_matrix.quadrants.mismatched.count }})</div>
+                            <div style="font-weight:700; color:#b45309; font-size:12px;">Mismatched ({{ analytics.experience_matrix.quadrants.mismatched.count }})</div>
                             <div style="font-size:10px; color:var(--gray-500);">High Exp, Tool Mismatch</div>
                         </div>
                     </div>
