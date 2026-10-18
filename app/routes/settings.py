@@ -73,6 +73,23 @@ def register_settings_routes(app):
                 cfg.HR_EMAIL        = request.form.get("email", "").strip()
                 cfg.HR_COMPANY      = request.form.get("company", "").strip()
 
+                # ── Interview Configuration ──
+                if "interview_tech_questions" in request.form:
+                    try:
+                        cfg.INTERVIEW_TECH_QUESTIONS = max(1, min(10, int(request.form.get("interview_tech_questions", 3))))
+                    except (ValueError, TypeError):
+                        pass
+                if "interview_beh_questions" in request.form:
+                    try:
+                        cfg.INTERVIEW_BEH_QUESTIONS = max(1, min(5, int(request.form.get("interview_beh_questions", 2))))
+                    except (ValueError, TypeError):
+                        pass
+                if "interview_time_limit" in request.form:
+                    try:
+                        cfg.INTERVIEW_TIME_LIMIT_SECONDS = max(30, min(600, int(request.form.get("interview_time_limit", 120))))
+                    except (ValueError, TypeError):
+                        pass
+
             # ── Ollama / AI Mode ──
             if "ollama_model" in request.form or "privacy_model" in request.form or "ollama_base_url" in request.form:
                 new_model = (request.form.get("privacy_model") or request.form.get("ollama_model") or "").strip()
@@ -240,6 +257,37 @@ def register_settings_routes(app):
             "preset": cfg.SCORING_PRESET,
             "weights": cfg.SCORING_WEIGHTS,
             "knockout_rules": cfg.KNOCKOUT_RULES,
+        })
+
+    @app.route("/api/settings/interview", methods=["POST"])
+    @login_required
+    def api_update_interview_settings():
+        data = request.get_json(silent=True) or request.form.to_dict()
+        tech = data.get("tech_questions", data.get("interview_tech_questions"))
+        beh = data.get("beh_questions", data.get("interview_beh_questions"))
+        limit = data.get("time_limit", data.get("interview_time_limit"))
+        if tech is not None:
+            try:
+                cfg.INTERVIEW_TECH_QUESTIONS = max(1, min(10, int(tech)))
+            except (ValueError, TypeError):
+                pass
+        if beh is not None:
+            try:
+                cfg.INTERVIEW_BEH_QUESTIONS = max(1, min(5, int(beh)))
+            except (ValueError, TypeError):
+                pass
+        if limit is not None:
+            try:
+                cfg.INTERVIEW_TIME_LIMIT_SECONDS = max(30, min(600, int(limit)))
+            except (ValueError, TypeError):
+                pass
+        import main
+        main._save_config(cfg)
+        return jsonify({
+            "success": True,
+            "interview_tech_questions": cfg.INTERVIEW_TECH_QUESTIONS,
+            "interview_beh_questions": cfg.INTERVIEW_BEH_QUESTIONS,
+            "interview_time_limit": cfg.INTERVIEW_TIME_LIMIT_SECONDS,
         })
 
     @app.route("/about")

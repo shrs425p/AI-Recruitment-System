@@ -6,10 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>AI Recruitment System</title>
-    <!-- Muted & Clean Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style_v2.css">
     <script>
         (function() {
@@ -84,8 +80,69 @@
             color: var(--gray-800);
         }
 
-        .window-controls {
+        .notification-center {
+            -webkit-app-region: no-drag;
             margin-left: auto;
+            margin-right: 8px;
+            position: relative;
+        }
+
+        .notif-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 32px;
+            width: 330px;
+            background: var(--md-sys-color-surface-container);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+            z-index: 99999;
+            overflow: hidden;
+        }
+
+        .notif-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .notif-item:hover {
+            background: var(--md-sys-color-surface-container-high);
+        }
+
+        .notif-item.unread {
+            background: rgba(99, 102, 241, 0.08);
+            border-left: 3px solid var(--md-sys-color-primary);
+        }
+
+        .notif-item-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 2px;
+        }
+
+        .notif-item-desc {
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant);
+            line-height: 1.4;
+        }
+
+        .notif-item-time {
+            font-size: 10px;
+            color: var(--gray-400);
+            margin-top: 4px;
+        }
+
+        .window-controls {
+            margin-left: 0;
             display: flex;
             gap: 4px;
             -webkit-app-region: no-drag;
@@ -119,6 +176,24 @@
         <div class="title-bar-brand" style="display: flex; align-items: center; gap: 8px;">
             <img src="{{ url_for('static', filename='icon/ai.png') }}" alt="App Icon" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
             <span class="title">AI Recruitment System</span>
+        </div>
+        <div class="notification-center">
+            <button class="window-btn" id="notifBellBtn" onclick="toggleNotificationsDropdown(event)" title="Notifications" style="position:relative;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span id="notifBadge" style="display:none; position:absolute; top:3px; right:3px; width:7px; height:7px; background:#ef4444; border-radius:50%; box-shadow:0 0 4px #ef4444;"></span>
+            </button>
+            <div id="notifDropdown" class="notif-dropdown">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface-container-high);">
+                    <div style="font-weight:700; font-size:12px; color:var(--md-sys-color-on-surface);">Notifications</div>
+                    <button type="button" onclick="markAllNotificationsRead()" style="background:none; border:none; font-size:11px; color:var(--md-sys-color-primary); cursor:pointer; font-weight:600;">Mark all read</button>
+                </div>
+                <div id="notifList" style="max-height:280px; overflow-y:auto;">
+                    <div style="padding:16px; text-align:center; color:var(--gray-400); font-size:12px;">No notifications yet</div>
+                </div>
+            </div>
         </div>
         <div class="window-controls">
             <!-- Minimize Button -->
@@ -397,6 +472,117 @@
             document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
             start();
         })();
+
+        // ── Candidate Completion & HR Notifications ──
+        let _lastNotifCount = 0;
+        let _notifsLoaded = false;
+
+        async function updateNotificationBadge() {
+            try {
+                const res = await fetch('/api/notifications/unread-count');
+                const data = await res.json();
+                const badge = document.getElementById('notifBadge');
+                const count = data.unread_count || 0;
+                if (count > 0) {
+                    if (badge) badge.style.display = 'block';
+                    if (_notifsLoaded && count > _lastNotifCount) {
+                        fetchLatestAndNotify();
+                    }
+                } else {
+                    if (badge) badge.style.display = 'none';
+                }
+                _lastNotifCount = count;
+                _notifsLoaded = true;
+            } catch (e) {}
+        }
+
+        async function fetchLatestAndNotify() {
+            try {
+                const res = await fetch('/api/notifications?unread_only=true&limit=1');
+                const notifs = await res.json();
+                if (notifs && notifs.length > 0) {
+                    const n = notifs[0];
+                    if (typeof showToast === 'function') {
+                        showToast(`🔔 ${n.title}: ${n.message}`, 'info');
+                    }
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification(n.title, {
+                            body: n.message,
+                            icon: '/static/icon/ai.png'
+                        });
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function toggleNotificationsDropdown(e) {
+            if (e) e.stopPropagation();
+            const dd = document.getElementById('notifDropdown');
+            if (!dd) return;
+            const isShown = dd.style.display === 'block';
+            if (isShown) {
+                dd.style.display = 'none';
+            } else {
+                dd.style.display = 'block';
+                await loadNotificationsList();
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            }
+        }
+
+        async function loadNotificationsList() {
+            const listEl = document.getElementById('notifList');
+            if (!listEl) return;
+            try {
+                const res = await fetch('/api/notifications?limit=15');
+                const notifs = await res.json();
+                if (!notifs || notifs.length === 0) {
+                    listEl.innerHTML = '<div style="padding:16px; text-align:center; color:var(--gray-400); font-size:12px;">No notifications yet</div>';
+                    return;
+                }
+                listEl.innerHTML = notifs.map(n => {
+                    const unreadCls = n.is_read ? '' : 'unread';
+                    const link = n.link || '/reports';
+                    return `
+                    <a href="${link}" class="notif-item ${unreadCls}" onclick="markNotificationRead(${n.id})">
+                        <div style="font-size:16px; line-height:1;">🎓</div>
+                        <div style="flex:1;">
+                            <div class="notif-item-title">${n.title}</div>
+                            <div class="notif-item-desc">${n.message}</div>
+                            <div class="notif-item-time">${n.created_at || ''}</div>
+                        </div>
+                    </a>`;
+                }).join('');
+            } catch (e) {
+                listEl.innerHTML = '<div style="padding:16px; text-align:center; color:var(--red); font-size:12px;">Failed to load notifications</div>';
+            }
+        }
+
+        async function markNotificationRead(id) {
+            try {
+                await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+                updateNotificationBadge();
+            } catch (e) {}
+        }
+
+        async function markAllNotificationsRead() {
+            try {
+                await fetch('/api/notifications/read-all', { method: 'POST' });
+                updateNotificationBadge();
+                await loadNotificationsList();
+            } catch (e) {}
+        }
+
+        document.addEventListener('click', function(e) {
+            const dd = document.getElementById('notifDropdown');
+            if (dd && dd.style.display === 'block' && !e.target.closest('.notification-center')) {
+                dd.style.display = 'none';
+            }
+        });
+
+        updateNotificationBadge();
+        setInterval(updateNotificationBadge, 10000);
     </script>
 </body>
 

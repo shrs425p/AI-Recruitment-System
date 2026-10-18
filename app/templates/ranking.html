@@ -1,5 +1,45 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+    .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: var(--radius-pill);
+        font-size: 10.5px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--md-sys-color-outline-variant);
+        background: var(--md-sys-color-surface-container);
+        color: var(--md-sys-color-on-surface-variant);
+        transition: all 0.15s ease;
+        user-select: none;
+    }
+    .tag-chip:hover {
+        background: var(--md-sys-color-surface-container-high);
+        color: var(--md-sys-color-on-surface);
+    }
+    .tag-chip.active-tag-follow-up {
+        background: #dbeafe;
+        color: #1e40af;
+        border-color: #93c5fd;
+    }
+    .tag-chip.active-tag-hold {
+        background: #fef3c7;
+        color: #92400e;
+        border-color: #fcd34d;
+    }
+    .tag-chip.active-tag-strong-fit {
+        background: #dcfce7;
+        color: #166534;
+        border-color: #86efac;
+    }
+    .tag-chip.active-tag-reject {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #fca5a5;
+    }
+</style>
 
 <div class="page-header">
     <div class="page-step">Step 03</div>
@@ -181,9 +221,15 @@
             {% if ranking %}<span style="font-size:14px; font-weight:400; color:var(--gray-400); margin-left:8px;">{{
                 ranking.job_description.job_title }}</span>{% endif %}
         </h2>
-        <span style="font-size:13px; color:var(--gray-400);" id="candidateCount">
-            {% if ranking %}{{ ranking.total_candidates }} candidates{% endif %}
-        </span>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <a href="/api/ranking/export/csv" class="btn btn-secondary" id="exportCsvBtn" style="font-size:12px; padding:6px 14px; display:inline-flex; align-items:center; gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Export to CSV
+            </a>
+            <span style="font-size:13px; color:var(--gray-400);" id="candidateCount">
+                {% if ranking %}{{ ranking.total_candidates }} candidates{% endif %}
+            </span>
+        </div>
     </div>
 
     <!-- Score Comparison Chart -->
@@ -214,11 +260,15 @@
                     <th>Domain</th>
                     <th>Score</th>
                     <th>Recommendation</th>
+                    <th>Notes &amp; Tags</th>
                 </tr>
             </thead>
             <tbody id="rankTable">
                 {% if ranking %}
                 {% for c in ranking.ranked_candidates %}
+                {% set cand_name = c.candidate_name or c._source_file %}
+                {% set c_note = candidate_notes.get(cand_name, {}) if candidate_notes else {} %}
+                {% set current_tags = c_note.get('tags', []) %}
                 <tr>
                     <td><span class="rank-badge">#{{ loop.index }}</span></td>
                     <td>
@@ -263,6 +313,28 @@
                         {% endif %}
                         {% endif %}
                     </td>
+                    <td style="min-width: 250px;">
+                        <div class="note-tag-container" data-candidate="{{ cand_name }}">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                {% for t in ['Follow up', 'Hold', 'Strong Fit', 'Reject'] %}
+                                {% set t_class = 'active-tag-' + (t | lower | replace(' ', '-')) %}
+                                <button type="button" class="tag-chip {{ t_class if t in current_tags }}"
+                                        onclick="toggleCandidateTag('{{ cand_name }}', '{{ t }}', this)">
+                                    {{ t }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <input type="text" class="form-input" 
+                                       placeholder="Add recruiter note..." 
+                                       value="{{ c_note.get('note', '') }}"
+                                       style="padding:4px 8px; font-size:11.5px; height:28px;"
+                                       onblur="saveCandidateNoteText('{{ cand_name }}', this.value, '{{ c._source_file }}', this)"
+                                       onkeydown="if(event.key==='Enter'){this.blur();}">
+                                <span class="note-saved-tick" style="font-size:12px; color:var(--green); display:none;" title="Saved">✓</span>
+                            </div>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
                 {% endif %}
@@ -279,13 +351,80 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
 <script type="application/json" id="rankingData">
     {% if ranking %}{{ ranking.ranked_candidates | tojson }}{% else %}null{% endif %}
 </script>
 <script>
     let _rankAnim = null;
     let rankChartInstance = null;
+    let candidateNotesCache = {{ candidate_notes | tojson if candidate_notes else '{}' }};
+
+    function getCandidateNoteData(name) {
+        return candidateNotesCache[name] || { note: '', tags: [] };
+    }
+
+    function tagClassFor(tag) {
+        const k = tag.toLowerCase().replace(/\s+/g, '-');
+        return 'active-tag-' + k;
+    }
+
+    async function toggleCandidateTag(candidateName, tag, btnEl) {
+        let current = getCandidateNoteData(candidateName);
+        let tags = Array.isArray(current.tags) ? [...current.tags] : [];
+        const idx = tags.indexOf(tag);
+        if (idx > -1) {
+            tags.splice(idx, 1);
+            btnEl.classList.remove(tagClassFor(tag));
+        } else {
+            tags.push(tag);
+            btnEl.classList.add(tagClassFor(tag));
+        }
+        current.tags = tags;
+        candidateNotesCache[candidateName] = current;
+
+        try {
+            await fetch('/api/candidates/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidate_name: candidateName,
+                    note: current.note || '',
+                    tags: tags
+                })
+            });
+            showToast(`Updated tags for ${candidateName}`, 'success');
+        } catch (e) {
+            showToast('Failed to save tag', 'error');
+        }
+    }
+
+    async function saveCandidateNoteText(candidateName, noteText, sourceFile, inputEl) {
+        let current = getCandidateNoteData(candidateName);
+        current.note = noteText;
+        current.source_file = sourceFile;
+        candidateNotesCache[candidateName] = current;
+
+        const tick = inputEl.parentElement.querySelector('.note-saved-tick');
+        try {
+            const res = await fetch('/api/candidates/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidate_name: candidateName,
+                    note: noteText,
+                    tags: current.tags || [],
+                    source_file: sourceFile
+                })
+            });
+            if (res.ok && tick) {
+                tick.style.display = 'inline';
+                setTimeout(() => { tick.style.display = 'none'; }, 2000);
+            }
+        } catch (e) {
+            showToast('Failed to save note', 'error');
+        }
+    }
 
     function toggleQuickTune() {
         const panel = document.getElementById('quickTunePanel');
@@ -470,6 +609,34 @@
             const confBadge = conf === 'High'   ? 'style="background:#dcfce7;color:#166534;"' :
                               conf === 'Medium' ? 'style="background:#fef9c3;color:#854d0e;"' :
                               conf === 'Low'    ? 'style="background:#fee2e2;color:#991b1b;"' : '';
+
+            const candName = c.candidate_name || c._source_file;
+            const noteData = getCandidateNoteData(candName);
+            const activeTags = noteData.tags || [];
+            const tagsHtml = ['Follow up', 'Hold', 'Strong Fit', 'Reject'].map(t => {
+                const isActive = activeTags.includes(t);
+                const cls = isActive ? tagClassFor(t) : '';
+                return `<button type="button" class="tag-chip ${cls}" onclick="toggleCandidateTag('${candName}', '${t}', this)">${t}</button>`;
+            }).join('');
+
+            const noteTd = `
+            <td style="min-width: 250px;">
+                <div class="note-tag-container" data-candidate="${candName}">
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                        ${tagsHtml}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <input type="text" class="form-input" 
+                               placeholder="Add recruiter note..." 
+                               value="${noteData.note || ''}"
+                               style="padding:4px 8px; font-size:11.5px; height:28px;"
+                               onblur="saveCandidateNoteText('${candName}', this.value, '${c._source_file}', this)"
+                               onkeydown="if(event.key==='Enter'){this.blur();}">
+                        <span class="note-saved-tick" style="font-size:12px; color:var(--green); display:none;" title="Saved">✓</span>
+                    </div>
+                </div>
+            </td>`;
+
             tbody.innerHTML += `
         <tr>
             <td><span class="rank-badge">#${i + 1}</span></td>
@@ -489,6 +656,7 @@
                 </div>
             </td>
             <td><span class="badge ${badge}">${label}</span></td>
+            ${noteTd}
         </tr>`;
         });
 

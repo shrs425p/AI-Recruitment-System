@@ -5,10 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interview — AI Recruitment System</title>
-    <!-- Muted & Clean Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style_v2.css">
     <style>
         :root {
@@ -1012,6 +1008,8 @@
         let voiceTranscriptText = '';
         let speechSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
         let ttsSupported = !!window.speechSynthesis;
+        let questionTimeLimit = 120;
+        let totalQuestionsCount = 5;
 
         // ───────── HELPERS ─────────
         function showOverlay(msg) {
@@ -1069,6 +1067,8 @@
             sessionId = data.session_id;
             sessionKey = data.session_key;
             allQuestions = data.questions;
+            if (data.time_limit) questionTimeLimit = Number(data.time_limit);
+            if (data.total_questions) totalQuestionsCount = Number(data.total_questions);
             currentQIndex = 0;
             currentScore = 0;
 
@@ -1090,7 +1090,7 @@
             document.getElementById('qNum').textContent = 'Q' + (index + 1);
             document.getElementById('qText').textContent = q.question;
             document.getElementById('qTopic').textContent = q.topic || '';
-            document.getElementById('progressText').textContent = (index + 1) + ' / ' + allQuestions.length;
+            document.getElementById('progressText').textContent = (index + 1) + ' / ' + (totalQuestionsCount || allQuestions.length);
             document.getElementById('runningScore').textContent = currentScore + ' pts';
             document.getElementById('evalResult').style.display = 'none';
             document.getElementById('evalThinking').style.display = 'none';
@@ -1301,8 +1301,9 @@
                 const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
                 const s = String(elapsed % 60).padStart(2, '0');
                 timerEl.textContent = m + ':' + s;
-                if (elapsed > 90) timerEl.className = 'timer warning';
-                if (elapsed > 120) timerEl.className = 'timer danger';
+                const warnThreshold = Math.floor(questionTimeLimit * 0.75);
+                if (elapsed > warnThreshold) timerEl.className = 'timer warning';
+                if (elapsed > questionTimeLimit) timerEl.className = 'timer danger';
             }, 1000);
         }
 

@@ -49,14 +49,65 @@ NON_TECHNICAL_INTERVIEW_PLAN = [
     ("BEHAVIORAL", "Conflict Resolution"),
 ]
 
+TECH_TOPICS = [
+    "Introduction",
+    "Problem Solving",
+    "System Design",
+    "Data Structures & Algorithms",
+    "Debugging & Architecture",
+    "Code Quality & Testing",
+    "Performance Optimization",
+    "Security & Threat Modeling",
+    "DevOps & Cloud Systems",
+    "Trade-offs & Scalability",
+]
+
+NON_TECH_TOPICS = [
+    "Introduction",
+    "Problem Solving & Scenarios",
+    "Strategy & Execution",
+    "Stakeholder & Client Management",
+    "Project Prioritization & Roadmapping",
+    "Operational Efficiency & Process",
+    "Data-Driven Decision Making",
+    "Negotiation & Influence",
+    "Change Management",
+    "Quality & Compliance",
+]
+
+BEHAVIORAL_TOPICS = [
+    "Teamwork",
+    "Conflict Resolution",
+    "Adaptability & Managing Ambiguity",
+    "Leadership & Ownership",
+    "Time Management & High-Pressure Delivery",
+]
+
 INTERVIEW_PLAN = TECHNICAL_INTERVIEW_PLAN
 
 
-def get_interview_plan_for_role(job_title: str = "", domain: str = "") -> list[tuple[str, str]]:
-    """Determine the optimal 5-question interview plan based on whether role is technical or domain-specific."""
-    if is_tech_role(job_title, domain):
-        return list(TECHNICAL_INTERVIEW_PLAN)
-    return list(NON_TECHNICAL_INTERVIEW_PLAN)
+def get_interview_plan_for_role(
+    job_title: str = "",
+    domain: str = "",
+    tech_count: int | None = None,
+    beh_count: int | None = None,
+) -> list[tuple[str, str]]:
+    """Determine the optimal interview plan based on role context and settings."""
+    import config as cfg
+
+    t_count = tech_count if tech_count is not None else getattr(cfg, "INTERVIEW_TECH_QUESTIONS", 3)
+    b_count = beh_count if beh_count is not None else getattr(cfg, "INTERVIEW_BEH_QUESTIONS", 2)
+    t_count = max(1, min(10, t_count))
+    b_count = max(1, min(5, b_count))
+
+    tech_flag = is_tech_role(job_title, domain)
+    topic_pool = TECH_TOPICS if tech_flag else NON_TECH_TOPICS
+    type_name = "TECHNICAL" if tech_flag else "DOMAIN EXPERTISE"
+
+    selected_tech = [(type_name, topic_pool[i % len(topic_pool)]) for i in range(t_count)]
+    selected_beh = [("BEHAVIORAL", BEHAVIORAL_TOPICS[i % len(BEHAVIORAL_TOPICS)]) for i in range(b_count)]
+
+    return selected_tech + selected_beh
 
 SESSION_TTL_SECONDS = 7200  # 2 hours
 
@@ -331,6 +382,8 @@ def register_candidate_interview_routes(app):
 
         job_title, domain, skills = _resolve_candidate_job_context(token_data)
         plan = get_interview_plan_for_role(job_title, domain)
+        import config as cfg
+        time_limit = getattr(cfg, "INTERVIEW_TIME_LIMIT_SECONDS", 120)
         session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
@@ -353,6 +406,7 @@ def register_candidate_interview_routes(app):
             "webcam_log":        [],
             "browser_log":       [],
             "interview_plan":    plan,
+            "time_limit":        time_limit,
         }
         active_token_sessions[token] = session_id
 
@@ -375,11 +429,13 @@ def register_candidate_interview_routes(app):
         save_interview_session(session_id, interview_session[session_id])
 
         return jsonify({
-            "success":     True,
-            "session_id":  session_id,
-            "session_key": session_key,
-            "first_q":     first_q,
-            "questions":   [_question_payload(first_q, 1, plan=plan)],
+            "success":         True,
+            "session_id":      session_id,
+            "session_key":     session_key,
+            "first_q":         first_q,
+            "questions":       [_question_payload(first_q, 1, plan=plan)],
+            "total_questions": len(plan),
+            "time_limit":      time_limit,
         })
 
     @app.route("/api/candidate/interview/answer", methods=["POST"])
@@ -651,6 +707,22 @@ def register_candidate_interview_routes(app):
 
         with open(t_path, "w", encoding="utf-8") as f:
             json.dump(session_data, f, indent=4)
+
+        # Trigger HR notification
+        try:
+            from app.database import create_hr_notification
+            cand_name = session_data.get("candidate_name", "Candidate")
+            cand_job = session_data.get("job_title", "Open Position")
+            create_hr_notification(
+                title=f"Interview Completed: {cand_name}",
+                message=f"{cand_name} has completed the interview for {cand_job}. Score: {score_pct}%. Report is ready.",
+                candidate_name=cand_name,
+                job_title=cand_job,
+                notif_type="interview_completed",
+                link="/reports",
+            )
+        except Exception as ne:
+            logger.warning("Could not create completion notification: %s", ne)
 
         active_token_sessions.pop(token, None)
         interview_session.pop(session_id, None)

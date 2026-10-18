@@ -461,6 +461,33 @@
             </div>
         </div>
 
+        <!-- Interview Configuration -->
+        <div class="card" style="margin-top:16px;">
+            <div class="card-title">Interview Configuration</div>
+            <div class="card-desc">Customize question count and timer limits for the AI proctored interview session.</div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:12px;">
+                <div class="form-group">
+                    <label class="form-label" for="interviewTechQuestions">Technical / Domain Questions</label>
+                    <input class="form-input" id="interviewTechQuestions" name="interview_tech_questions" type="number" min="1" max="10"
+                        value="{{ cfg.INTERVIEW_TECH_QUESTIONS | default(3) }}" placeholder="3">
+                    <span style="font-size:11px; color:var(--gray-400); margin-top:4px; display:block;">Number of technical or domain expertise questions (1 - 10)</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="interviewBehQuestions">Behavioral Questions</label>
+                    <input class="form-input" id="interviewBehQuestions" name="interview_beh_questions" type="number" min="1" max="5"
+                        value="{{ cfg.INTERVIEW_BEH_QUESTIONS | default(2) }}" placeholder="2">
+                    <span style="font-size:11px; color:var(--gray-400); margin-top:4px; display:block;">Number of behavioral / situational questions (1 - 5)</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="interviewTimeLimit">Per-Question Timer (seconds)</label>
+                    <input class="form-input" id="interviewTimeLimit" name="interview_time_limit" type="number" min="30" max="600" step="10"
+                        value="{{ cfg.INTERVIEW_TIME_LIMIT_SECONDS | default(120) }}" placeholder="120">
+                    <span style="font-size:11px; color:var(--gray-400); margin-top:4px; display:block;">Time limit allocated per question (e.g. 60s, 90s, 120s, 180s)</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Save button -->
         <div style="margin-top:24px; display:flex; justify-content:flex-end;">
             <button type="submit" class="btn btn-primary" style="padding:10px 32px; font-size:0.95rem;">

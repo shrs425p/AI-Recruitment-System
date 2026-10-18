@@ -7,7 +7,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
-from flask import jsonify, redirect, render_template, url_for
+from flask import jsonify, redirect, render_template, request, url_for
 
 from app.core import (
     OUTPUT_FOLDER,
@@ -80,7 +80,7 @@ def _run_txt_stage(results):
     input_path = RESUMES_FOLDER
     output_txt_path = OUTPUT_FOLDER / "txt"
     output_txt_path.mkdir(parents=True, exist_ok=True)
-    pdf_files = [f for f in input_path.iterdir() if f.is_file() and f.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg"]]
+    pdf_files = [f for f in input_path.iterdir() if f.is_file() and f.suffix.lower() in [".pdf", ".docx", ".png", ".jpg", ".jpeg"]]
 
     for f in pdf_files:
         try:
@@ -441,7 +441,7 @@ def register_dashboard_routes(app):
     @login_required
     def dashboard():
         pdf_count       = len([f for f in RESUMES_FOLDER.iterdir()
-                               if f.is_file() and f.suffix.lower() in [".pdf",".png",".jpg",".jpeg"]])
+                               if f.is_file() and f.suffix.lower() in [".pdf", ".docx", ".png", ".jpg", ".jpeg"]])
         txt_count       = len(list((OUTPUT_FOLDER / "txt").glob("*.txt")))
         nlp_count       = len(list((OUTPUT_FOLDER / "nlp").glob("*_nlp.json")))
         ranking_files   = sorted((OUTPUT_FOLDER / "ranking").glob("ranking_scores*.json"), reverse=True)
@@ -489,7 +489,7 @@ def register_dashboard_routes(app):
     @login_required
     def api_stats():
         pdf_count  = len([f for f in RESUMES_FOLDER.iterdir()
-                          if f.is_file() and f.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg"]])
+                          if f.is_file() and f.suffix.lower() in [".pdf", ".docx", ".png", ".jpg", ".jpeg"]])
         txt_count  = len(list((OUTPUT_FOLDER / "txt").glob("*.txt")))
         nlp_count  = len(list((OUTPUT_FOLDER / "nlp").glob("*_nlp.json")))
         rank_files = sorted((OUTPUT_FOLDER / "ranking").glob("ranking_scores*.json"), reverse=True)
@@ -595,4 +595,35 @@ def register_dashboard_routes(app):
             "id": candidate_id,
             "message": "Candidate and all associated data purged successfully.",
         })
+
+    @app.route("/api/notifications", methods=["GET"])
+    @login_required
+    def api_get_notifications():
+        from app.database import get_hr_notifications
+        limit = request.args.get("limit", 20, type=int)
+        unread_only = request.args.get("unread_only", "false").lower() == "true"
+        notifs = get_hr_notifications(limit=limit, unread_only=unread_only)
+        return jsonify(notifs)
+
+    @app.route("/api/notifications/unread-count", methods=["GET"])
+    @login_required
+    def api_get_unread_notifications_count():
+        from app.database import get_unread_notification_count
+        count = get_unread_notification_count()
+        return jsonify({"unread_count": count})
+
+    @app.route("/api/notifications/<int:notif_id>/read", methods=["POST"])
+    @login_required
+    def api_mark_notification_read(notif_id):
+        from app.database import mark_notification_read
+        mark_notification_read(notif_id)
+        return jsonify({"success": True, "id": notif_id})
+
+    @app.route("/api/notifications/read-all", methods=["POST"])
+    @login_required
+    def api_mark_all_notifications_read():
+        from app.database import mark_all_notifications_read
+        mark_all_notifications_read()
+        return jsonify({"success": True})
+
 

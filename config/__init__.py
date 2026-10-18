@@ -70,6 +70,9 @@ DEFAULT_SETTINGS = {
     "SCORING_PRESET": "default",
     "SCORING_WEIGHTS": '{"skills_match": 35, "experience_years": 20, "domain_match": 20, "education": 15, "certifications": 10}',
     "KNOCKOUT_RULES": '{"min_experience_years": 0, "required_skills": [], "required_certifications": []}',
+    "INTERVIEW_TECH_QUESTIONS": 3,
+    "INTERVIEW_BEH_QUESTIONS": 2,
+    "INTERVIEW_TIME_LIMIT_SECONDS": 120,
 }
 
 _cache: dict[str, Any] = {}
