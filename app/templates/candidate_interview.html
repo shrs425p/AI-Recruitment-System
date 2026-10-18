@@ -299,6 +299,11 @@
             color: var(--blue);
         }
 
+        .q-type-domain {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+
         .q-type-beh {
             background: var(--green-soft);
             color: var(--green);
@@ -1102,7 +1107,13 @@
 
             const qType = document.getElementById('qType');
             qType.textContent = q.type;
-            qType.className = q.type === 'TECHNICAL' ? 'q-type q-type-tech' : 'q-type q-type-beh';
+            if (q.type === 'TECHNICAL') {
+                qType.className = 'q-type q-type-tech';
+            } else if (q.type === 'DOMAIN EXPERTISE') {
+                qType.className = 'q-type q-type-domain';
+            } else {
+                qType.className = 'q-type q-type-beh';
+            }
 
             document.getElementById('answerInput').value = '';
             document.getElementById('answerInput').disabled = false;
