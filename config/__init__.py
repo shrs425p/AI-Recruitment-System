@@ -67,6 +67,9 @@ DEFAULT_SETTINGS = {
     "OPENROUTER_ENABLED": False,
     "GITHUB_ENABLED": False,
     "OLLAMA_CLOUD_ENABLED": False,
+    "SCORING_PRESET": "default",
+    "SCORING_WEIGHTS": '{"skills_match": 35, "experience_years": 20, "domain_match": 20, "education": 15, "certifications": 10}',
+    "KNOCKOUT_RULES": '{"min_experience_years": 0, "required_skills": [], "required_certifications": []}',
 }
 
 _cache: dict[str, Any] = {}
@@ -216,6 +219,9 @@ NVIDIA_ENABLED: bool
 OPENROUTER_ENABLED: bool
 GITHUB_ENABLED: bool
 OLLAMA_CLOUD_ENABLED: bool
+SCORING_PRESET: str
+SCORING_WEIGHTS: str
+KNOCKOUT_RULES: str
 
 sys.modules[__name__] = _ConfigProxy(__name__)
 

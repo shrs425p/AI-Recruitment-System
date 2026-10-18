@@ -243,3 +243,138 @@ def test_api_rank_integration_with_knockout(tmp_path, monkeypatch):
         assert ranked[1]["total_score"] == 0
         assert ranked[1]["hire_recommendation"] == "Knocked Out"
         assert "Requires min 3.0 years" in ranked[1]["knockout_reason"]
+
+
+def test_settings_scoring_api(tmp_path, monkeypatch):
+    import json
+
+    from flask import Flask
+
+    import config as cfg
+    from app.database import init_db
+    from app.routes.settings import register_settings_routes
+
+    test_db = tmp_path / "test_settings_scoring.db"
+    monkeypatch.setattr("app.database.DB_PATH", test_db)
+    init_db()
+
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "secret"
+    register_settings_routes(app)
+    client = app.test_client()
+
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["username"] = "admin"
+
+    custom_weights = {"skills_match": 40, "experience_years": 30, "domain_match": 10, "education": 10, "certifications": 10}
+    custom_ko = {"min_experience_years": 4.0, "required_skills": ["Python"], "required_certifications": []}
+
+    res = client.post(
+        "/api/settings/scoring",
+        json={
+            "preset": "architect",
+            "weights": custom_weights,
+            "knockout_rules": custom_ko,
+        },
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["success"] is True
+    assert data["preset"] == "architect"
+    assert json.loads(data["weights"]) == custom_weights
+    assert json.loads(data["knockout_rules"]) == custom_ko
+
+    assert cfg.SCORING_PRESET == "architect"
+    assert json.loads(cfg.SCORING_WEIGHTS) == custom_weights
+
+
+def test_api_rank_fallback_to_saved_settings(tmp_path, monkeypatch):
+    import json
+
+    from flask import Flask
+
+    import config as cfg
+    from app.database import init_db
+    from app.routes.ranking import register_ranking_routes
+
+    test_db = tmp_path / "test_rank_fallback.db"
+    monkeypatch.setattr("app.database.DB_PATH", test_db)
+    init_db()
+
+    # Set saved defaults in config
+    saved_ko = {"min_experience_years": 4.0, "required_skills": ["Python"], "required_certifications": []}
+    monkeypatch.setattr(cfg, "KNOCKOUT_RULES", json.dumps(saved_ko))
+    saved_weights = {"skills_match": 50, "experience_years": 20, "domain_match": 10, "education": 10, "certifications": 10}
+    monkeypatch.setattr(cfg, "SCORING_WEIGHTS", json.dumps(saved_weights))
+
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "secret"
+    register_ranking_routes(app)
+    client = app.test_client()
+
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["username"] = "admin"
+
+    fake_candidates = [
+        {
+            "_source_file": "senior.pdf",
+            "personal_info": {"name": "Experienced Dev"},
+            "total_experience_years": 5.0,
+            "skills": ["Python"],
+            "domain": "Software",
+        },
+        {
+            "_source_file": "junior.pdf",
+            "personal_info": {"name": "Junior Dev"},
+            "total_experience_years": 2.0,
+            "skills": ["Python"],
+            "domain": "Software",
+        },
+    ]
+
+    jd_parsed = {"job_title": "Python Lead", "domain": "Software"}
+    senior_ai_score = {
+        "candidate_name": "Experienced Dev",
+        "scores": {
+            "domain_match": {"score": 10, "reason": "Match"},
+            "skills_match": {"score": 50, "reason": "Match"},
+            "experience_years": {"score": 20, "reason": "5 yrs"},
+            "education": {"score": 10, "reason": "Degree"},
+            "certifications": {"score": 10, "reason": "None"},
+        },
+        "total_score": 100,
+        "percentage": 100.0,
+        "overall_verdict": "Great",
+        "strengths": [],
+        "gaps": [],
+        "hire_recommendation": "Strongly Recommend",
+    }
+
+    with patch("app.routes.ranking.load_candidates", return_value=fake_candidates), \
+         patch("app.routes.ranking.call_ai", return_value=jd_parsed), \
+         patch("src.ranking_engine.call_ai", return_value=senior_ai_score):
+
+        # Note: weights and knockout_rules are omitted from the request body
+        res = client.post(
+            "/api/rank",
+            json={
+                "jd_text": "Python Lead with strong skills.",
+            },
+        )
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["success"] is True
+        ranked = data["ranked"]
+        assert len(ranked) == 2
+
+        # Senior passed
+        assert ranked[0]["candidate_name"] == "Experienced Dev"
+        assert ranked[0]["is_knocked_out"] is False
+
+        # Junior disqualified by saved knockout rule (min 4.0 years)
+        assert ranked[1]["candidate_name"] == "Junior Dev"
+        assert ranked[1]["is_knocked_out"] is True
+        assert ranked[1]["total_score"] == 0
+        assert "Requires min 4.0 years" in ranked[1]["knockout_reason"]
