@@ -141,7 +141,7 @@ When writing a custom subject or body, these variables are available:
 | `{interview_slot}` | Same as `{selected_slot}` (alias) |
 | `{company}` | Your company name from Settings → General |
 | `{hr_name}` | HR display name from Settings → General |
-| `{interview_link}` | Currently a placeholder — the candidate portal URL is included separately |
+| `{interview_link}` | Unique candidate interview portal URL (e.g. `https://<ip>:5000/candidate-interview/<token>`) |
 
 **Example custom subject:**
 ```

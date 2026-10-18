@@ -1,255 +1,167 @@
 # Architecture
 
-This document describes how the AI Recruitment System is structured — the runtime servers, the data flow through the pipeline, and how the major components relate to each other.
+This document describes the architectural design of the AI Recruitment System — the runtime two-server model, component boundaries, database persistence layer, and end-to-end data flow.
 
 ---
 
-## High-Level Overview
+## High-Level Topology
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Windows Desktop                         │
+│                         Windows Host                            │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   pywebview Window                      │    │
+│  │                   pywebview Desktop Shell               │    │
 │  │   (native OS frame wrapping an embedded Chromium view)  │    │
 │  │                                                         │    │
-│  │   http://127.0.0.1:5001  ──────►  Waitress (HTTP)       │    │
-│  │                                   HR Dashboard Flask App│    │
+│  │   http://127.0.0.1:5001  ──────►  Waitress WSGI         │    │
+│  │                                   HR Dashboard Server   │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
 │  ┌────────────────────────┐    ┌───────────────────────────┐    │
 │  │   SQLite Database      │    │  Flask HTTPS Server       │    │
-│  │   ars.db               │    │  (port 5000, 0.0.0.0)     │    │
-│  │   (settings, schema)   │    │ Candidate Interview Portal│    │
+│  │   recruitment.db       │    │  (port 5000, 0.0.0.0)     │    │
+│  │   (9 Relational Tables)│    │ Candidate Interview Portal│    │
 │  └────────────────────────┘    └──────────────▲────────────┘    │
 │                                               │                 │
+│  ┌────────────────────────┐                   │                 │
+│  │   Local Engines        │                   │                 │
+│  │   - Ollama (11434)     │                   │                 │
+│  │   - Tesseract OCR      │                   │                 │
+│  │   - Bundled Assets     │                   │                 │
+│  └────────────────────────┘                   │                 │
 └───────────────────────────────────────────────│─────────────────┘
-                                                │ HTTPS
+                                                │ HTTPS (TLS)
                                      ┌──────────┴──────────┐
                                      │ Candidate's Browser │
-                                     │ (any device on LAN) │
+                                     │ (Any Device on LAN) │
                                      └─────────────────────┘
 ```
 
 ---
 
-## The Two-Server Model
+## The Two-Server Isolation Model
 
-The application runs **two Flask servers simultaneously**, each serving a distinct audience:
+To strictly segregate administrative HR capabilities from external candidate inputs, the application operates two concurrent network servers:
 
-### Server 1 — HR Desktop Server (Waitress, HTTP)
-- **Host:** `127.0.0.1` (localhost only — never exposed externally)
-- **Port:** `5001` (default, configurable via `ARS_DESKTOP_PORT`)
-- **Protocol:** HTTP (no TLS needed — loopback traffic only)
-- **Serving:** Production WSGI via `Waitress` (8 threads by default)
-- **Audience:** HR dashboard only, accessed via the embedded pywebview window
-- **Authentication:** Nonce-based desktop login (see [Security](security.md))
+### 1. HR Desktop Administrative Server (Waitress, HTTP)
+- **Interface:** `127.0.0.1` (strictly loopback — unreachable from the local network).
+- **Port:** `5001` (configurable via `FLASK_PORT`).
+- **Serving Engine:** Production WSGI server via `Waitress` (multi-threaded pool).
+- **Access Model:** Renders inside the embedded desktop shell. Protected by scrypt password hashing, session cookies, and single-use desktop nonces.
 
-### Server 2 — Candidate Interview Portal (Flask, HTTPS)
-- **Host:** `0.0.0.0` (all network interfaces — accessible from LAN)
-- **Port:** `5000` (default, configurable via `ARS_CANDIDATE_PORT`)
-- **Protocol:** HTTPS with a self-signed RSA-2048 certificate (auto-generated on first run)
-- **Serving:** Flask development server with `use_reloader=False`
-- **Audience:** Candidates accessing from their own devices
-- **Authentication:** One-time interview tokens (UUID-based, time-scoped)
-
-Both servers share the **same Flask application instance** (`app = create_app()` in `main.py`), so all route handlers are available on both ports. Access control is enforced at the route level via the `@login_required` and token validation decorators.
+### 2. Candidate Interview Portal (Flask, HTTPS)
+- **Interface:** `0.0.0.0` (all network interfaces — accessible over the local area network).
+- **Port:** `5000` (configurable via `CANDIDATE_PORT`).
+- **Serving Engine:** Flask HTTPS server with an auto-generated RSA-2048 certificate.
+- **Access Model:** Token-gated candidate entrypoints (`/candidate-interview/<token>`).
+- **Isolation Policy:** All administrative HR endpoints (`/dashboard`, `/ranking`, `/reports`, `/settings`) return HTTP 404 when requested on this port.
 
 ---
 
-## Application Startup Sequence
+## Component Boundaries
 
 ```
-main.py
-  │
-  ├─ 1. sys.excepthook registered (crash.log on unhandled exceptions)
-  ├─ 2. create_app() — Flask app factory
-  │      ├─ Register error handlers (400, 403, 404, 413, 429, 500)
-  │      ├─ protect_hr_routes() — apply @login_required to HR endpoints
-  │      ├─ add_security_headers() — after_request hook
-  │      ├─ inject_config() — context_processor (cfg available in templates)
-  │      └─ Register all route blueprints (auth, dashboard, upload, nlp, ...)
-  │
-  ├─ 3. init_db() — create/migrate SQLite schema
-  ├─ 4. Port allocation — pick_port() finds free ports
-  ├─ 5. Thread 1: run_flask_https() — candidate portal (daemon)
-  ├─ 6. Thread 2: run_flask_http_local() — HR desktop server (daemon)
-  ├─ 7. time.sleep(1) — wait for servers to bind
-  ├─ 8. webview.create_window() — open desktop window
-  └─ 9. webview.start() — enter GUI event loop (blocking)
-```
-
----
-
-## Component Map
-
-```
-┌─────────────────── Flask App (app/) ──────────────────────────┐
-│                                                               │
-│  routes/upload.py     ← Receives uploaded PDF/image files     │
-│  routes/nlp.py        ← Triggers NLP extraction pipeline      │
-│  routes/ranking.py    ← Triggers candidate scoring            │
-│  routes/scheduling.py ← Manages slots, tokens, .ics files     │
-│  routes/interview.py  ← Candidate portal, live session mgmt   │
-│  routes/reports.py    ← PDF report generation                 │
-│  routes/dashboard.py  ← Dashboard data aggregation            │
-│  routes/settings.py   ← Settings CRUD + provider config       │
-│  routes/logs.py       ← Live log streaming (SSE)              │
-│  routes/auth.py       ← Login, nonce-based desktop auth       │
-│  routes/health.py     ← /health endpoint                      │
-│                                                               │
-└───────────────────────────┬───────────────────────────────────┘
-                            │ calls
-┌────────────────────────────▼──────────────── Business Logic (src/) ──┐
-│                                                                      │
-│  pdf_to_txt.py         ← PDF/image → plain text                      │
-│  nlp_extractor.py      ← Resume text → structured candidate JSON     │
-│  ranking_engine.py     ← Candidates + JD → ranked leaderboard        │
-│  scheduling.py         ← Top-N → slots → schedule.json + .ics        │
-│  interview_bot.py      ← Questions, answer evaluation, transcripts   │
-│  webcam_proctor.py     ← Face detection, violation flags             │
-│  voice_interview.py    ← Vosk STT + pyttsx3 TTS                      │
-│  report_generator.py   ← interview transcript → PDF report           │
-│  provider_router.py    ← Round-robin AI call dispatcher              │
-│  google_calendar.py    ← Google Calendar API integration             │
-│  email_sender.py       ← SMTP email dispatch                         │
-│  security.py           ← AES-Fernet encrypt/decrypt                  │
-│  common.py             ← Paths, AI call_ollama(), JSON utils         │
-│  ai_mode.py            ← Privacy vs Cloud mode selector              │
-│                                                                      │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────── Flask Layer (app/) ──────────────────────────┐
+│                                                                        │
+│  routes/auth.py         ← Login, password scrypt, desktop nonces       │
+│  routes/dashboard.py    ← Aggregations, pipeline tasks, GDPR delete    │
+│  routes/upload.py       ← .docx, .pdf, and image ingestion             │
+│  routes/nlp.py          ← NLP profile extraction triggers              │
+│  routes/ranking.py      ← Candidate scoring, weights, notes, CSV export│
+│  routes/scheduling.py   ← Slots, interview tokens, email dispatch      │
+│  routes/interview.py    ← Candidate portal, session state, proctoring  │
+│  routes/reports.py      ← PDF evaluation dossiers, notification tray   │
+│  routes/intelligence.py ← Semantic search, comparison, 6 analytics     │
+│  routes/settings.py     ← Dynamic settings CRUD & provider secrets     │
+│  routes/logs.py         ← Live SSE log streaming                       │
+│  database.py            ← Transactional SQLite persistence layer       │
+│  rate_limiter.py        ← Sliding-window IP rate limiter               │
+│                                                                        │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ dispatches
+┌────────────────────────────────────▼───────── Business Logic (src/) ──┐
+│                                                                       │
+│  pdf_to_txt.py          ← python-docx, pypdf, Tesseract OCR           │
+│  nlp_extractor.py       ← Schema-constrained AI entity extraction     │
+│  ranking_engine.py      ← Weight balancing, knockouts, rubric scoring │
+│  talent_intelligence.py ← Vector embeddings, comparisons, 6 analytics │
+│  scheduling.py          ← Top-N shortlist, slot allocation, .ics      │
+│  interview_bot.py       ← Adaptive blueprints, probing, evaluation    │
+│  webcam_proctor.py      ← Face tracking (MediaPipe + Haar cascades)   │
+│  voice_interview.py     ← Web Speech API + Vosk speech fallback       │
+│  report_generator.py    ← FPDF2 Latin-1 PDF compilation & 40/60 score │
+│  provider_router.py     ← Multi-cloud routing & RPM load balancing    │
+│  security.py            ← AES-Fernet encryption & secret derivation   │
+│  common.py              ← Paths, JSON repair, call_ollama wrapper     │
+│                                                                       │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Data Flow: Resume to Report
+## Database Schema (recruitment.db)
 
-```
-[1] UPLOAD
-  User drops PDF/PNG/JPG into the Upload page
-  └─ app/routes/upload.py saves file to:
-     %LOCALAPPDATA%\AI Recruitment System\data\resumes\
+Database persistence is handled transactionally by `app/database.py`. The database consists of 9 relational tables:
 
-[2] TEXT EXTRACTION (pdf_to_txt.py)
-  For digital PDFs:
-    pypdf extracts embedded text directly (fast, ~ms)
-    If extracted text < 800 characters → treated as scanned → OCR
-  For scanned PDFs / images:
-    Tesseract OCR extracts text from embedded images and image files
-  Output: .txt file in data/output/txt/
-
-[3] NLP EXTRACTION (nlp_extractor.py)
-  Reads the .txt file
-  Sends to AI with a structured prompt
-  AI returns JSON with:
-    personal_info, domain, summary, total_experience_years,
-    skills (technical, tools, soft, domain-specific, languages),
-    education, work_experience, projects, certifications,
-    awards, publications, volunteer, candidate_strength_summary
-  Output: candidate_nlp.json + candidate_nlp.txt in data/output/nlp/
-
-[4] RANKING (ranking_engine.py)
-  HR enters a Job Description
-  AI parses JD → extracts requirements (skills, experience, domain, education)
-  For each candidate (parallel, up to 5 workers):
-    AI scores on 5 criteria with strict rubrics:
-      domain_match (20 pts), skills_match (35 pts),
-      experience_years (20 pts), education (15 pts), certifications (10 pts)
-    Returns score, percentage, strengths, gaps, hire_recommendation
-  Candidates sorted by total score descending
-  Output: ranking_scores_<timestamp>.json + leaderboard_<timestamp>.json
-
-[5] SCHEDULING (scheduling.py)
-  HR selects top N candidates (default: 10) and enters available slots
-  For each candidate:
-    3 slot options distributed across HR's availability
-    .ics calendar invite generated (UUID event ID)
-    Interview token generated (UUID, stored in DB)
-    Optional: email sent with slot options + interview link
-  Output: schedule_<timestamp>.json + per-candidate .ics files
-
-[6] INTERVIEW (interview_bot.py + webcam_proctor.py + voice_interview.py)
-  Candidate opens their unique interview URL from their browser
-  Token validated → session created
-  8 questions generated (5 technical + 3 behavioral, AI-personalised)
-  For each question:
-    Question displayed (or read via TTS in voice mode)
-    Candidate answers (typed or spoken via Vosk STT)
-    AI evaluates answer (score + feedback)
-    Webcam proctor checks face count every 2 seconds
-  Session ends → transcript saved
-  Output: interview_<candidate>_<timestamp>.json
-
-[7] REPORT GENERATION (report_generator.py)
-  Loads interview transcript JSON
-  Generates Material Design 3 monochrome PDF report with:
-    Candidate profile summary and combined score
-    Executive AI HR assessment, key strengths, and key gaps
-    Proctor integrity summary (face flags, tab switches, copy-paste)
-    Detailed question-by-question breakdown (prompt, category, score, 4-part rubrics, verbatim answer, AI feedback)
-  Output: report_<candidate>_<timestamp>.pdf in data/output/reports/
-```
-
----
-
-## AI Call Architecture
-
-All AI calls in the system go through a single unified dispatcher in `src/common.py`:
-
-```
-call_ollama(system_msg, user_msg)
-  │
-  └─ call_ai_async(system_msg, user_msg)
-       │
-       ├─ Privacy mode (APP_MODE="privacy"):
-       │    call_ollama_async() → local Ollama server
-       │    On timeout → cloud fallback (if Anthropic key configured)
-       │
-       └─ Cloud mode (APP_MODE="cloud"):
-            provider_router.router.call()
-              │
-              └─ ProviderRouter.get_provider()
-                   Round-robin across all enabled, non-rate-limited providers
-                   Tracks call timestamps per provider (RPM enforcement)
-                   Falls back to next provider on rate limit
-```
-
-### Provider Router
-
-The `ProviderRouter` class in `src/provider_router.py` manages **load balancing** across up to 8 simultaneous cloud AI providers:
-
-- Maintains a per-provider **call timestamp log** in memory
-- Before each call, filters out providers that have exceeded their RPM limit in the last 60 seconds
-- Selects the first non-rate-limited provider from the active list
-- If all providers are rate-limited, uses the first active one as a fallback
-- Validates API keys against known placeholder strings — providers with placeholder keys are automatically skipped
-
----
-
-## Database Schema
-
-The SQLite database (`ars.db`) is created and managed by `app/database.py`. It uses one primary table for configuration:
-
-### `app_settings`
-| Column | Type | Description |
-|---|---|---|
-| `key` | TEXT (PK) | Setting name (e.g. `NVIDIA_KEY`, `THEME`) |
-| `value` | TEXT | Setting value (may be `ENC:...` for encrypted values) |
-| `is_encrypted` | INTEGER | `1` if the value is AES-Fernet encrypted |
-| `updated_at` | TEXT | ISO timestamp of last update |
-
-All other application state (interview sessions, tokens, proctor data) is stored in-memory during a session and persisted to JSON files in the output directories.
-
----
-
-## Security Headers
-
-Every HTTP response from the Flask app includes these headers (added by the `add_security_headers` after-request hook):
-
-| Header | Value |
+| Table | Purpose |
 |---|---|
-| `Cache-Control` | `no-store` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `X-Content-Type-Options` | `nosniff` |
-| `X-Frame-Options` | `SAMEORIGIN` |
+| `runs` | Tracks pipeline execution batches, stages, status, and configuration metadata. |
+| `candidates` | Stores candidate names, resume scores, hire recommendations, recruiter notes, and status tags. |
+| `schedules` | Stores candidate interview time slots, confirmation statuses, and run associations. |
+| `interview_tokens` | Manages single-use UUID tokens granting candidates access to the interview portal. |
+| `interview_sessions` | Tracks live candidate sessions, HMAC session keys, and proctoring flag counts. |
+| `job_templates` | Stores reusable job descriptions, domain targets, and custom weighting presets. |
+| `hr_notifications` | Persistent record of HR notifications (e.g. candidate interview completions) with read states. |
+| `app_settings` | Key-value store for runtime settings (interview question limits, timer, active provider). |
+| `talent_embeddings` | High-dimensional dense vector embeddings of candidate profiles for semantic search. |
+
+---
+
+## End-to-End Pipeline Data Flow
+
+```
+1. RESUME INGESTION (app/routes/upload.py)
+   Accepts .docx, .pdf, .png, .jpg files.
+   Validates extension whitelist and writes to data/resumes/.
+
+2. TEXT EXTRACTION (src/pdf_to_txt.py)
+   Routes .docx to python-docx.
+   Routes digital PDFs to pypdf stream reader.
+   Routes scanned PDFs and images to bundled Tesseract OCR.
+   Normalizes whitespace and saves UTF-8 text to data/output/txt/.
+
+3. NLP PROFILE PARSING (src/nlp_extractor.py)
+   Extracts personal info, skills, experience years, domain, education, and certs.
+   Performs JSON repair and saves structured profiles to data/output/nlp/*_nlp.json.
+
+4. RANKING & KNOCKOUTS (src/ranking_engine.py)
+   Normalizes rubric weights.
+   Evaluates knockout prerequisites (min experience, mandatory skills, certs).
+   Computes composite scores, attaches recruiter notes/tags, and exports CSV.
+   Saves to data/output/ranking/ranking_scores_*.json.
+
+5. SCHEDULING (src/scheduling.py)
+   Selects Top-N candidates and allocates interview time slots.
+   Generates standard .ics calendar invites and issues UUID interview tokens.
+   Dispatches SMTP email invitations.
+
+6. PROCTORED INTERVIEW (app/routes/interview.py + src/interview_bot.py)
+   Candidate accesses https://<host-ip>:5000/candidate-interview/<token>.
+   Consent verified; session initialized with HMAC key.
+   Administers dynamic technical and behavioral questions based on role blueprint.
+   Triggers adaptive probing if an answer lacks depth.
+   Proctoring thread tracks face presence, tab switches, and instant copy-paste.
+   Saves transcript to data/output/interviews/interview_*.json.
+
+7. EVALUATION REPORTS & NOTIFICATIONS (src/report_generator.py)
+   Computes combined score (40% resume fit + 60% interview performance).
+   Renders Material Design 3 monochrome PDF via fpdf2.
+   Emits real-time desktop notification and logs entry in hr_notifications.
+
+8. TALENT INTELLIGENCE (src/talent_intelligence.py)
+   Generates dense vector embeddings into SQLite.
+   Executes semantic talent pool queries.
+   Computes side-by-side candidate comparisons and feedback letters.
+   Computes 6 visual analytics modules for executive review.
+```

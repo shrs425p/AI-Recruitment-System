@@ -22,8 +22,8 @@ C:\Users\<YourName>\AppData\Local\AI Recruitment System\
 AI Recruitment System\
 │
 ├── data\
-│   ├── ars.db                  ← SQLite database (all settings)
-│   ├── resumes\                ← Uploaded resume files (PDF, PNG, JPG)
+│   ├── ars.db                  ← SQLite database (13 relational tables + settings)
+│   ├── resumes\                ← Uploaded resume files (.pdf, .docx, .png, .jpg)
 │   ├── credentials.json        ← Google Calendar OAuth credentials (if set up)
 │   ├── token.json              ← Google Calendar OAuth token (auto-generated)
 │   └── output\
@@ -162,30 +162,73 @@ To exclude a candidate from the next ranking run:
 
 ## Managing Interview Tokens
 
-Tokens are stored in the `app_settings` table as a JSON blob. There is no built-in token management UI — to revoke or clear tokens manually:
+Interview invitation tokens are stored in the dedicated `interview_tokens` SQLite table:
 
-1. Open the database with SQLite browser or from the command line:
-   ```bash
-   python -c "from app.database import get_setting, set_setting; print(get_setting('interview_tokens', '[]'))"
-   ```
-2. Tokens expire naturally when the interview is completed. Incomplete tokens remain until the database is cleared.
+```sql
+CREATE TABLE interview_tokens (
+    token        TEXT PRIMARY KEY,
+    candidate_id TEXT,
+    role         TEXT,
+    expires_at   TEXT,
+    created_at   TEXT,
+    used         INTEGER DEFAULT 0
+);
+```
+
+- When an interview starts, the token is validated against expiry and usage.
+- Once completed, the session is recorded in `interview_sessions` and the token is flagged as used (`used = 1`).
+- To view active tokens via the command line:
+  ```bash
+  python -c "import sqlite3; conn = sqlite3.connect(r'%LOCALAPPDATA%\AI Recruitment System\data\ars.db'); print(conn.execute('SELECT token, candidate_id, expires_at, used FROM interview_tokens').fetchall()); conn.close()"
+  ```
+
+---
+
+## Candidate Data Purging (GDPR Compliance)
+
+To permanently purge a candidate and all associated PII:
+- **UI Action:** Click the **Purge Candidate** button on the candidate profile card.
+- **API Endpoint:** Send an authenticated HTTP `DELETE` or `POST` to `/api/candidate/<candidate_id>/purge` with a valid CSRF token.
+- **Actions Performed Automatically:**
+  1. Deletes the candidate row from `candidates`.
+  2. Deletes candidate notes from `candidate_notes`.
+  3. Deletes interview sessions from `interview_sessions`.
+  4. Deletes active tokens from `interview_tokens`.
+  5. Deletes semantic embeddings from `candidate_embeddings`.
+  6. Deletes candidate feedback records from `candidate_feedback`.
+  7. Unlinks and removes candidate notification records from `hr_notifications`.
+  8. Unlinks candidate files: original resume (`.pdf`/`.docx`), parsed `.txt`, NLP profile (`*_nlp.json`), and PDF report from disk.
 
 ---
 
 ## Database Inspection
 
-To inspect the database directly:
+The SQLite database (`ars.db`) contains 13 core relational tables:
+1. `pipeline_runs`: Pipeline execution history, timestamps, and parameters
+2. `candidates`: Extracted candidate profiles, contact info, and scores
+3. `schedules`: Scheduled interview slots and status
+4. `email_log`: Record of sent emails and dispatch timestamps
+5. `interview_tokens`: Candidate interview tokens and expiration
+6. `job_templates`: Saved job descriptions and evaluation criteria
+7. `app_settings`: Key-value application configurations and encrypted secrets
+8. `interview_sessions`: Candidate interview answers, scores, and proctor logs
+9. `candidate_embeddings`: 384-dimensional vector embeddings for semantic search
+10. `ai_telemetry`: Latency, token usage, and provider telemetry metrics
+11. `candidate_feedback`: AI-generated personalized candidate feedback letters
+12. `candidate_notes`: Recruiter notes and triage tags
+13. `hr_notifications`: Real-time candidate interview completion alerts
+
+To inspect table counts directly:
 
 ```bash
 python -c "
-import sqlite3, json
+import sqlite3
 conn = sqlite3.connect(r'%LOCALAPPDATA%\AI Recruitment System\data\ars.db')
-rows = conn.execute('SELECT key, value, is_encrypted FROM app_settings').fetchall()
-for key, val, enc in rows:
-    if enc:
-        print(f'{key}: [ENCRYPTED]')
-    else:
-        print(f'{key}: {val}')
+cursor = conn.cursor()
+tables = [r[0] for r in cursor.execute(\"SELECT name FROM sqlite_master WHERE type='table'\").fetchall()]
+for t in tables:
+    count = cursor.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]
+    print(f'{t:22} : {count} rows')
 conn.close()
 "
 ```

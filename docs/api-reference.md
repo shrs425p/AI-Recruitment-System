@@ -1,530 +1,353 @@
 # API Reference
 
-All routes are served by the same Flask application on both servers:
-- HR Dashboard: `http://127.0.0.1:5001`
-- Candidate Portal: `https://<server-ip>:5000`
+All routes are served by the Flask application:
+- **HR Dashboard Server:** `http://127.0.0.1:5001`
+- **Candidate Portal Server:** `https://<server-ip>:5000`
 
-Routes marked **[Auth Required]** require an active HR session (`session["logged_in"] = True`).  
-State-changing requests (`POST`, `PUT`, `DELETE`, `PATCH`) on HR routes additionally require a valid CSRF token in the `X-CSRF-Token` header.  
-Routes marked **[Token]** require a valid interview session key (`X-Session-Key`).  
-Routes under `/candidate-interview/` are public entrypoints that validate candidate interview tokens internally.
+### Security & Header Conventions
+- **[Auth Required]:** Requires an active HR session (`session["logged_in"] = True`).
+- **[CSRF Required]:** State-changing requests (`POST`, `PUT`, `DELETE`, `PATCH`) require a valid token in the `X-CSRF-Token` header.
+- **[Session Key Required]:** Candidate interview requests require a valid HMAC session key in the `X-Interview-Session-Key` header and JSON body.
+- Candidate portal routes under `/candidate-interview/` validate tokens internally.
 
 ---
 
-## Health
+## 1. System Health & Diagnostics
 
-### `GET /health`
-Returns a simple health check. No authentication required.
+### `GET /api/health`
+Returns system health, database status, and operational metrics. No authentication required.
 
 **Response:**
 ```json
-{ "status": "ok" }
+{
+  "status": "ok",
+  "database": "ok",
+  "success": true
+}
 ```
 
+### `GET /api/stats`
+**[Auth Required]**  
+Returns telemetry counters across pipeline stages.
+
+**Response:**
+```json
+{
+  "pdf_count": 14,
+  "txt_count": 14,
+  "nlp_count": 14,
+  "pending_txt": 0,
+  "pending_nlp": 0,
+  "has_ranking": true,
+  "has_schedule": true,
+  "interview_count": 9,
+  "report_count": 9,
+  "tasks": {}
+}
+```
+
+### `GET /api/task-status`
+**[Auth Required]**  
+Returns the execution state of asynchronous pipeline workers.
+
 ---
 
-## Authentication
+## 2. Authentication & Session Security
 
 ### `GET /desktop-bootstrap`
-Serves the pywebview bootstrap page that initiates nonce-based auto-login.  
-Only meaningful when accessed from the embedded pywebview window.
-
----
+Renders the bootstrap view for embedded desktop webview authentication.
 
 ### `POST /api/desktop-login`
-Validates a nonce token and creates an authenticated desktop session.
+Validates a single-use desktop nonce and initializes an authenticated desktop session.
 
 **Request body:**
 ```json
-{ "nonce": "<token_urlsafe_32>" }
+{ "nonce": "<cryptographic_nonce_string>" }
 ```
-
-**Response (success):**
-```json
-{ "success": true }
-```
-
-**Response (failure):**
-```json
-{ "error": "Unauthorized" }
-```
-HTTP 403
-
----
-
-### `GET /login`
-Shows the HR login form (only relevant when `LOGIN_ENABLED = True`).
-
----
 
 ### `POST /login`
-Validates username + password and creates a session.
+Authenticates HR credentials using scrypt-hashed passwords.
 
 **Form fields:** `username`, `password`
 
-**Response:** Redirect to dashboard on success, re-render login form on failure.
-
----
-
 ### `GET /logout`
-Clears the session and redirects to login.
+Clears session state and cookies.
 
 ---
 
-## Dashboard
-
-### `GET /` → `GET /dashboard`
-**[Auth Required]**  
-Returns the HR dashboard HTML page.
-
----
-
-### `GET /api/dashboard-stats`
-**[Auth Required]**  
-Returns aggregate statistics for the dashboard widgets.
-
-**Response:**
-```json
-{
-  "resumes_uploaded": 24,
-  "nlp_processed": 22,
-  "candidates_ranked": 18,
-  "interviews_scheduled": 10,
-  "interviews_completed": 7
-}
-```
-
----
-
-## Upload
-
-### `GET /upload`
-**[Auth Required]**  
-Returns the upload page.
-
----
+## 3. Resume Upload & Document Extraction
 
 ### `POST /api/upload`
-**[Auth Required]**  
-Upload one or more resume files.
+**[Auth Required] [CSRF Required]**  
+Uploads resumes. Accepts Microsoft Word (`.docx`), PDF (`.pdf`), and image files (`.png`, `.jpg`).
 
-**Content-Type:** `multipart/form-data`  
-**Field:** `files[]` — one or more files (PDF, PNG, JPG)
-
-**Response:**
-```json
-{
-  "success": true,
-  "uploaded": ["resume1.pdf", "resume2.pdf"],
-  "failed": []
-}
-```
-
----
-
-## NLP Extraction
-
-### `GET /nlp`
-**[Auth Required]**  
-Returns the NLP extraction page.
-
----
-
-### `POST /api/nlp/run`
-**[Auth Required]**  
-Triggers NLP extraction on all unprocessed `.txt` files in `data/output/txt/`.  
-Runs asynchronously — returns immediately, progress visible in the live log.
-
-**Response:**
-```json
-{ "success": true, "message": "NLP extraction started" }
-```
-
----
-
-### `GET /api/nlp/status`
-**[Auth Required]**  
-Returns the current NLP processing status.
-
-**Response:**
-```json
-{
-  "total_txt": 24,
-  "processed": 22,
-  "pending": 2,
-  "candidates": [
-    {
-      "name": "John Doe",
-      "domain": "Software Engineering",
-      "experience_years": 4,
-      "source_file": "john_doe"
-    }
-  ]
-}
-```
-
----
-
-## Ranking
-
-### `GET /ranking`
-**[Auth Required]**  
-Returns the ranking page.
-
----
-
-### `POST /api/ranking/run`
-**[Auth Required]**  
-Triggers candidate ranking against a provided job description.
-
-**Request body:**
-```json
-{ "job_description": "We are looking for a Python developer..." }
-```
+**Payload:** `multipart/form-data` with `files[]`
 
 **Response:**
 ```json
 {
   "success": true,
-  "ranked_candidates": [
-    {
-      "candidate_name": "John Doe",
-      "total_score": 84,
-      "percentage": 84,
-      "hire_recommendation": "Strongly Recommend",
-      "scores": {
-        "domain_match": { "score": 18, "max": 20, "reason": "..." },
-        "skills_match": { "score": 30, "max": 35, "reason": "..." },
-        "experience_years": { "score": 18, "max": 20, "reason": "..." },
-        "education": { "score": 12, "max": 15, "reason": "..." },
-        "certifications": { "score": 6, "max": 10, "reason": "..." }
-      },
-      "strengths": ["Strong Python skills", "Relevant ML experience"],
-      "gaps": ["No AWS certification"],
-      "overall_verdict": "Strong candidate with directly relevant skills"
-    }
-  ]
+  "uploaded": 3,
+  "files": ["resume_001.docx", "resume_002.pdf"]
 }
 ```
 
----
-
-## Scheduling
-
-### `GET /scheduling`
+### `GET /resumes/<filename>`
 **[Auth Required]**  
-Returns the scheduling page.
+Safely streams the uploaded resume file for HR inspection.
 
 ---
 
-### `POST /api/scheduling/create`
-**[Auth Required]**  
-Creates interview schedule for the top N candidates.
+## 4. Candidate Ranking & Shortlisting
+
+### `POST /api/ranking/rank`
+**[Auth Required] [CSRF Required]**  
+Ranks candidates against a Job Description using customizable weights and knockout rules.
 
 **Request body:**
 ```json
 {
-  "slots": ["2026-08-20 10:00", "2026-08-20 14:00", "2026-08-21 09:00"],
-  "top_n": 10
+  "job_description": "We are seeking a Senior Python Engineer...",
+  "weights": {
+    "skills_match": 35,
+    "experience_years": 20,
+    "domain_match": 20,
+    "education": 15,
+    "certifications": 10
+  },
+  "knockout_rules": {
+    "min_experience_years": 3.0,
+    "required_skills": ["Python", "Docker"]
+  }
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "scheduled": 10,
-  "tokens_generated": 10
-}
-```
-
----
-
-### `POST /api/scheduling/send-emails`
+### `GET /api/ranking/export/csv`
 **[Auth Required]**  
-Sends scheduling emails to all candidates with confirmed slots.
+Exports candidate rankings and rubric breakdowns as an RFC 4180 CSV spreadsheet.
 
-**Response:**
-```json
-{ "success": true, "sent": 10, "failed": 0 }
-```
+**Response:** File stream (`Content-Type: text/csv; charset=utf-8`).
 
----
-
-### `GET /api/scheduling/tokens`
-**[Auth Required]**  
-Returns all active interview tokens and their associated candidates.
-
-**Response:**
-```json
-{
-  "tokens": [
-    {
-      "token": "uuid-...",
-      "candidate_name": "John Doe",
-      "job_title": "Python Developer",
-      "interview_url": "https://192.168.1.100:5000/candidate-interview/uuid-..."
-    }
-  ]
-}
-```
-
----
-
-## Interview (HR Side)
-
-### `GET /interview`
-**[Auth Required]**  
-Returns the interview management page for HR.
-
----
-
-### `GET /api/interview/sessions`
-**[Auth Required]**  
-Returns all active interview sessions.
-
-**Response:**
-```json
-{
-  "sessions": [
-    {
-      "session_id": "...",
-      "candidate_name": "John Doe",
-      "current_question": 4,
-      "total_questions": 8,
-      "proctor_flags": 1,
-      "status": "in_progress"
-    }
-  ]
-}
-```
-
----
-
-### `GET /api/interview/proctor-frame/<session_id>`
-**[Auth Required]**  
-Returns the latest webcam frame for a session as a base64 JPEG string.
-
-**Response:**
-```json
-{ "frame": "data:image/jpeg;base64,/9j/4AAQ..." }
-```
-
----
-
-## Interview (Candidate Side)
-
-### `GET /candidate-interview/<token>`
-Public — token validated internally.  
-Returns the candidate interview portal page.
-
----
-
-### `POST /api/candidate/start-session`
-**[Token]**  
-Validates the interview token and initialises the session.
-
-**Request body:**
-```json
-{ "token": "<uuid>" }
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "session_id": "...",
-  "session_key": "...",
-  "first_q": "Tell me about your experience with Python.",
-  "questions": [
-    { "number": 1, "type": "technical", "topic": "Python", "text": "..." }
-  ]
-}
-```
-
----
-
-### `POST /api/candidate/submit-answer`
-**[Token + Session Key]**  
-Submits an answer to the current question.
+### `POST /api/candidate/<int:candidate_id>/notes`
+**[Auth Required] [CSRF Required]**  
+Attaches recruiter notes and status tags to a candidate record in SQLite.
 
 **Request body:**
 ```json
 {
-  "token": "<uuid>",
-  "session_id": "...",
-  "session_key": "...",
-  "answer": "I have 3 years of Python experience..."
+  "notes": "Strong candidate with direct distributed caching experience.",
+  "tags": "Shortlisted, Team Lead"
+}
+```
+
+---
+
+## 5. Candidate Deletion & GDPR Purge
+
+### `DELETE /api/candidate/<int:candidate_id>`
+**[Auth Required] [CSRF Required]**  
+Permanently purges a candidate record from SQLite and unlinks all associated resumes, text extractions, NLP profiles, and interview transcripts from disk.
+
+**Response:**
+```json
+{
+  "success": true,
+  "id": 42,
+  "message": "Candidate and all associated data purged successfully."
+}
+```
+
+---
+
+## 6. Interview Scheduling
+
+### `POST /api/schedule`
+**[Auth Required] [CSRF Required]**  
+Generates schedules for top-ranked candidates across specified datetime slots.
+
+**Request body:**
+```json
+{
+  "slots": ["2026-10-25 10:00", "2026-10-25 14:00", "2026-10-26 11:00"],
+  "top_n": 5
+}
+```
+
+### `POST /api/update-slot`
+**[Auth Required] [CSRF Required]**  
+Updates the scheduled interview slot for a specific candidate.
+
+**Request body:**
+```json
+{
+  "candidate_name": "Jane Doe",
+  "selected_slot": "2026-10-26 14:00"
+}
+```
+
+---
+
+## 7. Candidate Interview (Port 5000)
+
+### `POST /api/candidate/interview/start`
+Validates interview token and initializes candidate session.
+
+**Request body:**
+```json
+{
+  "token": "<uuid_token>",
+  "consent": true
 }
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
-  "score": 7,
-  "feedback": "Good answer covering the key concepts...",
-  "next_question": "Describe a situation where you had to debug a complex issue.",
+  "session_id": "sess_9182371",
+  "session_key": "hmac_key_9182",
+  "first_question": "Can you explain how you design distributed microservices?",
+  "question_num": 1,
+  "total_questions": 8
+}
+```
+
+### `POST /api/candidate/interview/answer`
+**[Session Key Required]**  
+Submits candidate answer for rubric evaluation and adaptive probing.
+
+**Headers:** `X-Interview-Session-Key: <hmac_key>`
+
+**Request body:**
+```json
+{
+  "session_id": "sess_9182371",
+  "session_key": "hmac_key_9182",
+  "question_num": 1,
+  "answer": "We used Redis streams with independent consumer groups...",
+  "time_taken": 42.5
+}
+```
+
+**Response:**
+```json
+{
+  "evaluation": {
+    "total": 9,
+    "relevance": 3,
+    "depth": 2,
+    "clarity": 2,
+    "correctness": 2,
+    "feedback": "Strong architecture explanation."
+  },
+  "next_question": "How did you handle consumer group rebalancing under high load?",
   "is_complete": false
 }
 ```
 
 ---
 
-### `POST /api/candidate/end-session`
-**[Token + Session Key]**  
-Ends the interview session and saves the transcript.
+## 8. Real-Time HR Notifications
 
-**Response:**
-```json
-{ "success": true, "message": "Interview completed. Thank you." }
-```
-
----
-
-### `GET /api/candidate/proctor-status/<session_id>`
-**[Token]**  
-Returns the current proctoring status for the candidate's session.
-
-**Response:**
-```json
-{
-  "face_count": 1,
-  "flags": 0,
-  "status": "ok"
-}
-```
-
----
-
-## Reports
- 
-### `GET /reports`
+### `GET /api/notifications`
 **[Auth Required]**  
-Returns the reports HTML page listing all completed interviews, proctor logs, and generated evaluation dossiers.
- 
----
- 
-### `POST /api/generate-reports`
+Lists recent HR notifications.
+
+**Query Parameters:**
+- `limit` (int, default: 20)
+- `unread_only` (bool, default: false)
+
+### `GET /api/notifications/unread-count`
+**[Auth Required]**  
+Returns the number of unread notifications.
+
+**Response:**
+```json
+{ "unread_count": 2 }
+```
+
+### `POST /api/notifications/<int:notif_id>/read`
 **[Auth Required] [CSRF Required]**  
-Batch-generates AI evaluation reports and summaries for all completed interview transcripts in `data/output/interviews/`.
- 
-**Response (success):**
-```json
-{
-  "success": true,
-  "count": 1,
-  "reports": [
-    {
-      "candidate_name": "Olivia Cox",
-      "combined_score": 82,
-      "hire_recommendation": "Recommend",
-      "risk_level": "Low",
-      "key_strengths": ["Strong Python foundation", "Clear communication"],
-      "key_gaps": ["Limited distributed systems exposure"]
-    }
-  ]
-}
-```
- 
+Marks a single notification as read.
+
+### `POST /api/notifications/read-all`
+**[Auth Required] [CSRF Required]**  
+Marks all notifications as read.
+
 ---
- 
-### `GET /api/report-pdf/<filename>`
+
+## 9. Talent Intelligence & Analytics
+
+### `GET /api/intelligence/analytics`
 **[Auth Required]**  
-Generates and streams the Material Design 3 monochrome PDF evaluation dossier as a file download.
- 
-**Parameters:** `filename` — Name of the report JSON file (e.g. `report_olivia_cox_20261016.json`).
- 
-**Response:** PDF document (`Content-Type: application/pdf`).
- 
----
- 
-### `GET /api/save-report-pdf/<filename>`
-**[Auth Required]**  
-Generates and writes the PDF report to `data/output/reports/report_<candidate>.pdf` and attempts to open it in the default system viewer.
- 
+Returns pre-computed data for all 6 recruitment analytics widgets.
+
 **Response:**
 ```json
 {
   "success": true,
-  "path": "C:\\...\\data\\output\\reports\\report_olivia_cox.pdf"
+  "skill_gap": { "demand": ["Python", "Docker"], "supply": {"Python": 12, "Docker": 4} },
+  "experience_matrix": { "points": [...] },
+  "question_difficulty": [ {"topic": "Architecture", "avg_score": 5.4} ],
+  "proctoring_risk": { "clean_percent": 80.0, "low_warning_percent": 15.0, "high_risk_percent": 5.0 },
+  "hiring_velocity": { "avg_screen_hours": 0.25, "avg_turnaround_hours": 22.0 },
+  "talent_mix": { "domains": {...}, "education": {...} }
 }
 ```
 
----
+### `POST /api/intelligence/search`
+**[Auth Required] [CSRF Required]**  
+Performs semantic vector search across candidate resumes.
 
-## Settings
-
-### `GET /settings`
-**[Auth Required]**  
-Returns the settings page.
-
----
-
-### `POST /api/settings/save`
-**[Auth Required]**  
-Saves updated settings to the database.
-
-**Request body:** JSON object with any subset of setting keys and their new values.
-
-**Response:**
+**Request body:**
 ```json
-{ "success": true }
+{ "query": "Distributed caching with Redis and async worker queues" }
 ```
 
----
-
-### `POST /api/settings/change-password`
-**[Auth Required]**  
-Changes the HR dashboard password.
+### `POST /api/intelligence/compare`
+**[Auth Required] [CSRF Required]**  
+Generates side-by-side comparison metrics and an executive deliberation brief.
 
 **Request body:**
 ```json
 {
-  "current_password": "...",
-  "new_password": "..."
+  "candidates": ["Alice Smith", "Bob Jones"],
+  "job_context": "Senior Infrastructure Architect"
 }
 ```
 
+### `POST /api/intelligence/feedback-letter`
+**[Auth Required] [CSRF Required]**  
+Generates a structured, constructive candidate feedback letter.
+
+**Request body:**
+```json
+{
+  "candidate_name": "Alice Smith",
+  "job_title": "Senior Infrastructure Architect"
+}
+```
+
+---
+
+## 10. Pipeline Automation & Maintenance
+
+### `POST /api/run-auto-pipeline`
+**[Auth Required] [CSRF Required]**  
+Starts the background pipeline job running text extraction, NLP, ranking, and scheduling sequentially.
+
 **Response:**
 ```json
-{ "success": true }
+{
+  "success": true,
+  "started": true,
+  "message": "Auto-pipeline started."
+}
 ```
 
----
+### `POST /api/reset-pipeline`
+**[Auth Required] [CSRF Required]**  
+Safely clears pipeline task states and deletes generated JSON/TXT output files while preserving database structure.
 
-## Logs
-
-### `GET /logs`
-**[Auth Required]**  
-Returns the live log viewer page.
-
----
-
-### `GET /api/logs/stream`
-**[Auth Required]**  
-Server-Sent Events (SSE) stream of application log lines.
-
-**Content-Type:** `text/event-stream`
-
-Each event is a plain-text log line from the application's log queue.
-
----
-
-## Error Responses
-
-All API endpoints return consistent error responses:
-
-```json
-{ "error": "<message>", "code": <http_status_code> }
-```
-
-| Status | Meaning |
-|---|---|
-| 400 | Bad request — missing or invalid parameters |
-| 401 | Unauthorised — not logged in |
-| 403 | Forbidden — nonce invalid or access denied |
-| 404 | Not found — resource does not exist |
-| 413 | Upload too large — file exceeds `ARS_MAX_UPLOAD_BYTES` |
-| 429 | Too many requests — rate limit exceeded |
-| 500 | Internal server error |
+### `POST /api/open-output-folder`
+**[Auth Required] [CSRF Required]**  
+Opens the local output folder in the native Windows File Explorer.

@@ -1,139 +1,93 @@
-# Reports
+# Reports & Evaluations
 
-This document explains what the interview reports contain, how they are generated, and how to read them.
-
----
-
-## What Is a Report?
-
-After a candidate completes their interview, HR can generate a PDF report from the Reports page. The report combines:
-- The candidate's NLP profile (skills, experience, education)
-- Their interview performance (per-question scores and AI feedback)
-- Proctoring summary (webcam violations, tab switches)
-- An overall AI-generated HR assessment
-
-Reports are useful for sharing candidate evaluations with the wider hiring team, keeping records, or comparing candidates after the interviews.
+This document covers how final candidate evaluation reports are generated, the combined scoring model, PDF export formatting, and real-time completion notifications.
 
 ---
 
-## Generating a Report
+## Overview
 
-1. Go to **Sidebar → Reports**
-2. Locate the candidate under completed interviews
-3. Click **Generate Report** to run the AI HR evaluation
-4. Click **Download PDF** (or **View Report**) to export the report
+Final candidate reports aggregate the entire candidate lifecycle into an evaluation document:
+1. **Resume Fit Assessment (40%):** Skills match, years of experience, domain alignment, education, and certifications.
+2. **Live Interview Performance (60%):** Technical accuracy, conceptual depth, communication clarity, problem-solving rubrics, and proctoring integrity logs.
+3. **Recruiter Annotations:** Internal notes and status tags saved by hiring managers.
 
-PDF reports are saved to `%LOCALAPPDATA%\AI Recruitment System\data\output\reports\` and can be viewed directly in the application or opened in any standard PDF reader.
-
----
-
-## Report Structure (Material Design 3 Monochrome)
-
-The PDF evaluation dossier is styled using a high-contrast Material Design 3 monochrome palette (off-black, slate gray, bordered containers, and white background) designed for clean printing and executive review.
-
-### 1. Header & Candidate Overview
-- Candidate full name and target job title
-- Report timestamp and evaluation ID
-- Prominent Combined Score badge (out of 100)
-- AI Hire Recommendation badge (`Strongly Recommend`, `Recommend`, `Maybe`, `Not Recommended`)
-
-### 2. Candidate Profile & Technical Summary
-- Domain specialization and total years of professional experience
-- Highest degree and education background
-- Extracted technical skills and core tool competencies
-
-### 3. AI HR Assessment & Executive Analysis
-- **Overall Summary:** Concise synthesis of candidate performance across ranking and interview stages
-- **Technical Assessment:** Evaluation of depth, domain grasp, and technical trade-offs
-- **Behavioral Assessment:** Analysis of communication, problem-solving, and STAR-format responses
-- **Key Strengths:** Bulleted list of candidate standout competencies
-- **Key Gaps:** Bulleted list of growth areas or missing qualifications
-- **Suggested Next Steps:** Recommended follow-up actions (e.g. system design round, code review, reference verification)
-
-### 4. Proctoring & Integrity Summary
-- Overall proctoring status (`CLEAN`, `SUSPICIOUS`, `FLAGGED`)
-- Proctoring Risk Level (`Low`, `Medium`, `High`)
-- Flag breakdown table:
-  - Tab switches count
-  - Copy-paste attempts count
-  - Face absence occurrences
-  - Multiple faces detected count
-  - Total violation flags recorded
-
-### 5. Detailed Question-by-Question Evaluation
-Each question answered by the candidate is presented with:
-- Question number, category badge (`Technical` or `Behavioral`), and difficulty level
-- Question score (0 to 10 points) and response time in seconds
-- Full prompt text asked during the interview
-- 4-part evaluation rubric breakdown:
-  - **Relevance:** Directness and alignment with the question prompt
-  - **Depth:** Thoroughness, technical accuracy, and domain familiarity
-  - **Clarity:** Structure, conciseness, and articulation
-  - **Correctness:** Factual accuracy and problem-solving soundness
-- Verbatim candidate response
-- AI Evaluator Feedback detailing strengths, partial credit rationale, and gaps
-- Proctor flags logged specifically during the question window (if any)
+Reports are saved in both machine-readable JSON format and downloadable monochrome PDF format in `data/output/reports/`.
 
 ---
 
-## How the AI Assessment Is Generated
+## 1. Combined Scoring Formula
 
-The report generator (`src/report_generator.py`) sends the full interview transcript to the AI with a structured prompt asking for the assessment JSON. It uses:
-- `temperature=0.0` — deterministic output
-- `num_predict=4096` — enough tokens for detailed assessments
+The overall score is computed as a weighted composite of resume suitability and live interview demonstration:
 
-The AI is not given any identity information about the HR system — only the transcript and scores — to keep the assessment objective.
+$$\text{Final Score} = (\text{Resume Fit Score} \times 0.40) + (\text{Interview Score} \times 0.60)$$
 
----
+Where:
+- $\text{Resume Fit Score}$: 0 to 100 points calculated by the ranking engine.
+- $\text{Interview Score}$: Percentage score calculated from total points achieved across all interview questions divided by maximum possible points.
 
-## Combined Score Calculation
-
-The combined score visible in the report takes into account both the ranking stage score and the interview stage score. It is a weighted blend — the exact weighting is determined by the AI's overall assessment rather than a fixed formula, making it a holistic evaluation rather than a pure number.
-
----
-
-## Risk Level
-
-The risk level (`Low` / `Medium` / `High`) is assessed by the AI based on:
-
-| Factor | Low Risk | Medium Risk | High Risk |
-|---|---|---|---|
-| Proctoring flags | 0–1 | 2–4 | 5+ |
-| Interview score | >75% | 50–75% | <50% |
-| Answer quality | Consistent, detailed | Inconsistent | Very short or off-topic |
-
-This is the AI's judgment based on the full picture — it is not a rigid formula.
+### Recommendation Tiers
+| Final Score Range | Recommendation Verdict |
+|---|---|
+| **85% — 100%** | Strongly Recommend |
+| **70% — 84%** | Recommend |
+| **55% — 69%** | Consider with Reservations |
+| **Below 55%** | Do Not Recommend |
 
 ---
 
-## Report File Naming
+## 2. Report Content & Layout
 
-PDF reports are saved as:
-```
-report_<candidate_name>_<timestamp>.pdf
-```
+Reports follow a Material Design 3 monochrome typographic structure designed for executive distribution:
 
-Example:
-```
-report_john_doe_20260820_104700.pdf
-```
+### Header & Metadata
+- Candidate Name, Email, Phone, and Portfolio URLs.
+- Position Title and Evaluated Domain.
+- Date of Evaluation and Unique Candidate ID.
 
-A companion `.json` file with the raw AI assessment data is also saved in the same folder.
+### Executive Summary & Scores Card
+- Final Composite Score (out of 100).
+- Component Breakdown: Resume Fit (40%) vs Interview Performance (60%).
+- Final Recommendation Verdict.
+
+### Candidate Annotations
+- Internal Recruiter Notes attached to the candidate record.
+- Current Status Tags (e.g. *"Shortlisted"*, *"Team Review"*, *"Follow-Up"*).
+
+### Rubric Breakdown & Interview Transcripts
+For each interview question:
+- Question Number, Type (Technical / Behavioral), and Topic.
+- Question text and candidate's verbatim answer.
+- 4-Part Rubric Scores: Relevance (3 pts), Depth (3 pts), Clarity (2 pts), Correctness (2 pts).
+- Constructive feedback, identified strengths, and technical gaps.
+- Response time in seconds and any adaptive follow-up probes.
+
+### Proctoring & Integrity Summary
+- Total Integrity Flags Count.
+- Proctoring Status Tier: **Clean Session**, **Low Warning**, or **High Risk**.
+- Itemized violation log with timestamps: Tab Switches, Face Absence, Multiple Faces, and Instant Paste flags.
 
 ---
 
-## Viewing Reports Without the App
+## 3. PDF Generation Architecture
 
-The PDF reports are standard PDFs readable in any PDF viewer (Adobe Acrobat, Edge, Chrome, etc.).
-
-The companion JSON file (`report_*.json`) can be read programmatically — see [Data Formats](data-formats.md) for the full schema.
+Reports are rendered using `fpdf2`:
+- **Typography:** Uses clean system fonts (Helvetica/Arial) with Latin-1 character sanitization to prevent PDF encoding crashes.
+- **Atomic File Saving:** Reports are written to temporary files and atomically moved to `data/output/reports/report_<candidate_name>.pdf`.
+- **Download Route:** Authenticated recruiters download reports directly via `/api/report-pdf/<filename>`.
 
 ---
 
-## Re-generating a Report
+## 4. Real-Time HR Notifications
 
-Reports can be re-generated from the same interview transcript. Each re-generation:
-- Re-runs the AI assessment (may produce slightly different wording even with `temperature=0.0`, due to context differences)
-- Overwrites the previous report file (same filename)
+When a candidate finishes answering their final interview question on the candidate portal, the system automatically emits a real-time notification:
 
-If you want to keep multiple versions, rename the existing PDF before re-generating.
+1. **Desktop Pop-Up Notification:** An OS desktop notification appears on the HR manager's workstation:
+   > *"Candidate Completed: Jane Doe has completed the interview for Senior Python Developer. Report is ready."*
+2. **Persistent Database Storage:** The event is logged to the `hr_notifications` table with an unread state (`is_read = 0`).
+3. **UI Badge & Tray:** The navigation bar displays the unread counter badge. Clicking the notification icon opens a drawer listing recent completions.
+
+### Notification Management API
+- `GET /api/notifications` — Lists recent notifications.
+- `GET /api/notifications/unread-count` — Returns current unread count for badge polling.
+- `POST /api/notifications/<id>/read` — Marks a specific notification as read.
+- `POST /api/notifications/read-all` — Marks all notifications as read.

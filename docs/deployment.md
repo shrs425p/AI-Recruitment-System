@@ -121,9 +121,10 @@ scripts\build_installer.bat
 ### What Gets Installed
 
 The installer copies:
-- `ARS.exe` and all bundled dependencies
-- Bundled models (`Tesseract-OCR/`, `vosk-model-small-en-in-0.4/`)
-- Templates, static files, scripts
+- `ARS.exe` and all bundled dependencies (including `python-docx` for `.docx` resumes)
+- Bundled offline models (`Tesseract-OCR/`, `vosk-model-small-en-in-0.4/`)
+- Offline static assets (`app/static/fonts/` with Inter & JetBrainsMono, `app/static/js/chart.umd.min.js`)
+- Templates and UI components (100% air-gapped, zero CDN runtime calls)
 
 ### What Is NOT Installed
 

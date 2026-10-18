@@ -1,281 +1,181 @@
 # Testing
 
-This document explains how to run the test suite, what each test file covers, and how to add new tests.
+This document details the test suite architecture, how to run tests, and how each domain-scoped test module operates.
+
+---
+
+## Overview
+
+The test suite contains **140 tests** organized into 14 domain-focused test modules in `tests/`, verified under Python 3.10+ using `pytest`.
+
+```
+tests/
+├── conftest.py              # Shared fixtures: temporary directories, SQLite DB, Flask clients
+├── test_airgap.py           # Offline asset bundling, zero CDN checks
+├── test_api.py              # System health, stats, background task workers, desktop integration
+├── test_auth.py             # User authentication, password hashes, desktop nonces, route boundaries
+├── test_db.py               # Database schema constraints, CRUD operations, concurrency, rollback
+├── test_intelligence.py     # Semantic vector search, candidate comparisons, 6 analytics calculators
+├── test_interview.py        # Role-adaptive blueprints, adaptive follow-up probing, scoring rubrics
+├── test_nlp.py              # JSON repair, entity extraction schema, provider routing endpoint security
+├── test_proctor.py          # Webcam face detection counters, anti-tamper timers, fast paste detection
+├── test_ranking.py          # Weight balancing, knockout criteria, scoring engine, CSV spreadsheet export
+├── test_reports.py          # Combined scoring, PDF binary generation, HR notification lifecycle
+├── test_resume.py           # Word (.docx) parsing, PDF extraction, upload whitelisting, duplicate handling
+├── test_schedule.py         # Slot allocation, calendar connectivity, email template substitution
+├── test_security.py         # CSRF validation, sliding-window rate limiting, GDPR asset purge, AES encryption
+└── test_voice.py            # TTS markdown formatting, voice session lifecycle, speech recognition fallbacks
+```
 
 ---
 
 ## Running Tests
 
 ### Run all tests
-
 ```bash
 pytest
 ```
 
 ### Run with verbose output
-
 ```bash
 pytest -v
 ```
 
-### Run a specific test file
-
+### Run a specific domain module
 ```bash
-pytest tests/test_features.py -v
+pytest tests/test_ranking.py -v
 ```
 
-### Run a specific test function
-
+### Run a specific test class or function
 ```bash
-pytest tests/test_auth.py::test_login_success -v
+pytest tests/test_auth.py::TestDesktopNonceSecurity::test_desktop_login_single_use_replay_prevention -v
 ```
 
-### Run with coverage report
-
+### Run with coverage reporting
 ```bash
-pip install pytest-cov
 pytest --cov=app --cov=src --cov-report=term-missing
 ```
 
 ---
 
-## Test Setup
+## Test Fixtures (`tests/conftest.py`)
 
-The test configuration is in `tests/conftest.py`. It:
-- Creates a Flask test client with a separate in-memory SQLite database
-- Initialises the database schema before each test
-- Sets up a logged-in session so route tests don't need to authenticate manually
+Shared fixtures are centralized in [`tests/conftest.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/conftest.py):
 
-```python
-# conftest.py creates a reusable app fixture:
-@pytest.fixture
-def client():
-    app.config["TESTING"] = True
-    app.config["DATABASE"] = ":memory:"
-    with app.test_client() as client:
-        yield client
-```
-
-Tests that need an authenticated session call `login(client)` at the start of the test.
+| Fixture | Scope | Description |
+|---|---|---|
+| `temp_dir` | function | Isolated temporary directory on disk, automatically cleaned up after test completion |
+| `test_db` | function | Fresh, temporary SQLite database initialized with all 9 table schemas |
+| `app` | function | Flask application instance configured for testing with test DB and mocked folders |
+| `candidate_app` | function | Secondary candidate portal Flask application instance configured with TLS |
+| `client` | function | Unauthenticated test client for testing public and rejected routes |
+| `auth_client` | function | Pre-authenticated test client with active HR session and matching CSRF headers |
+| `candidate_client` | function | Candidate portal test client for interview session workflows |
+| `sample_pdf_bytes` | function | In-memory minimal valid binary PDF byte stream |
+| `sample_docx_bytes`| function | In-memory minimal valid Microsoft Word `.docx` byte stream |
+| `sample_token_payload` | function | Pre-populated interview token record for candidate testing |
 
 ---
 
-## Test Files
+## Module Coverage Reference
 
-### `tests/test_health.py`
-Tests the `/health` endpoint returns `{"status": "ok"}` with HTTP 200. Simple sanity check that the Flask app starts.
+### 1. Air-Gap & Offline Compliance ([`tests/test_airgap.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_airgap.py))
+- Verifies physical presence of local Inter and JetBrainsMono fonts in `app/static/fonts/`.
+- Verifies presence of bundled `chart.umd.min.js` in `app/static/js/`.
+- Audits all HTML templates in `app/templates/` to assert zero external CDN or Google Font references.
 
----
+### 2. Core REST API & Background Workers ([`tests/test_api.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_api.py))
+- `/api/health`: Database connectivity and health payload.
+- `/api/stats`: Ingestion and extraction telemetry counters.
+- `/api/task-status`: Pipeline background worker execution states.
+- Error handlers: Structured JSON RFC error envelopes for API routes vs HTML pages.
+- Desktop integration: Traversal defense and folder launcher validation.
+- Background jobs: Triggering auto-pipeline and pipeline state reset.
 
-### `tests/test_auth.py`
-Tests authentication routes:
-- Login with correct credentials returns 302 redirect to dashboard
-- Login with wrong password returns 401
-- Accessing a protected route without session returns 401/redirect
-- Logout clears the session
+### 3. Authentication & Access Boundaries ([`tests/test_auth.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_auth.py))
+- Password authentication: Scrypt verification and automatic plaintext password migration on initial login.
+- Desktop Nonce security: Single-use cryptographic nonces, replay rejection, invalid nonce blocking.
+- Access boundaries: Unauthenticated rejection across all HR endpoints, candidate portal isolation.
 
----
+### 4. Database Schema & Concurrency ([`tests/test_db.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_db.py))
+- Schema validation across all 9 tables (`runs`, `candidates`, `schedules`, `interview_tokens`, `interview_sessions`, `job_templates`, `hr_notifications`, `app_settings`, `talent_embeddings`).
+- Foreign key constraints, candidate score ordering, and notes/tagging updates.
+- Concurrency: 15-thread simultaneous write safety in SQLite.
+- Bulk operations: High-throughput ingestion of 500 candidate records.
 
-### `tests/test_error_handlers.py`
-Tests that the custom error handlers return the correct HTTP status codes and response format:
-- 404 returns JSON `{"error": "...", "code": 404}` for API paths
-- 404 returns HTML for browser paths
-- 500 is handled gracefully
+### 5. Talent Intelligence & Analytics ([`tests/test_intelligence.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_intelligence.py))
+- Vector embedding generation and storage in SQLite.
+- Semantic talent pool search with schema-key filtering.
+- Candidate comparison matrix and executive deliberation briefs.
+- AI feedback letter generation with template fallbacks.
+- Complete analytics calculators: Skill Gap, Experience Matrix, Question Difficulty, Proctoring Risk, Velocity Tracker, Talent Mix.
 
----
+### 6. Adaptive Interview Engine ([`tests/test_interview.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_interview.py))
+- Role-adaptive blueprints: Distinction between technical (`is_tech_role`) and non-technical domains.
+- Adaptive probing: Triggering follow-up questions when candidate answers lack depth (`should_probe_further`).
+- Multi-dimensional answer evaluation rubrics (relevance, depth, clarity, correctness).
+- Candidate interview submission endpoints with HMAC session keys.
 
-### `tests/test_features.py`
-Integration tests for core pipeline routes:
-- Upload endpoint accepts a valid PDF
-- Upload endpoint rejects oversized files
-- NLP endpoint returns status correctly
-- Ranking endpoint responds to a job description
-- Settings save and retrieve correctly
+### 7. NLP Extraction & Provider Security ([`tests/test_nlp.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_nlp.py))
+- JSON cleaning and sanitization: Code fence stripping, conversational preamble extraction, trailing comma repairs.
+- NLP extraction schema verification.
+- ProviderRouter validation: Placeholder key rejection and endpoint URL scheme enforcement (`http`/`https`).
 
----
+### 8. Proctoring & Anti-Tamper Integrity ([`tests/test_proctor.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_proctor.py))
+- WebcamProctor lifecycle, missing cascade resilience, and webcam fallback modes.
+- Threshold counting: Zero-face detection and multi-face alerts.
+- Anti-tamper timing: Server-side elapsed time calculation (disregarding client-forged timestamps).
+- Instant paste detection (<2.0s for >5 words) and response delay flags.
 
-### `tests/test_utils.py`
-Unit tests for `app/utils.py`:
-- `login_required` decorator redirects unauthenticated requests
-- Public path prefixes are correctly exempt from login checks
-- IP validation helpers work correctly
+### 9. Candidate Ranking & CSV Export ([`tests/test_ranking.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_ranking.py))
+- Weight auto-balancing when weights do not sum to 100.
+- Knockout rules: Minimum experience knockout and mandatory required skills knockout.
+- Composite score calculation and rubric clamping.
+- RFC 4180 CSV spreadsheet export with role-based authentication.
 
----
+### 10. Evaluation Reports & HR Notifications ([`tests/test_reports.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_reports.py))
+- Combined score calculation (40% resume fit + 60% interview performance).
+- FPDF2 Latin-1 binary PDF report generation.
+- Automated HR desktop notifications upon interview completion, unread counts, and mark-as-read transitions.
 
-### `tests/test_rate_limiter.py`
-Tests the rate limiter:
-- Requests within the limit are allowed
-- Requests exceeding the limit return HTTP 429
-- Rate limit resets after the window expires
+### 11. Document Extraction & Whitelisting ([`tests/test_resume.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_resume.py))
+- Microsoft Word `.docx` parsing via `python-docx`.
+- Digital PDF text extraction.
+- Upload extension whitelist enforcement (`.pdf`, `.docx`) and rejection of unapproved extensions.
+- Duplicate filename collision handling (appending numeric counters).
 
----
+### 12. Interview Scheduling & Notifications ([`tests/test_schedule.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_schedule.py))
+- Top-N candidate slot allocation and in-place slot updating.
+- Google Calendar connectivity status checks.
+- Email invitation dispatch with dynamic placeholder template substitution.
 
-### `tests/test_interview_session.py`
-Tests interview session management:
-- Session is created on valid token
-- Invalid token returns 403
-- Answers are correctly appended to the transcript
-- Session ends and transcript is saved
+### 13. Security, Encryption & GDPR Compliance ([`tests/test_security.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_security.py))
+- CSRF validation (`X-CSRF-Token` header) and token tampering rejection.
+- In-memory sliding-window rate limiting per IP address.
+- Candidate privacy consent gating before starting interviews.
+- GDPR candidate asset purging: Deleting database records and unlinking all associated files on disk.
+- AES-Fernet encryption at rest for database secrets and uploaded documents.
+- Prompt injection defense: XML container isolation and PII sanitization.
+- Self-signed TLS certificate generation.
 
----
-
-### `tests/test_candidate_security.py`
-Tests candidate-facing security:
-- Cross-session access is blocked (candidate A cannot access session B)
-- HMAC session key validation rejects tampered keys
-- Tab switch events are recorded correctly
-- Copy-paste events are logged
-
----
-
-### `tests/test_csrf.py`
-Tests Cross-Site Request Forgery protections:
-- Rejection of unauthenticated state-changing methods lacking `X-CSRF-Token`
-- Validation of valid tokens on POST/PUT/DELETE
-- Exemption of tokenized candidate portal endpoints
-
----
-
-### `tests/test_encryption_at_rest.py`
-Tests encryption mechanisms:
-- AES-Fernet encryption of sensitive keys (`ENC:...`)
-- Encryption of candidate PII in database records
-- Encryption of uploaded resume files on disk (`ARS_ENC:...`)
-- Decryption in memory during extraction
-
----
-
-### `tests/test_pdf_extraction.py`
-Tests PDF parsing using `pypdf`:
-- Direct digital text extraction from standard PDFs
-- Scanned PDF fallback to OCR
-- Decryption of encrypted resume bytes during reading
+### 14. Voice Synthesis & Speech Recognition ([`tests/test_voice.py`](file:///c:/Users/Shrs/OneDrive/Desktop/AI-Recruitment-System/tests/test_voice.py))
+- Markdown formatting stripping for text-to-speech queues.
+- VoiceSession lifecycle, question announcements, and mute toggling.
+- Speech recognition uninitialized error handling and Google speech fallback.
 
 ---
 
-### `tests/test_prompt_injection.py`
-Tests prompt sandboxing:
-- Neutralization of instruction override strings in candidate answers
-- Delimiter boundaries (`<candidate_answer>`) formatting
+## Static Code Analysis and Formatting
 
----
-
-### `tests/test_data_minimization.py`
-Tests PII redaction:
-- Scrubbing of candidate phone numbers and email addresses before external AI prompt submission
-
----
-
-### `tests/test_candidate_consent.py` and `tests/test_candidate_deletion.py`
-Tests candidate rights and GDPR-style data deletion:
-- Recording of candidate consent timestamp
-- Complete purging of candidate records and associated artifacts upon request
-
----
-
-### `tests/test_database.py`
-Tests the database ORM layer:
-- `init_db()` creates the schema correctly
-- `get_setting()` and `set_setting()` work for plain values
-- Encrypted values are stored with `ENC:` prefix and decrypted correctly
-- Unknown keys return the provided default
-
----
-
-### `tests/test_nlp_extractor.py`
-Unit tests for `src/nlp_extractor.py`:
-- Empty resume text returns `(False, "File is empty...")` without calling the AI
-- Already-processed files are skipped correctly
-
----
-
-### `tests/test_ranking_engine.py`
-Unit tests for `src/ranking_engine.py`:
-- Duplicate candidate detection via dedup hash works correctly
-- Score totals add up to 100 max
-
----
-
-### `tests/test_report_generator.py`
-Tests Material Design 3 monochrome PDF report generation:
-- PDF document generation with rubrics and candidate profile
-- File output saving and JSON companion creation
-
----
-
-### `tests/test_auto_pipeline.py`
-End-to-end pipeline test with mocked AI calls:
-- Upload → text extraction → NLP → ranking runs without errors
-- Output files are created in the correct locations
-
----
-
-### `tests/test_tls_cert.py`
-Tests HTTPS setup:
-- Verification of self-signed TLS certificates for port 5000 candidate server
-
----
-
-### `tests/test_voice_interview.py`
-Tests voice capabilities:
-- Offline Vosk STT transcript handling and TTS verification
-
----
-
-### `tests/test_open_output_folder.py`
-Tests the output folder opener utility — verifies the folder path resolves correctly on the current OS.
-
----
-
-## Writing New Tests
-
-### File naming
-- Test files must be named `test_*.py` for pytest to discover them
-- Test functions must be named `test_*`
-
-### Example test
-
-```python
-# tests/test_my_feature.py
-import pytest
-
-def test_something(client):
-    """Test that the /api/something endpoint works."""
-    response = client.get("/api/something")
-    assert response.status_code == 200
-    data = response.get_json()
-    assert "result" in data
-
-def test_requires_auth(client):
-    """Test that /api/protected requires login."""
-    response = client.get("/api/protected")
-    assert response.status_code in (401, 302)
-```
-
-### Mocking AI calls
-
-AI calls in tests should be mocked so tests don't require a live provider:
-
-```python
-from unittest.mock import patch
-
-def test_nlp_extraction(client):
-    mock_response = {"personal_info": {"name": "Test User"}, "domain": "IT"}
-    with patch("src.nlp_extractor.extract_with_ai", return_value=mock_response):
-        response = client.post("/api/nlp/run")
-        assert response.status_code == 200
-```
-
----
-
-## CI / Continuous Integration
-
-The test suite can be run in CI by:
+Linting and formatting standards are enforced via Ruff:
 
 ```bash
-pip install -r requirements.txt
-pip install pytest pytest-cov
-pytest --tb=short
-```
+# Check for lint errors
+ruff check tests/
 
-Tests that require a display (webcam, pywebview) are designed to be skippable in headless environments via `pytest.mark.skip` or environment variable checks.
+# Check formatting
+ruff format --check tests/
+
+# Apply automated formatting fixes
+ruff format tests/
+```

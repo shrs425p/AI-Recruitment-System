@@ -1,234 +1,140 @@
 # Troubleshooting
 
-Common issues and how to fix them.
+Diagnostic steps and fixes for common runtime issues.
 
 ---
 
-## Application Won't Start
+## 1. Startup & Environment
 
-### `ModuleNotFoundError: No module named 'webview'`
+### `ModuleNotFoundError: No module named 'docx'`
+Install the Word document parsing dependency:
 ```bash
-pip install pywebview
+pip install python-docx
 ```
 
-### `ModuleNotFoundError: No module named 'waitress'`
+### `ModuleNotFoundError: No module named 'webview'` or `'waitress'`
+Install the desktop shell and WSGI server:
 ```bash
-pip install waitress
+pip install pywebview waitress
 ```
 
-### Any other `ModuleNotFoundError`
-Run the environment checker:
+### Verify Entire Runtime Environment
+Run the automated test suite to verify all 14 domain modules:
 ```bash
-python scripts/verify_environment.py
+pytest -v
 ```
-It lists all missing packages. Then:
+All 140 tests should pass. If any test fails, run with verbose logging:
 ```bash
-pip install -r requirements.txt
+pytest tests/test_api.py -v -s
 ```
 
-### Port already in use
-If port 5001 or 5000 is already taken by another process:
-```bash
-# Find what's using the port
+### Port Already in Use (5001 or 5000)
+If ports 5001 (HR desktop) or 5000 (Candidate portal) are occupied:
+```powershell
 netstat -ano | findstr :5001
-
-# Kill it (replace PID with the actual process ID)
 taskkill /F /PID <PID>
 ```
-Or change the ports using environment variables before launching:
-```
-set ARS_DESKTOP_PORT=5002
-set ARS_CANDIDATE_PORT=5003
+Or set custom ports in your environment before starting:
+```powershell
+$env:FLASK_PORT=5002
+$env:CANDIDATE_PORT=5003
 python main.py
 ```
 
 ---
 
-## Database Issues
+## 2. Document & Text Extraction
 
-### Settings not saving / reverting to defaults
-The database is at `%LOCALAPPDATA%\AI Recruitment System\data\ars.db`.  
-If it's corrupted, delete it and let the app recreate it on next launch:
-```
-del "%LOCALAPPDATA%\AI Recruitment System\data\ars.db"
-```
-**Note:** This resets all settings. You will need to re-enter API keys.
+### Word (.docx) Resume Extraction Issues
+- **Password-Protected Documents:** The system rejects password-encrypted `.docx` files. Ask the candidate to re-upload an unencrypted file.
+- **Corrupted XML Structure:** If a Word file fails parsing, verify that it opens cleanly in Microsoft Word or LibreOffice.
+- **Table Formatting:** Tables in `.docx` files are parsed into space-delimited text lines. Ensure candidates don't hide crucial skills inside deeply nested drawing canvases.
 
-### `sqlite3.OperationalError: database is locked`
-The database is being accessed by two processes simultaneously. Close the app, wait a few seconds, then relaunch.
-
-### Encrypted values showing as blank after moving the app
-The encryption key is derived from `.secret_salt` at `%LOCALAPPDATA%\AI Recruitment System\.secret_salt`. If the app was reinstalled or moved, the old salt file may be missing. You'll need to re-enter all API keys in Settings.
+### Scanned PDF Produces Empty Text
+1. Verify the PDF isn't a completely blank scan.
+2. Ensure Tesseract OCR is installed at `models/Tesseract-OCR/tesseract.exe`.
+3. Check that the English trained data file exists: `models/Tesseract-OCR/tessdata/eng.traineddata`.
+4. Ensure scanned documents have a minimum resolution of 300 DPI for reliable OCR text recognition.
 
 ---
 
-## AI / Provider Issues
+## 3. Database & SQLite Locks
 
-### "No cloud providers are enabled"
-Go to Settings → AI Providers:
-- Make sure at least one provider is enabled
-- Make sure the API key is not a placeholder (`nvapi-...`, `sk-...`, etc.)
-- Save settings
+### `sqlite3.OperationalError: database is locked`
+Occurs if multiple processes attempt to write simultaneously or an unclosed connection persists:
+- ARS uses a transactional context manager with automatic rollback and WAL (Write-Ahead Logging) mode.
+- Close duplicate running instances of `python main.py` in the Windows Task Manager.
+- Ensure the database file at `data/recruitment.db` is not opened in an exclusive-lock database viewer.
 
-### AI returns empty response or garbage
-- The model may be too small for the task. Try switching to a larger model (e.g. `llama3.1:8b` instead of `llama3.2:3b`)
-- Check that the AI provider is responding: `python scripts/verify_providers.py`
-- Check the live log (Sidebar → Logs) for specific error messages
+### Corrupted Database Reset
+To reinitialize a clean schema without losing uploaded resumes:
+```powershell
+Remove-Item data\recruitment.db -Force
+python main.py
+```
+The application will automatically recreate all 9 relational tables on startup.
 
-### Provider returns HTTP 401 / Invalid API Key
-- The key may have been copied incorrectly — re-copy from the provider's dashboard
-- The key may have been revoked — generate a new one
-- Update it in Settings → AI Providers
+---
 
-### Provider returns HTTP 429 / Rate Limit
-The provider's rate limit was hit. Options:
-- Enable additional providers so the router can spread load
-- Wait and retry (rate limits usually reset per minute)
-- Switch to a higher-tier plan on the provider
+## 4. Candidate Portal & Network Connectivity
 
-### Ollama not responding
-1. Make sure Ollama is installed: [ollama.com/download](https://ollama.com/download)
-2. Make sure Ollama is running:
+### Candidate Sees SSL / HTTPS Warning
+Because the candidate portal runs on a local network IP address (`https://<LAN-IP>:5000`), it uses an auto-generated self-signed RSA-2048 certificate.
+- Instruct candidates to click **Advanced → Proceed to Site**.
+- This is normal and expected for self-signed certificates on local networks.
+
+### Candidate Cannot Connect from Mobile / Laptop on LAN
+1. Verify the host machine's firewall allows inbound TCP traffic on port 5000:
+   ```cmd
+   netsh advfirewall firewall add rule name="ARS Portal" dir=in action=allow protocol=TCP localport=5000
+   ```
+2. Verify that both the host PC and the candidate's device are connected to the same Wi-Fi or subnet.
+3. Ensure client isolation is disabled on your office or home Wi-Fi router.
+
+---
+
+## 5. HR Desktop Notifications
+
+### Desktop Pop-Up Does Not Appear on Interview Completion
+- **Windows Focus Assist / Do Not Disturb:** If Windows Do Not Disturb is enabled, desktop notifications are silenced. Check your Windows Action Center.
+- **Notifications Disabled for Python:** Go to **Windows Settings → System → Notifications** and ensure notifications are enabled.
+- **Fallback Alert Tray:** Even if OS desktop pop-ups are silenced, the internal alert tray in the top navigation bar will display the unread notification badge and list all completions.
+
+---
+
+## 6. Offline Air-Gap Verification
+
+### Charts Not Rendering Offline
+- Confirm that `app/static/js/chart.umd.min.js` exists and is non-empty.
+- Verify that `tests/test_airgap.py` passes:
+  ```bash
+  pytest tests/test_airgap.py -v
+  ```
+- Ensure the browser is not running in an aggressive script-blocking mode.
+
+---
+
+## 7. AI & Inference Providers
+
+### HTTP 429 Too Many Requests (Cloud Provider)
+When using cloud models (Gemini, OpenAI, NVIDIA), provider rate limits may be reached during parallel candidate ranking:
+- The system automatically catches 429 errors and falls back to local Ollama.
+- To prevent cloud rate limits entirely, switch to **Privacy Mode** in Settings, which runs inference locally on your GPU/CPU via Ollama.
+
+### Ollama Not Responding
+1. Verify Ollama is running in your terminal:
    ```bash
    ollama serve
    ```
-3. Make sure the model is pulled:
+2. Check available models:
    ```bash
    ollama list
+   ```
+3. Pull the required model:
+   ```bash
    ollama pull llama3.2:3b
    ```
-4. Check the Base URL in Settings matches your Ollama address (default: `http://localhost:11434`)
-5. Test it directly:
+4. Verify the connection endpoint:
    ```bash
-   curl http://localhost:11434/api/tags
+   curl http://127.0.0.1:11434/api/tags
    ```
-
-### NLP extraction produces empty or wrong fields
-- The AI failed to parse the resume. Check the live log for provider error messages.
-- The resume text extraction may have failed — check if a `.txt` file was created in `data/output/txt/`
-- If the `.txt` file is empty, OCR may have failed (see OCR section below)
-
----
-
-## OCR Issues
-
-### Tesseract not found
-The bundled Tesseract binary is at `models/Tesseract-OCR/tesseract.exe`. If it's missing:
-```bash
-# Check if it exists
-dir models\Tesseract-OCR\tesseract.exe
-```
-If the `models/Tesseract-OCR/` directory is empty or missing, the file was likely not committed to git (check `.gitignore`) or was deleted.
-
-### Scanned PDF produces empty text
-1. Check if the PDF renders correctly when opened — if not, the PDF itself may be corrupt
-2. Try a higher-resolution scan (300 DPI minimum for good OCR accuracy)
-3. Check if Tesseract is finding the correct language data:
-   - Language files are in `models/Tesseract-OCR/tessdata/`
-   - `eng.traineddata` must be present for English OCR
-
-### Image files (PNG/JPG) produce no text
-- Very low resolution images will fail OCR. 300 DPI or higher is recommended.
-- Check that Pillow is installed: `pip install Pillow`
-
----
-
-## Voice / Microphone Issues
-
-### Voice mode not showing up in the interview
-The system checks microphone and TTS availability when loading the interview page. One of them failed.
-
-**Check manually:**
-```bash
-python -c "from src.voice_interview import check_microphone, check_tts; print(check_microphone()); print(check_tts())"
-```
-
-### Microphone not detected
-- Check Windows sound settings: Settings → System → Sound → Input — make sure a microphone is listed
-- Check that the microphone is not muted
-- Try a different USB port or device
-
-### Vosk model not found
-The Vosk model must be at `models/vosk-model-small-en-in-0.4/`. If missing:
-```bash
-python scripts/setup_vosk.py
-```
-
-### `pyttsx3` not working / TTS silent
-- Check that a TTS voice is installed in Windows: Settings → Accessibility → Speech
-- Try `pip install pypiwin32` if on Windows and pyttsx3 fails to initialise
-
-### Speech recognition very inaccurate
-The bundled model is the small English-India model which trades accuracy for size. If accuracy is poor:
-- Speak slowly and clearly
-- Reduce background noise
-- Download a larger Vosk model from [alphacephei.com/vosk/models](https://alphacephei.com/vosk/models) and replace the model folder
-
----
-
-## Webcam / Proctoring Issues
-
-### Webcam not detected
-```bash
-python -c "import cv2; cap = cv2.VideoCapture(0); print(cap.isOpened()); cap.release()"
-```
-If `False`, OpenCV can't access the webcam. Check:
-- Webcam is connected and drivers are installed
-- No other application is using the webcam
-- Windows camera permissions: Settings → Privacy → Camera → allow Python
-
-### Face not being detected (Haar cascade)
-- Make sure you are in a well-lit environment
-- Face must be clearly visible and facing the camera
-- The Haar cascade `haarcascade_frontalface_default.xml` must exist in OpenCV's data directory
-
-### MediaPipe not working
-```bash
-pip install mediapipe>=0.10.9
-```
-If it installs but still fails on import, check your Python version (MediaPipe requires Python 3.8–3.11).
-
-### Proctor stream not showing in HR dashboard
-The proctor frame is served as a base64 JPEG via a polling endpoint. If the stream is blank:
-- The webcam is not started (interview session not active)
-- The browser is blocking mixed content (HTTP polling from an HTTPS page) — this should not happen on localhost
-
----
-
-## Candidate Portal Issues
-
-### Candidate sees SSL certificate warning
-This is expected for the self-signed certificate. Candidates need to click **Advanced → Proceed to site** (exact text varies by browser). This is a one-time step per browser.
-
-### Candidate cannot reach the interview URL
-- Make sure the candidate is on the same local network (LAN/WiFi)
-- The URL uses the HR machine's local IP address — not `localhost`
-- Find your IP: `ipconfig` → look for IPv4 address under your active adapter
-- Make sure the firewall allows inbound connections on port 5000:
-  ```bash
-  scripts\setup_firewall.bat
-  ```
-- Make sure the Flask HTTPS server is running (check the live log)
-
-### Token invalid or expired
-- The candidate may have already used the token
-- The application may have been restarted (in-memory session data is lost on restart)
-- Re-generate a token from the Scheduling page
-
----
-
-## Log File Locations
-
-| Log | Location |
-|---|---|
-| Live application log | Sidebar → Logs (in the app UI) |
-| Crash log | `%LOCALAPPDATA%\AI Recruitment System\crash.log` |
-| NLP output | `%LOCALAPPDATA%\AI Recruitment System\data\output\nlp\` |
-| Interview transcripts | `%LOCALAPPDATA%\AI Recruitment System\data\output\interviews\` |
-
-For detailed debugging, run:
-```
-set ARS_DEBUG=1
-python main.py
-```
-This enables Flask debug mode with more verbose error output in the log.

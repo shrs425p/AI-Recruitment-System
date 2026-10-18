@@ -1,15 +1,17 @@
 # AI Recruitment System — Documentation
 
 > **Platform:** Windows 10/11  
-> **Stack:** Python · Flask · pywebview · SQLite · Tesseract OCR · Vosk · OpenCV
+> **Stack:** Python · Flask · pywebview · SQLite · Tesseract OCR · OpenCV · MediaPipe
 
 ---
 
 ## What Is It?
 
-The **AI Recruitment System (ARS)** is a desktop application that automates the recruitment pipeline — from uploading resumes to generating interview reports — without requiring cloud services (unless you want to use cloud AI providers).
+The **AI Recruitment System (ARS)** is an offline-capable desktop application that automates the recruitment pipeline — from uploading resumes and extracting structured candidate profiles to candidate ranking, proctored live interviews, and talent intelligence analytics.
 
-It runs as a native Windows desktop window powered by pywebview, with a Flask web server serving the UI over localhost. A second HTTPS server runs simultaneously to host the **Candidate Interview Portal**, which candidates access from their own devices over the local network.
+It operates with a two-server model:
+1. **Desktop HR Application (`http://127.0.0.1:5001`):** Hosted locally via Waitress and rendered within a native OS desktop window powered by `pywebview`.
+2. **Candidate Interview Portal (`https://<host-ip>:5000`):** An isolated, token-authenticated HTTPS server accessible to candidates across the local network without granting access to HR dashboards.
 
 ---
 
@@ -17,86 +19,104 @@ It runs as a native Windows desktop window powered by pywebview, with a Flask we
 
 | Feature | Details |
 |---|---|
-| **Resume Upload** | PDF (digital + scanned), PNG, JPG |
-| **Document & OCR Extraction** | pypdf for digital PDFs, Tesseract OCR for scanned documents and images |
-| **NLP Profile Extraction** | AI-powered structured JSON: skills, experience, education, projects, certifications, awards |
-| **Candidate Ranking** | 5-criterion weighted AI scoring against any job description |
+| **Resume Ingestion** | Microsoft Word (`.docx`), PDF (digital and scanned), PNG, JPG |
+| **Document & OCR Parsing** | `python-docx` for `.docx`, `pypdf` for text PDFs, bundled Tesseract OCR for scanned documents and images |
+| **NLP Profile Extraction** | Structured JSON schema: skills, experience, education, projects, certifications, domain |
+| **Candidate Ranking** | 5-criterion weighted AI scoring against any job description, with automatic weight balancing and knockouts |
+| **Recruiter Notes & Tags** | In-place recruiter notes and status tagging saved directly in SQLite |
+| **CSV / Excel Export** | Single-click RFC 4180 candidate spreadsheet export for ATS integration and offline reviews |
 | **Interview Scheduling** | Top-N shortlist, slot coordination, `.ics` calendar invites, Google Calendar sync |
-| **AI Interview Portal** | Token-authenticated candidate portal, 8 personalised questions per candidate |
-| **Voice Mode** | Offline HTML5 Web Speech API (`SpeechSynthesis` + `SpeechRecognition`) |
+| **Candidate Interview Portal** | Isolated HTTPS server, token authentication, and candidate privacy consent |
+| **Configurable Interviews** | Customizable technical question count, behavioral question count, and per-question timers in Settings |
+| **Adaptive Interview Engine** | Role-adaptive blueprints (`is_tech_role`), dynamic follow-up probing for vague or shallow answers |
+| **Real-Time HR Notifications** | Automated desktop notifications and dashboard alert tray upon candidate interview completion |
+| **Voice Mode** | Offline HTML5 Web Speech API (`SpeechSynthesis` + `SpeechRecognition`) with backend fallback |
 | **Webcam Proctoring** | Real-time face detection (MediaPipe + OpenCV Haar cascade fallback) |
-| **Violation Tracking** | Tab switches, copy-paste events, face absence, multiple faces |
+| **Violation Tracking** | Tab switches, copy-paste events, face absence, multiple faces, response delays |
 | **Report Generation** | Material Design 3 monochrome PDF reports with rubrics, full transcripts, and proctoring summary |
-| **Multi-Provider AI** | 8 cloud providers + local Ollama, with round-robin load balancing and dynamic live model fetching |
-| **Privacy Mode** | Fully offline: Ollama local LLM, no data leaves the machine |
+| **Talent Intelligence Suite** | Vector semantic search, candidate comparison matrix, AI feedback letters, and 6 visual analytics modules |
+| **100% Air-Gapped Clean** | Local font assets (Inter, JetBrainsMono) and local Chart.js bundle with zero outbound CDN calls |
+| **Multi-Provider AI** | 8 cloud providers plus local Ollama, with round-robin load balancing and automatic fallback |
+| **Privacy Mode** | Fully offline execution: Ollama local LLM, zero network egress |
 | **Encrypted Storage** | API credentials, candidate PII in database, and uploaded resumes encrypted at rest (AES-Fernet + PBKDF2) |
-| **Email Notifications** | SMTP-based scheduling emails with customisable templates |
 
 ---
 
 ## Documentation Index
 
-| Document | Who Should Read It |
+| Document | Description |
 |---|---|
-| [Getting Started](getting-started.md) | New users — installation, first run, initial setup |
-| [Architecture](architecture.md) | Developers — system design, data flow, component map |
-| [Pipeline](pipeline.md) | HR users — step-by-step recruitment workflow |
-| [Configuration](configuration.md) | Admins — every setting explained |
-| [AI Providers](ai-providers.md) | Admins — cloud vs privacy mode, provider setup |
-| [Interview System](interview-system.md) | HR users & developers — token auth, questions, voice, proctoring |
-| [API Reference](api-reference.md) | Developers — all HTTP endpoints |
-| [Security](security.md) | Admins & developers — auth, encryption, HTTPS, rate limiting |
-| [Troubleshooting](troubleshooting.md) | Everyone — common issues and fixes |
+| [Getting Started](getting-started.md) | Installation, first run, prerequisites, and initial setup |
+| [Architecture](architecture.md) | System design, two-server model, subsystem boundaries, data flow |
+| [Pipeline](pipeline.md) | Step-by-step recruitment workflow from upload to final evaluation |
+| [Talent Intelligence](talent-intelligence.md) | Vector semantic search, candidate comparison matrix, feedback letters, and 6 talent analytics modules |
+| [Air-Gapped Operation](airgap.md) | Zero-outbound CDN architecture, bundled fonts, local Chart.js, and offline deployment |
+| [Interview System](interview-system.md) | Token authentication, question generation, adaptive probing, voice, proctoring |
+| [Reports](reports.md) | Report layout, combined score calculation, PDF exports, and HR completion notifications |
+| [Configuration](configuration.md) | Database-backed settings reference, default values, and environment variables |
+| [AI Providers](ai-providers.md) | Cloud vs Privacy mode, provider setup, model selection |
+| [Security](security.md) | Authentication, encryption at rest, HTTPS, rate limiting, sessions |
+| [API Reference](api-reference.md) | Complete reference of all HTTP endpoints, headers, and request/response schemas |
+| [Testing](testing.md) | Test suite architecture, running tests (140 tests), and domain modules |
+| [Google Calendar](google-calendar.md) | OAuth integration and automatic calendar invite sync |
+| [Email Setup](email-setup.md) | SMTP configuration and invitation templates |
+| [Data Formats](data-formats.md) | JSON schemas and SQLite database tables |
+| [Customization](customization.md) | Tunable parameters (weights, thresholds, question limits) |
+| [Data Management](data-management.md) | Backup, restore, and data cleanup procedures |
+| [Deployment](deployment.md) | Building the portable executable and Inno Setup Windows installer |
+| [Troubleshooting](troubleshooting.md) | Diagnostic steps and fixes for common runtime issues |
+| [FAQ](faq.md) | Frequently asked questions |
+| [Contributing](contributing.md) | Code conventions, architecture invariants, and contribution guidelines |
 
 ---
 
 ## Technology Stack
 
-### Core
+### Core Runtime
 | Layer | Technology |
 |---|---|
 | Desktop Shell | `pywebview` 5.x — native OS window wrapping a web view |
 | Web Framework | `Flask` — serves both HR dashboard and candidate portal |
-| Local Server | `Waitress` — production WSGI server for the desktop UI |
-| Candidate Server | Flask dev server with self-signed TLS (HTTPS) |
-| Database | `SQLite` via custom ORM layer (`app/database.py`) |
-| Config | Database-backed dynamic config module (`config/__init__.py`) |
+| Local WSGI Server | `Waitress` — production WSGI server for the desktop UI (`127.0.0.1:5001`) |
+| Candidate Server | Flask dev server with self-signed TLS (`0.0.0.0:5000`) |
+| Database | `SQLite` via transactional ORM layer (`app/database.py`) |
+| Configuration | Database-backed dynamic config module (`config/__init__.py`) |
 
-### AI & NLP
+### AI, NLP & Parsing
 | Component | Technology |
 |---|---|
-| Local LLM | `Ollama` (llama3.2:3b default) |
-| Cloud Providers | NVIDIA, OpenAI, Anthropic, Gemini, Groq, OpenRouter, GitHub Models, Ollama Cloud |
-| Resume Parsing | `pypdf` — digital PDF text extraction |
-| OCR | `Tesseract OCR` (bundled in `models/Tesseract-OCR/`) |
-| Voice STT | HTML5 Web Speech API (`SpeechRecognition`) |
-| Voice TTS | HTML5 Web Speech API (`SpeechSynthesis`) |
+| Local LLM | `Ollama` (`llama3.2:3b` default) |
+| Cloud Providers | NVIDIA NIM, OpenAI, Anthropic, Google Gemini, Groq, OpenRouter, GitHub Models, Ollama Cloud |
+| Word Document Extraction | `python-docx` — native `.docx` XML parsing |
+| Digital PDF Parsing | `pypdf` — digital PDF stream text extraction |
+| Scanned Document OCR | `Tesseract OCR` (bundled in `models/Tesseract-OCR/`) |
+| Voice STT | HTML5 Web Speech API (`SpeechRecognition`) with backend fallback |
+| Voice TTS | HTML5 Web Speech API (`SpeechSynthesis`) with backend fallback |
 
 ### Proctoring & Vision
 | Component | Technology |
 |---|---|
-| Face Detection (primary) | `MediaPipe` face detection (requires `pip install mediapipe>=0.10.9`) |
+| Face Detection (primary) | `MediaPipe` face detection |
 | Face Detection (fallback) | OpenCV Haar cascade (`haarcascade_frontalface_default.xml`) |
 | Webcam Capture | `OpenCV (cv2)` |
 
-### Security
+### Security & Cryptography
 | Component | Technology |
 |---|---|
 | Credential & Data Encryption | `cryptography` — AES-Fernet with PBKDF2-HMAC-SHA256 key derivation |
-| CSRF Protection | `Flask-WTF` / `X-CSRF-Token` header verification on state-changing routes |
+| CSRF Protection | Scoped CSRF token validation (`X-CSRF-Token` header) |
 | Password Hashing | `werkzeug.security` — scrypt-based password hashing |
-| Desktop Auth | One-time nonce pool (cryptographically random, single-use tokens) |
-| TLS | `cryptography` — self-signed RSA-2048 certificate (10-year validity) |
+| Desktop Auth | Single-use cryptographically random nonce pool |
+| TLS | Self-signed RSA-2048 certificate (10-year validity) |
+| Rate Limiter | Thread-safe in-memory sliding window rate limiter |
+| Sandboxing | Strict XML containment tags against prompt injection attacks |
 
-### Reporting & Scheduling
+### Reporting & Visualization
 | Component | Technology |
 |---|---|
-| PDF Reports | `fpdf2` (Material Design 3 monochrome evaluation format) |
+| PDF Reports | `fpdf2` (Material Design 3 monochrome format) |
+| Charting & Visuals | Bundled `chart.umd.min.js` (zero external CDN dependency) |
+| Typography | Bundled Inter and JetBrainsMono fonts |
 | Calendar Invites | `icalendar` (`.ics` files) |
 | Google Calendar | `google-api-python-client` |
-| Email | `smtplib` (SMTP, configurable host/port) |
-
----
-
-For detailed module responsibilities and subsystem architecture, see [Architecture](architecture.md).  
-For developer conventions, file organization, and contribution guidelines, see [Contributing](contributing.md).
+| Email Notifications | `smtplib` (configurable host/port/TLS) |
