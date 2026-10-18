@@ -76,6 +76,53 @@ def extract_direct_text(pdf_input):
         logger.info(f"> [extract_direct_text] Error: {e}")
         return ""
 
+def extract_docx_text(docx_input):
+    """
+    Extract text and table contents from a Microsoft Word (.docx) document.
+
+    Accepts a file path (str or Path) or raw bytes. Transparently decrypts
+    encrypted files at rest if needed.
+
+    Returns:
+        str — extracted text.
+    """
+    try:
+        import docx
+
+        if isinstance(docx_input, (bytes, bytearray)):
+            decrypted = decrypt_bytes(docx_input)
+        else:
+            path = Path(docx_input)
+            if not path.exists():
+                return ""
+            decrypted = decrypt_bytes(path.read_bytes())
+
+        doc = docx.Document(io.BytesIO(decrypted))
+        lines = []
+        for p in doc.paragraphs:
+            txt = p.text.strip()
+            if txt:
+                lines.append(txt)
+
+        # Extract structured content from tables
+        for table in doc.tables:
+            for row in table.rows:
+                cells_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                seen = set()
+                unique_cells = []
+                for c in cells_text:
+                    if c not in seen:
+                        seen.add(c)
+                        unique_cells.append(c)
+                if unique_cells:
+                    lines.append(" | ".join(unique_cells))
+
+        return "\n".join(lines).strip()
+    except Exception as e:
+        logger.warning(f"> [extract_docx_text] Error: {e}")
+        return ""
+
+
 # ─────────────────────────────────────────────
 # CLEAN EXTRACTED TEXT
 # ─────────────────────────────────────────────
@@ -131,7 +178,10 @@ def process_file(file_path: Path, output_path: Path):
         raw_bytes = file_path.read_bytes()
         file_bytes = decrypt_bytes(raw_bytes)
 
-        if file_path.suffix.lower() == '.pdf':
+        if file_path.suffix.lower() == '.docx':
+            full_text = extract_docx_text(file_bytes)
+            logger.info("(Word DOCX Text)")
+        elif file_path.suffix.lower() == '.pdf':
             # Try cheap direct extraction first
             extracted_text = extract_direct_text(file_bytes)
 
@@ -191,7 +241,7 @@ def process_file(file_path: Path, output_path: Path):
 def run_watcher():
     """
     Poll the resumes/ folder every WATCH_INTERVAL_SECONDS seconds and process
-    any new PDF/image files found.  Runs forever until Ctrl+C is pressed.
+    any new PDF/Word/image files found. Runs forever until Ctrl+C is pressed.
 
     Useful for running as a standalone background service during a recruitment
     session where resumes are being added in real-time.
@@ -204,12 +254,12 @@ def run_watcher():
     output_path.mkdir(parents=True, exist_ok=True)
 
     logger.info("=" * 50)
-    logger.info("   PDF -> TXT LIVE WATCHER STARTED")
+    logger.info("   RESUME -> TXT LIVE WATCHER STARTED")
     logger.info("=" * 50)
     logger.info(f"> Watching folder : {input_path}")
     logger.info(f"> Output folder   : {output_path}")
     logger.info(f"> Check interval  : every {WATCH_INTERVAL_SECONDS} seconds")
-    logger.info("> Supported types : PDF, PNG, JPG, JPEG")
+    logger.info("> Supported types : PDF, DOCX, PNG, JPG, JPEG")
     logger.info("> Press Ctrl+C to stop\n")
 
     processed_count = 0  # Counter for reporting at end of session
@@ -220,7 +270,7 @@ def run_watcher():
             files = [
                 f for f in input_path.iterdir()
                 if f.is_file()                                          # skip directories
-                and f.suffix.lower() in ['.pdf', '.png', '.jpg', '.jpeg']  # only resume formats
+                and f.suffix.lower() in ['.pdf', '.docx', '.png', '.jpg', '.jpeg']  # only resume formats
             ]
 
             new_files_found = False

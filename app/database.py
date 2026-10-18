@@ -162,6 +162,27 @@ def init_db():
             created_at     TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS candidate_notes (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_name TEXT NOT NULL UNIQUE,
+            source_file    TEXT DEFAULT '',
+            note           TEXT DEFAULT '',
+            tags           TEXT DEFAULT '',
+            updated_at     TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS hr_notifications (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            type           TEXT NOT NULL,
+            title          TEXT NOT NULL,
+            message        TEXT NOT NULL,
+            candidate_name TEXT DEFAULT '',
+            job_title      TEXT DEFAULT '',
+            link           TEXT DEFAULT '',
+            is_read        INTEGER DEFAULT 0,
+            created_at     TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_candidates_run_id ON candidates(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_run_id ON schedules(run_id);
         CREATE INDEX IF NOT EXISTS idx_schedules_status ON schedules(status);
@@ -170,6 +191,8 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_candidate_embeddings_name ON candidate_embeddings(candidate_name);
         CREATE INDEX IF NOT EXISTS idx_ai_telemetry_created ON ai_telemetry(created_at);
         CREATE INDEX IF NOT EXISTS idx_candidate_feedback_name ON candidate_feedback(candidate_name);
+        CREATE INDEX IF NOT EXISTS idx_candidate_notes_name ON candidate_notes(candidate_name);
+        CREATE INDEX IF NOT EXISTS idx_hr_notifications_read ON hr_notifications(is_read);
     """)
     conn.commit()
     conn.close()
@@ -813,5 +836,115 @@ def mark_feedback_sent(feedback_id: int):
             SET status = 'SENT', sent_at = datetime('now')
             WHERE id = ?
         """, (feedback_id,))
+
+
+# ─── Recruiter Candidate Notes & Tags ───
+
+def _parse_tags(raw_tags) -> list[str]:
+    if not raw_tags:
+        return []
+    if isinstance(raw_tags, list):
+        return [str(t) for t in raw_tags]
+    try:
+        parsed = json.loads(raw_tags)
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed]
+    except Exception:
+        pass
+    return [t.strip() for t in str(raw_tags).split(",") if t.strip()]
+
+
+def save_candidate_note(candidate_name: str, note: str, tags: list[str] | str = "", source_file: str = ""):
+    """Save or update recruiter notes and tags for a candidate."""
+    if isinstance(tags, (list, tuple, set)):
+        tags_str = json.dumps(list(tags))
+    else:
+        tags_str = str(tags or "").strip()
+
+    with db_session() as conn:
+        conn.execute("""
+            INSERT INTO candidate_notes (candidate_name, source_file, note, tags, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(candidate_name) DO UPDATE SET
+                note = excluded.note,
+                tags = excluded.tags,
+                source_file = CASE WHEN excluded.source_file != '' THEN excluded.source_file ELSE candidate_notes.source_file END,
+                updated_at = datetime('now')
+        """, (candidate_name.strip(), (source_file or "").strip(), (note or "").strip(), tags_str))
+
+
+def get_candidate_note(candidate_name: str) -> dict:
+    """Retrieve recruiter notes and tags for a candidate."""
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM candidate_notes WHERE candidate_name = ?", (candidate_name.strip(),)).fetchone()
+        if row:
+            res = dict(row)
+            res["tags"] = _parse_tags(res.get("tags"))
+            return res
+        return {"candidate_name": candidate_name, "note": "", "tags": [], "source_file": ""}
+
+
+def get_all_candidate_notes() -> dict[str, dict]:
+    """Retrieve all candidate notes indexed by candidate name."""
+    with db_session() as conn:
+        rows = conn.execute("SELECT candidate_name, note, tags, source_file, updated_at FROM candidate_notes").fetchall()
+        result = {}
+        for r in rows:
+            d = dict(r)
+            d["tags"] = _parse_tags(d.get("tags"))
+            result[d["candidate_name"]] = d
+        return result
+
+
+# ─── HR Notifications ───
+
+def create_hr_notification(
+    title: str,
+    message: str,
+    candidate_name: str = "",
+    job_title: str = "",
+    notif_type: str = "interview_completed",
+    link: str = "/reports",
+) -> int:
+    """Create a new notification for the HR manager."""
+    with db_session() as conn:
+        cursor = conn.execute("""
+            INSERT INTO hr_notifications (type, title, message, candidate_name, job_title, link, is_read, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0, datetime('now'))
+        """, (notif_type, title, message, candidate_name, job_title, link))
+        return int(cursor.lastrowid or 0)
+
+
+def get_hr_notifications(limit: int = 30, unread_only: bool = False) -> list[dict]:
+    """Retrieve recent notifications for HR."""
+    with db_session() as conn:
+        query = "SELECT * FROM hr_notifications"
+        params: list = []
+        if unread_only:
+            query += " WHERE is_read = 0"
+        query += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+        rows = conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_unread_notification_count() -> int:
+    """Count unread HR notifications."""
+    with db_session() as conn:
+        row = conn.execute("SELECT COUNT(*) AS count FROM hr_notifications WHERE is_read = 0").fetchone()
+        return int(row["count"]) if row else 0
+
+
+def mark_notification_read(notif_id: int):
+    """Mark a specific notification as read."""
+    with db_session() as conn:
+        conn.execute("UPDATE hr_notifications SET is_read = 1 WHERE id = ?", (notif_id,))
+
+
+def mark_all_notifications_read():
+    """Mark all notifications as read."""
+    with db_session() as conn:
+        conn.execute("UPDATE hr_notifications SET is_read = 1 WHERE is_read = 0")
+
 
 

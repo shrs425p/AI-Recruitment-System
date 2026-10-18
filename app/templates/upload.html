@@ -21,16 +21,16 @@
 <!-- Upload Zone -->
 <div class="card">
     <div class="card-title">Drop Resumes Here</div>
-    <div class="card-desc">Supported: PDF, PNG, JPG, JPEG</div>
+    <div class="card-desc">Supported: PDF, Word (.docx), PNG, JPG, JPEG</div>
 
     <div class="upload-zone" id="uploadZone">
         <div class="upload-icon">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
         </div>
         <div class="upload-title">Click to browse or drag &amp; drop</div>
-        <div class="upload-sub">PDF, PNG, JPG, JPEG — multiple files supported</div>
+        <div class="upload-sub">PDF, Word (.docx), PNG, JPG, JPEG — multiple files supported</div>
         <label for="fileInput" class="sr-only">Upload resume files</label>
-        <input type="file" id="fileInput" aria-label="Upload resume files" multiple accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+        <input type="file" id="fileInput" aria-label="Upload resume files" multiple accept=".pdf,.docx,.png,.jpg,.jpeg" style="display:none">
     </div>
 
     <div class="file-list" id="uploadList"></div>
@@ -38,9 +38,8 @@
 
 <!-- Extract Text -->
 <div class="card">
-    <div class="card-title">Extract Text from PDFs</div>
-    <div class="card-desc">Converts uploaded files to text. Digital PDFs use direct extraction; scanned PDFs use OCR
-        automatically.</div>
+    <div class="card-title">Extract Text from Resumes</div>
+    <div class="card-desc">Converts uploaded resumes to clean text. Digital PDFs and Word (.docx) use fast direct extraction; scanned resumes use OCR automatically.</div>
 
     <button class="btn btn-primary" id="extractBtn" onclick="extractText()">
         Extract Text

@@ -1,7 +1,8 @@
-# Core PDF / OCR
+# Core PDF / OCR / Word
 pytesseract>=0.3.10
 Pillow>=10.0
 pypdf>=4.0.0
+python-docx>=1.2.0
 numpy>=1.26
 
 # AI / LLM

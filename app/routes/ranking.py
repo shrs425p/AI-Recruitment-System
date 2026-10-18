@@ -1,9 +1,11 @@
+import csv
+import io
 import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from flask import jsonify, render_template, request
+from flask import Response, jsonify, render_template, request
 
 import config as cfg
 
@@ -63,6 +65,9 @@ def register_ranking_routes(app):
         except Exception:
             knockout_rules = {"min_experience_years": 0, "required_skills": [], "required_certifications": []}
 
+        from app.database import get_all_candidate_notes
+        candidate_notes = get_all_candidate_notes()
+
         return render_template(
             "ranking.html",
             nlp_count=nlp_count,
@@ -72,6 +77,7 @@ def register_ranking_routes(app):
             scoring_preset=scoring_preset,
             scoring_weights=scoring_weights,
             knockout_rules=knockout_rules,
+            candidate_notes=candidate_notes,
         )
 
     @app.route("/api/job-templates", methods=["GET"])
@@ -204,3 +210,125 @@ def register_ranking_routes(app):
             "ranked": ranked,
             "shortlist_report": shortlist,
         })
+
+    @app.route("/api/ranking/export/csv", methods=["GET"])
+    @login_required
+    def api_export_ranking_csv():
+        ranking_files = sorted((OUTPUT_FOLDER / "ranking").glob("ranking_scores*.json"), reverse=True)
+        if not ranking_files:
+            return jsonify({"error": "No ranking data available to export"}), 404
+
+        try:
+            with open(ranking_files[0], encoding="utf-8") as f:
+                ranking_data = json.load(f)
+        except Exception as e:
+            return jsonify({"error": f"Failed reading ranking data: {e}"}), 500
+
+        job_title = ranking_data.get("job_description", {}).get("job_title", "Candidates")
+        ranked = ranking_data.get("ranked_candidates", [])
+        if not ranked and isinstance(ranking_data, list):
+            ranked = ranking_data
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Rank",
+            "Name",
+            "Email",
+            "Total Score",
+            "Skills Match",
+            "Experience Score",
+            "Strengths",
+            "Hire Recommendation",
+        ])
+
+        nlp_path = OUTPUT_FOLDER / "nlp"
+        for idx, c in enumerate(ranked, 1):
+            name = c.get("candidate_name") or "Unknown"
+            email = c.get("email", "")
+            source_file = c.get("source_file") or c.get("_source_file") or ""
+
+            # Attempt lookup from candidate's NLP file if email not in score dict
+            if not email and nlp_path.exists():
+                candidates_to_check = []
+                if source_file:
+                    candidates_to_check.extend([nlp_path / f"{source_file}.json", nlp_path / f"{source_file}_nlp.json"])
+                for p in nlp_path.glob("*_nlp.json"):
+                    candidates_to_check.append(p)
+
+                c_name_lower = name.lower()
+                for nf in candidates_to_check:
+                    if nf.exists():
+                        try:
+                            with open(nf, encoding="utf-8") as fh:
+                                ndata = json.load(fh)
+                            p_name = ndata.get("personal_info", {}).get("name", "").lower()
+                            if p_name == c_name_lower or c_name_lower in p_name:
+                                email = ndata.get("personal_info", {}).get("email", "")
+                                if email:
+                                    break
+                        except Exception:
+                            pass
+
+            scores = c.get("scores", {})
+            skills_score = scores.get("skills_match", {})
+            skills_val = skills_score.get("score", c.get("skills_score", 0)) if isinstance(skills_score, dict) else skills_score
+
+            exp_score = scores.get("experience_years", {})
+            exp_val = exp_score.get("score", c.get("experience_score", 0)) if isinstance(exp_score, dict) else exp_score
+
+            raw_strengths = c.get("strengths", [])
+            strengths_str = "; ".join(raw_strengths) if isinstance(raw_strengths, list) else str(raw_strengths)
+
+            hire_rec = c.get("hire_recommendation") or c.get("overall_verdict") or ("Knocked Out" if c.get("knocked_out") else "Review")
+
+            writer.writerow([
+                c.get("rank", idx),
+                name,
+                email,
+                c.get("total_score", 0),
+                skills_val,
+                exp_val,
+                strengths_str,
+                hire_rec,
+            ])
+
+        csv_data = output.getvalue()
+        safe_title = "".join(ch if ch.isalnum() else "_" for ch in job_title).strip("_")
+        filename = f"candidate_rankings_{safe_title or 'export'}.csv"
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    @app.route("/api/candidates/notes", methods=["GET"])
+    @login_required
+    def api_get_candidate_notes():
+        candidate_name = request.args.get("candidate_name")
+        if candidate_name:
+            from app.database import get_candidate_note
+            note = get_candidate_note(candidate_name)
+            return jsonify(note or {})
+        from app.database import get_all_candidate_notes
+        return jsonify(get_all_candidate_notes())
+
+    @app.route("/api/candidates/notes", methods=["POST"])
+    @login_required
+    def api_save_candidate_notes():
+        data = request.get_json(silent=True) or request.form.to_dict()
+        candidate_name = (data.get("candidate_name") or "").strip()
+        if not candidate_name:
+            return jsonify({"error": "Candidate name is required"}), 400
+        note = data.get("note", "")
+        tags = data.get("tags", [])
+        if isinstance(tags, str):
+            try:
+                tags = json.loads(tags)
+            except Exception:
+                tags = [t.strip() for t in tags.split(",") if t.strip()]
+        source_file = data.get("source_file", "")
+        from app.database import save_candidate_note
+        save_candidate_note(candidate_name, note=note, tags=tags, source_file=source_file)
+        return jsonify({"success": True, "candidate_name": candidate_name, "note": note, "tags": tags})
+

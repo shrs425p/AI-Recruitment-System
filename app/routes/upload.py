@@ -10,7 +10,7 @@ from app.utils import login_required
 from src.pdf_to_txt import process_file as pdf_process_file
 from src.security import decrypt_bytes, encrypt_bytes
 
-ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
+ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".docx", ".png", ".jpg", ".jpeg"}
 
 
 def _available_filename(folder: Path, filename: str) -> str:
@@ -32,7 +32,13 @@ def register_upload_routes(app):
     @login_required
     def upload():
         txt_count = len(list((OUTPUT_FOLDER / "txt").glob("*.txt")))
-        pdf_count = len(list(RESUMES_FOLDER.glob("*.pdf"))) +                     len(list(RESUMES_FOLDER.glob("*.png"))) +                     len(list(RESUMES_FOLDER.glob("*.jpg"))) +                     len(list(RESUMES_FOLDER.glob("*.jpeg")))
+        pdf_count = (
+            len(list(RESUMES_FOLDER.glob("*.pdf")))
+            + len(list(RESUMES_FOLDER.glob("*.docx")))
+            + len(list(RESUMES_FOLDER.glob("*.png")))
+            + len(list(RESUMES_FOLDER.glob("*.jpg")))
+            + len(list(RESUMES_FOLDER.glob("*.jpeg")))
+        )
         return render_template("upload.html", pdf_count=pdf_count, txt_count=txt_count)
 
     @app.route("/api/upload", methods=["POST"])
@@ -47,7 +53,7 @@ def register_upload_routes(app):
                 safe_name = secure_filename(file.filename)
                 suffix = Path(safe_name).suffix.lower()
                 if not safe_name or suffix not in ALLOWED_UPLOAD_EXTENSIONS:
-                    rejected.append({"filename": file.filename, "error": "Only PDF, PNG, JPG, and JPEG files are allowed."})
+                    rejected.append({"filename": file.filename, "error": "Only PDF, Word (.docx), PNG, JPG, and JPEG files are allowed."})
                     continue
                 safe_name = _available_filename(RESUMES_FOLDER, safe_name)
                 file_content = file.read()
@@ -83,7 +89,7 @@ def register_upload_routes(app):
         input_path  = RESUMES_FOLDER
         output_path = OUTPUT_FOLDER / "txt"
         files = [f for f in input_path.iterdir()
-                 if f.is_file() and f.suffix.lower() in [".pdf", ".png", ".jpg", ".jpeg"]]
+                 if f.is_file() and f.suffix.lower() in [".pdf", ".docx", ".png", ".jpg", ".jpeg"]]
         results = {"success": [], "skipped": [], "failed": []}
         for f in files:
             try:

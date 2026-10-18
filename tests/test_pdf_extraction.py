@@ -4,7 +4,7 @@ import sys
 from fpdf import FPDF
 from PIL import Image
 
-from src.pdf_to_txt import clean_text, extract_direct_text, process_file
+from src.pdf_to_txt import clean_text, extract_direct_text, extract_docx_text, process_file
 from src.security import encrypt_bytes
 
 
@@ -102,3 +102,46 @@ def test_process_file_with_image_pdf(tmp_path):
     # Even if OCR finds nothing on a blank white image, process_file should not crash
     result = process_file(image_pdf, out_dir)
     assert isinstance(result, bool)
+
+
+def test_extract_docx_resume(tmp_path):
+    """Test Microsoft Word (.docx) resume text extraction and encryption-at-rest handling."""
+    import docx
+
+    doc = docx.Document()
+    doc.add_heading("Candidate: Priya Sharma", level=1)
+    doc.add_paragraph("Summary: Experienced Cloud Infrastructure and DevOps Engineer.")
+    doc.add_paragraph("Skills: Kubernetes, Terraform, AWS, Docker, Python")
+
+    table = doc.add_table(rows=2, cols=2)
+    table.rows[0].cells[0].text = "Employer"
+    table.rows[0].cells[1].text = "Acme Cloud Corp"
+    table.rows[1].cells[0].text = "Role"
+    table.rows[1].cells[1].text = "Lead Site Reliability Engineer"
+
+    docx_buf = io.BytesIO()
+    doc.save(docx_buf)
+    docx_bytes = docx_buf.getvalue()
+
+    # Plain file test
+    docx_file = tmp_path / "priya_resume.docx"
+    docx_file.write_bytes(docx_bytes)
+
+    extracted = extract_docx_text(docx_file)
+    assert "Priya Sharma" in extracted
+    assert "Kubernetes, Terraform, AWS" in extracted
+    assert "Lead Site Reliability Engineer" in extracted
+
+    # Encrypted file test
+    enc_file = tmp_path / "priya_encrypted.docx"
+    enc_file.write_bytes(encrypt_bytes(docx_bytes))
+    extracted_enc = extract_docx_text(enc_file)
+    assert "Priya Sharma" in extracted_enc
+
+    # End-to-end process_file test
+    out_dir = tmp_path / "out_txt"
+    success = process_file(docx_file, out_dir)
+    assert success is True
+    target_txt = out_dir / "priya_resume.txt"
+    assert target_txt.exists()
+    assert "Priya Sharma" in target_txt.read_text(encoding="utf-8")
