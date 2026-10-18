@@ -1,3 +1,4 @@
+import json
 import logging
 
 from flask import jsonify, redirect, render_template, request, url_for
@@ -164,11 +165,82 @@ def register_settings_routes(app):
                     cfg.EMAIL_TEMPLATE_SUBJECT = request.form.get("email_template_subject", getattr(cfg, "EMAIL_TEMPLATE_SUBJECT", "")).strip()
                     cfg.EMAIL_TEMPLATE_BODY = request.form.get("email_template_body", getattr(cfg, "EMAIL_TEMPLATE_BODY", "")).strip()
 
+            # ── Role Scoring & Knockout Rules ──
+            if "save_scoring" in request.form or "scoring_preset" in request.form:
+                cfg.SCORING_PRESET = request.form.get("scoring_preset", "default").strip()
+                try:
+                    w_dict = {
+                        "skills_match": int(request.form.get("weight_skills", 35)),
+                        "experience_years": int(request.form.get("weight_exp", 20)),
+                        "domain_match": int(request.form.get("weight_domain", 20)),
+                        "education": int(request.form.get("weight_edu", 15)),
+                        "certifications": int(request.form.get("weight_certs", 10)),
+                    }
+                except (ValueError, TypeError):
+                    w_dict = {"skills_match": 35, "experience_years": 20, "domain_match": 20, "education": 15, "certifications": 10}
+                cfg.SCORING_WEIGHTS = json.dumps(w_dict)
+
+                ko_exp_raw = request.form.get("ko_min_exp", "0").strip()
+                try:
+                    ko_exp = float(ko_exp_raw) if ko_exp_raw else 0.0
+                except (ValueError, TypeError):
+                    ko_exp = 0.0
+                ko_skills_raw = request.form.get("ko_skills", "")
+                ko_skills = [s.strip() for s in ko_skills_raw.split(",") if s.strip()]
+                ko_certs_raw = request.form.get("ko_certs", "")
+                ko_certs = [c.strip() for c in ko_certs_raw.split(",") if c.strip()]
+                cfg.KNOCKOUT_RULES = json.dumps({
+                    "min_experience_years": ko_exp,
+                    "required_skills": ko_skills,
+                    "required_certifications": ko_certs,
+                })
+
             import main
             main._save_config(cfg)
-            return redirect(url_for("settings"))
+            redirect_target = url_for("settings")
+            if "save_scoring" in request.form or "scoring_preset" in request.form:
+                redirect_target += "?tab=scoring"
+            return redirect(redirect_target)
 
-        return render_template("settings.html", cfg=cfg, about_html=_get_about_html())
+        try:
+            parsed_weights = json.loads(getattr(cfg, "SCORING_WEIGHTS", "{}"))
+        except Exception:
+            parsed_weights = {"skills_match": 35, "experience_years": 20, "domain_match": 20, "education": 15, "certifications": 10}
+        try:
+            parsed_knockouts = json.loads(getattr(cfg, "KNOCKOUT_RULES", "{}"))
+        except Exception:
+            parsed_knockouts = {"min_experience_years": 0, "required_skills": [], "required_certifications": []}
+
+        return render_template(
+            "settings.html",
+            cfg=cfg,
+            about_html=_get_about_html(),
+            scoring_weights=parsed_weights,
+            knockout_rules=parsed_knockouts,
+        )
+
+    @app.route("/api/settings/scoring", methods=["POST"])
+    @login_required
+    def api_save_scoring_settings():
+        data = request.json or {}
+        preset = data.get("preset", "default")
+        weights = data.get("weights")
+        knockout_rules = data.get("knockout_rules")
+
+        cfg.SCORING_PRESET = str(preset)
+        if weights is not None:
+            cfg.SCORING_WEIGHTS = json.dumps(weights) if isinstance(weights, dict) else str(weights)
+        if knockout_rules is not None:
+            cfg.KNOCKOUT_RULES = json.dumps(knockout_rules) if isinstance(knockout_rules, dict) else str(knockout_rules)
+
+        import main
+        main._save_config(cfg)
+        return jsonify({
+            "success": True,
+            "preset": cfg.SCORING_PRESET,
+            "weights": cfg.SCORING_WEIGHTS,
+            "knockout_rules": cfg.KNOCKOUT_RULES,
+        })
 
     @app.route("/about")
     @login_required

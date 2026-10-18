@@ -56,95 +56,117 @@
             </div>
         </div>
     </div>
-    <!-- Configurable Scoring Weights & Knockout Rules Card -->
-    <div style="margin-top: 20px; border-top: 1px solid var(--gray-100); padding-top: 16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
-            <div>
-                <div style="font-size:14px; font-weight:600; color:var(--gray-800); display:flex; align-items:center; gap:6px;">
-                    <span>⚙️</span> Role Scoring Weights &amp; Knockout Rules
+    <!-- Active Scoring Configuration & Quick Tune Bar -->
+    <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:var(--md-sys-color-surface-container); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-md); padding:12px 18px;">
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--md-sys-color-primary);"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                    <span style="font-size:12.5px; font-weight:700; color:var(--md-sys-color-on-surface);">Scoring Model:</span>
+                    <span id="rankingActivePresetBadge" class="badge badge-blue" style="font-size:11.5px; font-weight:600; text-transform:capitalize;">
+                        {{ scoring_preset | replace('_', ' ') }}
+                    </span>
                 </div>
-                <div style="font-size:12px; color:var(--gray-400);">
-                    Dynamically adjust scoring emphasis per requisition and define hard knockout prerequisites.
+                <div id="rankingWeightsSummary" style="font-size:12px; color:var(--md-sys-color-on-surface-variant); font-family:var(--font-mono);">
+                    Skills: {{ scoring_weights.skills_match | default(35) }}% · Exp: {{ scoring_weights.experience_years | default(20) }}% · Domain: {{ scoring_weights.domain_match | default(20) }}% · Edu: {{ scoring_weights.education | default(15) }}% · Certs: {{ scoring_weights.certifications | default(10) }}%
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <label for="rolePreset" style="font-size:12px; font-weight:600; color:var(--gray-600);">Role Preset:</label>
-                <select id="rolePreset" class="form-input" aria-label="Role Preset" style="padding:5px 10px; font-size:12px; width:auto;" onchange="applyRolePreset(this.value)">
-                    <option value="default">Default Balanced (Mid-Senior)</option>
-                    <option value="architect">Staff / Principal Architect</option>
-                    <option value="graduate">Early Career / College Graduate</option>
-                    <option value="specialist">Domain &amp; Certified Specialist</option>
-                    <option value="custom">Custom Configuration</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- 5 Configurable Sliders -->
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:14px; margin-bottom:12px;">
-            <div>
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:4px;">
-                    <label for="weightSkills">Skills Match</label>
-                    <span id="weightSkillsVal" style="color:var(--blue); font-family:var(--font-mono);">35%</span>
-                </div>
-                <input type="range" id="weightSkills" aria-label="Skills Match Weight" min="0" max="100" step="5" value="35" class="form-range" style="width:100%;" oninput="updateWeightsUI('skills')">
-            </div>
-            <div>
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:4px;">
-                    <label for="weightExp">Experience</label>
-                    <span id="weightExpVal" style="color:var(--blue); font-family:var(--font-mono);">20%</span>
-                </div>
-                <input type="range" id="weightExp" aria-label="Experience Weight" min="0" max="100" step="5" value="20" class="form-range" style="width:100%;" oninput="updateWeightsUI('exp')">
-            </div>
-            <div>
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:4px;">
-                    <label for="weightDomain">Domain Match</label>
-                    <span id="weightDomainVal" style="color:var(--blue); font-family:var(--font-mono);">20%</span>
-                </div>
-                <input type="range" id="weightDomain" aria-label="Domain Match Weight" min="0" max="100" step="5" value="20" class="form-range" style="width:100%;" oninput="updateWeightsUI('domain')">
-            </div>
-            <div>
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:4px;">
-                    <label for="weightEdu">Education</label>
-                    <span id="weightEduVal" style="color:var(--blue); font-family:var(--font-mono);">15%</span>
-                </div>
-                <input type="range" id="weightEdu" aria-label="Education Weight" min="0" max="100" step="5" value="15" class="form-range" style="width:100%;" oninput="updateWeightsUI('edu')">
-            </div>
-            <div>
-                <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:4px;">
-                    <label for="weightCerts">Certifications</label>
-                    <span id="weightCertsVal" style="color:var(--blue); font-family:var(--font-mono);">10%</span>
-                </div>
-                <input type="range" id="weightCerts" aria-label="Certifications Weight" min="0" max="100" step="5" value="10" class="form-range" style="width:100%;" oninput="updateWeightsUI('certs')">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button type="button" class="btn btn-secondary" id="toggleQuickTuneBtn" onclick="toggleQuickTune()" style="font-size:11.5px; padding:5px 12px; border-radius:var(--radius-pill); display:inline-flex; align-items:center; gap:6px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>Quick Tune</span>
+                </button>
+                <a href="/settings?tab=scoring" class="btn btn-secondary" style="font-size:11.5px; padding:5px 12px; border-radius:var(--radius-pill); text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                    <span>Settings</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
             </div>
         </div>
 
-        <!-- Weight Validation Bar -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-            <div style="font-size:12px; display:flex; align-items:center; gap:8px;">
-                <span>Total Weight:</span>
-                <span id="weightTotalBadge" class="badge badge-green" style="font-weight:700; font-family:var(--font-mono);">100%</span>
-                <span id="weightWarningText" style="font-size:11px; color:var(--red); display:none;">Total must equal 100% (auto-balances on scoring).</span>
+        <!-- Collapsible Quick Tune drawer -->
+        <div id="quickTunePanel" style="display:none; margin-top:12px; background:var(--md-sys-color-surface-container-low); border:1px solid var(--md-sys-color-outline-variant); border-radius:var(--radius-md); padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                <div style="font-size:12.5px; font-weight:700; color:var(--md-sys-color-on-surface);">Adjust Scoring Weights for This Run:</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="rolePreset" style="font-size:11.5px; font-weight:600; color:var(--md-sys-color-on-surface-variant);">Preset:</label>
+                    <select id="rolePreset" class="form-input" aria-label="Role Preset" style="padding:4px 10px; font-size:12px; width:auto; border-radius:var(--radius-pill);" onchange="applyRolePreset(this.value)">
+                        <option value="default" {% if scoring_preset == 'default' %}selected{% endif %}>Default Balanced (Mid-Senior)</option>
+                        <option value="architect" {% if scoring_preset == 'architect' %}selected{% endif %}>Staff / Principal Architect</option>
+                        <option value="graduate" {% if scoring_preset == 'graduate' %}selected{% endif %}>Early Career / College Graduate</option>
+                        <option value="specialist" {% if scoring_preset == 'specialist' %}selected{% endif %}>Domain &amp; Certified Specialist</option>
+                        <option value="custom" {% if scoring_preset == 'custom' %}selected{% endif %}>Custom Configuration</option>
+                    </select>
+                </div>
             </div>
-            <button type="button" class="btn btn-secondary" style="font-size:11px; padding:4px 10px;" onclick="autoBalanceWeights()">Auto-Balance (100%)</button>
-        </div>
 
-        <!-- Knockout Prerequisites -->
-        <div style="border-top:1px dashed var(--gray-200); padding-top:12px;">
-            <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--red); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                <span>🚫</span> Knockout Rules (Disqualify Without Wasting AI Tokens)
+            <!-- 5 Sliders Grid using .form-range -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:14px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:2px;">
+                        <label for="weightSkills" style="color:var(--md-sys-color-on-surface);">Skills Match</label>
+                        <span id="weightSkillsVal" style="color:var(--md-sys-color-primary); font-family:var(--font-mono); font-weight:700;">{{ scoring_weights.skills_match | default(35) }}%</span>
+                    </div>
+                    <input type="range" id="weightSkills" aria-label="Skills Match Weight" min="0" max="100" step="5" value="{{ scoring_weights.skills_match | default(35) }}" class="form-range" oninput="updateWeightsUI('skills')">
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:2px;">
+                        <label for="weightExp" style="color:var(--md-sys-color-on-surface);">Experience</label>
+                        <span id="weightExpVal" style="color:var(--md-sys-color-primary); font-family:var(--font-mono); font-weight:700;">{{ scoring_weights.experience_years | default(20) }}%</span>
+                    </div>
+                    <input type="range" id="weightExp" aria-label="Experience Weight" min="0" max="100" step="5" value="{{ scoring_weights.experience_years | default(20) }}" class="form-range" oninput="updateWeightsUI('exp')">
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:2px;">
+                        <label for="weightDomain" style="color:var(--md-sys-color-on-surface);">Domain Match</label>
+                        <span id="weightDomainVal" style="color:var(--md-sys-color-primary); font-family:var(--font-mono); font-weight:700;">{{ scoring_weights.domain_match | default(20) }}%</span>
+                    </div>
+                    <input type="range" id="weightDomain" aria-label="Domain Match Weight" min="0" max="100" step="5" value="{{ scoring_weights.domain_match | default(20) }}" class="form-range" oninput="updateWeightsUI('domain')">
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:2px;">
+                        <label for="weightEdu" style="color:var(--md-sys-color-on-surface);">Education</label>
+                        <span id="weightEduVal" style="color:var(--md-sys-color-primary); font-family:var(--font-mono); font-weight:700;">{{ scoring_weights.education | default(15) }}%</span>
+                    </div>
+                    <input type="range" id="weightEdu" aria-label="Education Weight" min="0" max="100" step="5" value="{{ scoring_weights.education | default(15) }}" class="form-range" oninput="updateWeightsUI('edu')">
+                </div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; margin-bottom:2px;">
+                        <label for="weightCerts" style="color:var(--md-sys-color-on-surface);">Certifications</label>
+                        <span id="weightCertsVal" style="color:var(--md-sys-color-primary); font-family:var(--font-mono); font-weight:700;">{{ scoring_weights.certifications | default(10) }}%</span>
+                    </div>
+                    <input type="range" id="weightCerts" aria-label="Certifications Weight" min="0" max="100" step="5" value="{{ scoring_weights.certifications | default(10) }}" class="form-range" oninput="updateWeightsUI('certs')">
+                </div>
             </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
-                <div>
-                    <label for="koMinExp" style="font-size:11px; font-weight:600; color:var(--gray-600); margin-bottom:4px; display:block;">Min Experience (Years)</label>
-                    <input type="number" id="koMinExp" aria-label="Minimum Experience in Years" class="form-input" min="0" step="0.5" placeholder="e.g. 3 (0 = none)" style="padding:6px 10px; font-size:12px;">
+
+            <!-- Validation & Balance -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+                <div style="font-size:12px; display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:600; color:var(--md-sys-color-on-surface-variant);">Total Weight:</span>
+                    <span id="weightTotalBadge" class="badge badge-green" style="font-weight:700; font-family:var(--font-mono);">100%</span>
+                    <span id="weightWarningText" style="font-size:11px; color:var(--red); display:none;">Total will auto-normalize to 100% on scoring.</span>
                 </div>
-                <div>
-                    <label for="koSkills" style="font-size:11px; font-weight:600; color:var(--gray-600); margin-bottom:4px; display:block;">Mandatory Skills (Comma-separated)</label>
-                    <input type="text" id="koSkills" aria-label="Mandatory Skills" class="form-input" placeholder="e.g. Python, Docker, SQL" style="padding:6px 10px; font-size:12px;">
+                <button type="button" class="btn btn-secondary" style="font-size:11px; padding:4px 10px; border-radius:var(--radius-pill);" onclick="autoBalanceWeights()">Auto-Balance (100%)</button>
+            </div>
+
+            <!-- Knockout Prerequisites -->
+            <div style="border-top:1px dashed var(--md-sys-color-outline-variant); padding-top:12px;">
+                <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--red); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    <span>Knockout Rules (Disqualify Without Wasting AI Tokens)</span>
                 </div>
-                <div>
-                    <label for="koCerts" style="font-size:11px; font-weight:600; color:var(--gray-600); margin-bottom:4px; display:block;">Required Certifications (Optional)</label>
-                    <input type="text" id="koCerts" aria-label="Required Certifications" class="form-input" placeholder="e.g. AWS Certified, CKA" style="padding:6px 10px; font-size:12px;">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <div>
+                        <label for="koMinExp" style="font-size:11px; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:4px; display:block;">Min Experience (Years)</label>
+                        <input type="number" id="koMinExp" aria-label="Minimum Experience in Years" class="form-input" min="0" step="0.5" value="{{ knockout_rules.min_experience_years | default(0) }}" placeholder="e.g. 3 (0 = none)" style="padding:6px 10px; font-size:12px;">
+                    </div>
+                    <div>
+                        <label for="koSkills" style="font-size:11px; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:4px; display:block;">Mandatory Skills (Comma-separated)</label>
+                        <input type="text" id="koSkills" aria-label="Mandatory Skills" class="form-input" value="{{ knockout_rules.required_skills | join(', ') if knockout_rules.required_skills else '' }}" placeholder="e.g. Python, Docker, SQL" style="padding:6px 10px; font-size:12px;">
+                    </div>
+                    <div>
+                        <label for="koCerts" style="font-size:11px; font-weight:600; color:var(--md-sys-color-on-surface-variant); margin-bottom:4px; display:block;">Required Certifications (Optional)</label>
+                        <input type="text" id="koCerts" aria-label="Required Certifications" class="form-input" value="{{ knockout_rules.required_certifications | join(', ') if knockout_rules.required_certifications else '' }}" placeholder="e.g. AWS Certified, CKA" style="padding:6px 10px; font-size:12px;">
+                    </div>
                 </div>
             </div>
         </div>
@@ -265,6 +287,17 @@
     let _rankAnim = null;
     let rankChartInstance = null;
 
+    function toggleQuickTune() {
+        const panel = document.getElementById('quickTunePanel');
+        const btn = document.getElementById('toggleQuickTuneBtn');
+        if (!panel) return;
+        const isHidden = panel.style.display === 'none';
+        panel.style.display = isHidden ? 'block' : 'none';
+        if (btn) {
+            btn.classList.toggle('active', isHidden);
+        }
+    }
+
     const PRESETS = {
         default:    { skills_match: 35, experience_years: 20, domain_match: 20, education: 15, certifications: 10 },
         architect:  { skills_match: 30, experience_years: 40, domain_match: 15, education: 5,  certifications: 10 },
@@ -280,11 +313,17 @@
         document.getElementById('weightDomain').value = p.domain_match;
         document.getElementById('weightEdu').value = p.education;
         document.getElementById('weightCerts').value = p.certifications;
+        const activeBadge = document.getElementById('rankingActivePresetBadge');
+        if (activeBadge) {
+            activeBadge.textContent = presetKey.replace('_', ' ');
+        }
         updateWeightsUI();
     }
 
     function updateWeightsUI(changedKey) {
-        const skills = parseInt(document.getElementById('weightSkills').value) || 0;
+        const skillsEl = document.getElementById('weightSkills');
+        if (!skillsEl) return;
+        const skills = parseInt(skillsEl.value) || 0;
         const exp    = parseInt(document.getElementById('weightExp').value) || 0;
         const domain = parseInt(document.getElementById('weightDomain').value) || 0;
         const edu    = parseInt(document.getElementById('weightEdu').value) || 0;
@@ -296,20 +335,30 @@
         document.getElementById('weightEduVal').textContent = edu + '%';
         document.getElementById('weightCertsVal').textContent = certs + '%';
 
+        const summary = document.getElementById('rankingWeightsSummary');
+        if (summary) {
+            summary.textContent = `Skills: ${skills}% · Exp: ${exp}% · Domain: ${domain}% · Edu: ${edu}% · Certs: ${certs}%`;
+        }
+
         const total = skills + exp + domain + edu + certs;
         const badge = document.getElementById('weightTotalBadge');
         const warn  = document.getElementById('weightWarningText');
 
-        badge.textContent = total + '%';
+        if (badge) badge.textContent = total + '%';
         if (total === 100) {
-            badge.className = 'badge badge-green';
+            if (badge) badge.className = 'badge badge-green';
             if (warn) warn.style.display = 'none';
         } else {
-            badge.className = 'badge badge-red';
+            if (badge) badge.className = 'badge badge-red';
             if (warn) {
                 warn.style.display = 'inline';
                 warn.textContent = `Total is ${total}% (auto-balances on scoring).`;
             }
+        }
+        if (changedKey) {
+            document.getElementById('rolePreset').value = 'custom';
+            const activeBadge = document.getElementById('rankingActivePresetBadge');
+            if (activeBadge) activeBadge.textContent = 'Custom';
         }
     }
 

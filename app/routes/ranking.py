@@ -1,10 +1,13 @@
+import json
 import logging
-
-logger = logging.getLogger(__name__)
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import jsonify, render_template, request
+
+import config as cfg
+
+logger = logging.getLogger(__name__)
 
 from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
 from app.database import (
@@ -47,7 +50,29 @@ def register_ranking_routes(app):
         templates = get_all_job_templates()
         from app.database import get_setting
         saved_jd = get_setting("LAST_JD_TEXT", "")
-        return render_template("ranking.html", nlp_count=nlp_count, ranking=latest, templates=templates, saved_jd=saved_jd)
+
+        scoring_preset = getattr(cfg, "SCORING_PRESET", "default")
+        try:
+            raw_w = getattr(cfg, "SCORING_WEIGHTS", "{}")
+            scoring_weights = json.loads(raw_w) if raw_w else {}
+        except Exception:
+            scoring_weights = {"skills_match": 35, "experience_years": 20, "domain_match": 20, "education": 15, "certifications": 10}
+        try:
+            raw_ko = getattr(cfg, "KNOCKOUT_RULES", "{}")
+            knockout_rules = json.loads(raw_ko) if raw_ko else {}
+        except Exception:
+            knockout_rules = {"min_experience_years": 0, "required_skills": [], "required_certifications": []}
+
+        return render_template(
+            "ranking.html",
+            nlp_count=nlp_count,
+            ranking=latest,
+            templates=templates,
+            saved_jd=saved_jd,
+            scoring_preset=scoring_preset,
+            scoring_weights=scoring_weights,
+            knockout_rules=knockout_rules,
+        )
 
     @app.route("/api/job-templates", methods=["GET"])
     @login_required
@@ -89,6 +114,23 @@ def register_ranking_routes(app):
         jd_text        = data.get("jd_text", "").strip()
         weights        = data.get("weights")
         knockout_rules = data.get("knockout_rules")
+
+        if not weights:
+            try:
+                raw_w = getattr(cfg, "SCORING_WEIGHTS", "")
+                if raw_w:
+                    weights = json.loads(raw_w)
+            except Exception:
+                weights = None
+
+        if not knockout_rules:
+            try:
+                raw_ko = getattr(cfg, "KNOCKOUT_RULES", "")
+                if raw_ko:
+                    knockout_rules = json.loads(raw_ko)
+            except Exception:
+                knockout_rules = None
+
         if not jd_text:
             return jsonify({"error": "No JD provided"}), 400
 
