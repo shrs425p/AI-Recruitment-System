@@ -11,6 +11,13 @@ from app.database import get_all_candidate_embeddings, init_db
 from src.common import data_path
 from src.talent_intelligence import (
     compare_candidates_matrix,
+    compute_education_domain_mix,
+    compute_experience_score_matrix,
+    compute_hiring_velocity_metrics,
+    compute_interview_difficulty_breakdown,
+    compute_proctoring_risk_breakdown,
+    compute_skill_gap_analytics,
+    compute_talent_intelligence_analytics,
     generate_candidate_feedback_letter,
     index_talent_pool,
     semantic_search_talent,
@@ -120,7 +127,74 @@ def test_talent_intelligence_suite():
         assert fb_fallback.get("feedback_text"), "Expected non-empty fallback feedback letter"
         assert "Thank you for interviewing" in fb_fallback.get("feedback_text")
 
-    print("--- 6. Testing Flask Endpoints ---")
+    print("--- 6. Testing 6 Advanced Talent & Pipeline Analytics Modules ---")
+    # 1. Skill Gap Analytics
+    gap = compute_skill_gap_analytics()
+    print(f"Skill Gap Job Title: {gap.get('job_title')}, Skills analyzed: {len(gap.get('skills', []))}")
+    assert "skills" in gap and len(gap["skills"]) > 0
+    assert "surpluses" in gap
+    assert "bottlenecks" in gap
+    assert "insight_summary" in gap
+    assert any(s.get("demand_pct") is not None for s in gap["skills"])
+
+    # 2. Experience vs Score Quadrant Matrix
+    matrix = compute_experience_score_matrix()
+    print(f"Quadrant Points: {len(matrix.get('points', []))}")
+    assert "points" in matrix and len(matrix["points"]) > 0
+    assert "quadrants" in matrix
+    assert "rising_stars" in matrix["quadrants"]
+    assert "seasoned_veterans" in matrix["quadrants"]
+    assert "entry_level" in matrix["quadrants"]
+    assert "mismatched" in matrix["quadrants"]
+    assert "thresholds" in matrix
+
+    # 3. Interview Question Difficulty Breakdown
+    diff = compute_interview_difficulty_breakdown()
+    print(f"Question Difficulty Topics: {len(diff.get('topics', []))}")
+    assert "topics" in diff and len(diff["topics"]) > 0
+    assert "filter_questions" in diff
+    assert "insight" in diff
+    for top in diff["topics"]:
+        assert "topic" in top
+        assert "avg_score" in top
+        assert "difficulty" in top
+
+    # 4. Proctoring Integrity & Risk Breakdown
+    proctor = compute_proctoring_risk_breakdown()
+    print(f"Proctoring Clean Rate: {proctor.get('clean_pct')}%")
+    assert "clean_pct" in proctor
+    assert "warning_pct" in proctor
+    assert "risk_pct" in proctor
+    assert "violations" in proctor
+    assert "verdict" in proctor
+
+    # 5. Hiring Velocity & Bottleneck Tracker
+    velocity = compute_hiring_velocity_metrics()
+    print(f"Hiring Velocity Total Cycle: {velocity.get('total_cycle_time')}, Bottleneck: {velocity.get('bottleneck_stage')}")
+    assert "time_to_screen" in velocity
+    assert "candidate_turnaround" in velocity
+    assert "interview_duration" in velocity
+    assert "time_to_report" in velocity
+    assert "stages" in velocity and len(velocity["stages"]) == 4
+    assert "bottleneck_stage" in velocity
+
+    # 6. Education & Domain Talent Mix
+    demographics = compute_education_domain_mix()
+    print(f"Demographics Profiles: {demographics.get('total_profiles')}, Domains: {len(demographics.get('domain_mix', []))}")
+    assert "domain_mix" in demographics and len(demographics["domain_mix"]) > 0
+    assert "education_mix" in demographics and len(demographics["education_mix"]) > 0
+    assert "insight" in demographics
+
+    # 7. Master Aggregator
+    all_analytics = compute_talent_intelligence_analytics()
+    assert "skill_gap" in all_analytics
+    assert "experience_matrix" in all_analytics
+    assert "interview_difficulty" in all_analytics
+    assert "proctoring_risk" in all_analytics
+    assert "hiring_velocity" in all_analytics
+    assert "demographics" in all_analytics
+
+    print("--- 7. Testing Flask Endpoints ---")
     app = create_app()
     client = app.test_client()
     with client.session_transaction() as sess:
@@ -146,6 +220,15 @@ def test_talent_intelligence_suite():
     m_data = metrics_resp.get_json()
     print(f"Funnel sourced: {m_data.get('funnel', {}).get('resumes_sourced')}")
     assert metrics_resp.status_code == 200
+
+    analytics_api_resp = client.get("/api/intelligence/analytics")
+    print(f"GET /api/intelligence/analytics status: {analytics_api_resp.status_code}")
+    assert analytics_api_resp.status_code == 200
+    a_json = analytics_api_resp.get_json()
+    assert a_json.get("success") is True
+    assert "analytics" in a_json
+    assert "skill_gap" in a_json["analytics"]
+    assert "experience_matrix" in a_json["analytics"]
 
     print("\n>>> ALL TALENT INTELLIGENCE ENGINE & ROUTE TESTS PASSED SUCCESSFULLY! <<<")
 

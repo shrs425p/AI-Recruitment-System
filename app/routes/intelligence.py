@@ -15,6 +15,7 @@ from src.common import data_path
 from src.email_sender import send_feedback_email
 from src.talent_intelligence import (
     compare_candidates_matrix,
+    compute_talent_intelligence_analytics,
     extract_flat_skills,
     generate_candidate_feedback_letter,
     index_talent_pool,
@@ -188,6 +189,7 @@ def register_intelligence_routes(app):
         telemetry = get_telemetry_metrics()
         feedback_list = get_all_candidate_feedback()
         funnel, score_distribution = _get_funnel_and_distribution()
+        analytics = compute_talent_intelligence_analytics()
 
         return render_template(
             "intelligence.html",
@@ -198,7 +200,19 @@ def register_intelligence_routes(app):
             feedback_list=feedback_list,
             funnel=funnel,
             score_distribution=score_distribution,
+            analytics=analytics,
         )
+
+    @app.route("/api/intelligence/analytics", methods=["GET"])
+    @login_required
+    def api_talent_analytics():
+        """Return all 6 Strategic Talent Intelligence & Pipeline Analytics modules."""
+        try:
+            analytics = compute_talent_intelligence_analytics()
+            return jsonify({"success": True, "analytics": analytics})
+        except Exception as e:
+            logger.exception("Failed to compute talent analytics: %s", e)
+            return jsonify({"success": False, "error": str(e)}), 500
 
     @app.route("/api/intelligence/search", methods=["POST"])
     @login_required
