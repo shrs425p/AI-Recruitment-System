@@ -161,17 +161,17 @@
         const total = data.success.length + data.skipped.length;
         document.getElementById('nlpCount').textContent = total;
         document.getElementById('pendingCount').textContent = 0;
-        document.getElementById('nlpProgressText').textContent = `✓ Done — ${total} files processed`;
+        document.getElementById('nlpProgressText').textContent = `Done — ${total} files processed`;
         document.getElementById('nlpProgressPct').textContent = '100%';
         document.getElementById('nlpProgressBar').style.width = '100%';
 
         log.innerHTML = '';
-        data.success.forEach(f => log.innerHTML += `<span class="log-line success">✓ ${f}</span>`);
+        data.success.forEach(f => log.innerHTML += `<span class="log-line success">${f}</span>`);
         data.skipped.forEach(f => log.innerHTML += `<span class="log-line skip">— ${f} (already done)</span>`);
         data.failed.forEach(f => {
-            log.innerHTML += `<span class="log-line error">✗ ${f.file}: ${f.error}</span>`;
+            log.innerHTML += `<span class="log-line error">Failed ${f.file}: ${f.error}</span>`;
             if (f.error && (f.error.includes('HTTP 404') || f.error.includes('model') || f.error.includes('AI provider error'))) {
-                log.innerHTML += `<span class="log-line tip" style="color:var(--gray-600); margin-top:-4px; margin-bottom:8px; display:block; padding-left:16px;">💡 Tip: Go to Settings → AI Providers and select a different model. The current model might not be available or supported.</span>`;
+                log.innerHTML += `<span class="log-line tip" style="color:var(--gray-600); margin-top:-4px; margin-bottom:8px; display:block; padding-left:16px;">Tip: Go to Settings → AI Providers and select a different model. The current model might not be available or supported.</span>`;
             }
         });
 
@@ -201,7 +201,7 @@
                             const s = await (await fetch('/api/stats')).json();
                             document.getElementById('nlpCount').textContent = s.nlp_count;
                             document.getElementById('pendingCount').textContent = 0;
-                            document.getElementById('nlpProgressText').textContent = '✓ Done';
+                            document.getElementById('nlpProgressText').textContent = 'Done';
                             document.getElementById('nlpProgressPct').textContent = '100%';
                             document.getElementById('nlpProgressBar').style.width = '100%';
                             btn.disabled = false;

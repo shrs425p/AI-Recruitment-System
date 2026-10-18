@@ -283,7 +283,7 @@
                         <div style="font-size:11px; color:var(--gray-400); font-family:var(--font-mono);">{{
                             c._source_file }}</div>
                         {% if c.is_knocked_out %}
-                        <div style="font-size:11px; color:#dc2626; font-weight:500; margin-top:2px;">🚫 {{ c.knockout_reason }}</div>
+                        <div style="font-size:11px; color:#dc2626; font-weight:500; margin-top:2px;">Disqualified: {{ c.knockout_reason }}</div>
                         {% endif %}
                     </td>
                     <td style="font-size:12px; color:var(--gray-600);">{{ c.domain or 'General' }}</td>
@@ -297,7 +297,7 @@
                     </td>
                     <td>
                         {% if c.is_knocked_out %}
-                        <span class="badge badge-red" style="background:#fee2e2;color:#991b1b;border:1px solid #f87171;">🚫 Knocked Out</span>
+                        <span class="badge badge-red" style="background:#fee2e2;color:#991b1b;border:1px solid #f87171;">Knocked Out</span>
                         {% else %}
                         {% set rec = c.hire_recommendation | lower %}
                         {% if 'strongly' in rec %}
@@ -331,7 +331,7 @@
                                        style="padding:4px 8px; font-size:11.5px; height:28px;"
                                        onblur="saveCandidateNoteText('{{ cand_name }}', this.value, '{{ c._source_file }}', this)"
                                        onkeydown="if(event.key==='Enter'){this.blur();}">
-                                <span class="note-saved-tick" style="font-size:12px; color:var(--green); display:none;" title="Saved">✓</span>
+                                <svg class="note-saved-tick" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;" title="Saved"><polyline points="20 6 9 17 4 12"></polyline></svg>
                             </div>
                         </div>
                     </td>
@@ -541,7 +541,7 @@
     function _stopRankAnim() {
         clearInterval(_rankAnim);
         document.getElementById('rankProgressBar').style.width = '100%';
-        document.getElementById('rankProgressText').textContent = '✓ Scoring complete';
+        document.getElementById('rankProgressText').textContent = 'Scoring complete';
     }
 
     async function runRanking() {
@@ -592,7 +592,7 @@
             let badge, label;
             if (c.is_knocked_out) {
                 badge = 'badge-red" style="background:#fee2e2;color:#991b1b;border:1px solid #f87171;';
-                label = '🚫 Knocked Out';
+                label = 'Knocked Out';
             } else if (rec.includes('strongly')) {
                 badge = 'badge-green';  label = 'Strongly Recommend';
             } else if (rec.includes('not') || rec.includes('do not') || rec.includes('cannot')) {
@@ -632,7 +632,7 @@
                                style="padding:4px 8px; font-size:11.5px; height:28px;"
                                onblur="saveCandidateNoteText('${candName}', this.value, '${c._source_file}', this)"
                                onkeydown="if(event.key==='Enter'){this.blur();}">
-                        <span class="note-saved-tick" style="font-size:12px; color:var(--green); display:none;" title="Saved">✓</span>
+                        <svg class="note-saved-tick" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;" title="Saved"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </div>
                 </div>
             </td>`;
@@ -646,7 +646,7 @@
                     ${conf ? `<span class="badge" ${confBadge} style="font-size:0.68rem;padding:2px 7px;">${conf}</span>` : ''}
                 </div>
                 <div style="font-size:11px;color:var(--gray-400);font-family:var(--font-mono);">${c._source_file}</div>
-                ${c.is_knocked_out ? `<div style="font-size:11px;color:#dc2626;font-weight:500;margin-top:2px;">🚫 ${c.knockout_reason || 'Disqualified by knockout rule'}</div>` : ''}
+                ${c.is_knocked_out ? `<div style="font-size:11px;color:#dc2626;font-weight:500;margin-top:2px;">Disqualified: ${c.knockout_reason || 'Knockout criteria not met'}</div>` : ''}
             </td>
             <td style="font-size:12px;color:var(--gray-600);">${c.domain || 'General'}</td>
             <td>
@@ -784,7 +784,7 @@
                 body: JSON.stringify({ jd_text: jd })
             });
             const data = await res.json();
-            if (data.success) _showJdStatus('✓ Saved', true);
+            if (data.success) _showJdStatus('Saved', true);
             else _showJdStatus('Save failed', false);
         } catch(e) {
             _showJdStatus('Save failed', false);
