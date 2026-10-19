@@ -40,7 +40,7 @@ def configure_test_environment() -> Generator[None, None, None]:
     os.environ["FLASK_ENV"] = "testing"
     os.environ["ARS_TEST_MODE"] = "1"
     config.LOGIN_ENABLED = True
-    config.SECRET_KEY = "commercial_grade_test_secret_key_fixed"
+    config.SECRET_KEY = "ars_test_secret_key_fixed"
     yield
     if old_env is not None:
         os.environ["FLASK_ENV"] = old_env
@@ -60,9 +60,9 @@ def temp_dir() -> Generator[Path, None, None]:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def test_db(temp_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Initializes a dedicated temporary SQLite database with all tables and indexes."""
+    """Initializes a dedicated temporary SQLite database with all tables and indexes for every test."""
     db_file = temp_dir / "test_recruitment.db"
     monkeypatch.setattr("app.database.DB_PATH", db_file)
     init_db()
@@ -74,7 +74,7 @@ def app(test_db: Path, monkeypatch: pytest.MonkeyPatch) -> Flask:
     """Configured main Flask recruitment application instance."""
     app_instance = create_app()
     app_instance.config["TESTING"] = True
-    app_instance.config["SECRET_KEY"] = "commercial_grade_test_secret_key_fixed"
+    app_instance.config["SECRET_KEY"] = "ars_test_secret_key_fixed"
     return app_instance
 
 
@@ -83,7 +83,7 @@ def candidate_app(test_db: Path, monkeypatch: pytest.MonkeyPatch) -> Flask:
     """Configured isolated candidate remote portal application instance."""
     cand_instance = create_candidate_app()
     cand_instance.config["TESTING"] = True
-    cand_instance.config["SECRET_KEY"] = "commercial_grade_test_secret_key_fixed"
+    cand_instance.config["SECRET_KEY"] = "ars_test_secret_key_fixed"
     return cand_instance
 
 

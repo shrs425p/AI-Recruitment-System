@@ -300,31 +300,76 @@ def semantic_search_talent(query: str, top_k: int = 10, min_score: float = 0.1) 
 
 def get_candidate_details(candidate_name: str) -> dict | None:
     """Fetch structured NLP details for a candidate from file or DB."""
+    cand_lower = candidate_name.strip().lower()
     nlp_dir = data_path("output/nlp")
-    for jf in nlp_dir.glob("*_nlp.json"):
-        try:
-            with open(jf, encoding="utf-8") as f:
-                d = json.load(f)
-            name = d.get("personal_info", {}).get("name") or jf.stem.replace("_nlp", "")
-            if name.lower() == candidate_name.lower():
-                d["_source_file"] = jf.name
-                d["skills"] = extract_flat_skills(d.get("skills"))
+    if nlp_dir.exists():
+        for jf in nlp_dir.glob("*_nlp.json"):
+            try:
+                with open(jf, encoding="utf-8") as f:
+                    d = json.load(f)
+                name = d.get("personal_info", {}).get("name") or jf.stem.replace("_nlp", "")
+                if name.lower() == cand_lower:
+                    d["_source_file"] = jf.name
+                    d["skills"] = extract_flat_skills(d.get("skills"))
 
-                # Hydrate real candidate email from raw local text if redacted for cloud privacy
-                pinfo = d.setdefault("personal_info", {})
-                current_email = pinfo.get("email") or ""
-                if not current_email or "REDACTED" in current_email.upper():
-                    txt_stem = jf.stem.replace("_nlp", "")
-                    raw_txt_file = data_path(f"output/txt/{txt_stem}.txt")
-                    if raw_txt_file.exists():
-                        raw_content = raw_txt_file.read_text(encoding="utf-8", errors="ignore")
-                        found_emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", raw_content)
-                        if found_emails:
-                            pinfo["email"] = found_emails[0]
+                    # Hydrate real candidate email from raw local text if redacted for cloud privacy
+                    pinfo = d.setdefault("personal_info", {})
+                    current_email = pinfo.get("email") or ""
+                    if not current_email or "REDACTED" in current_email.upper():
+                        txt_stem = jf.stem.replace("_nlp", "")
+                        raw_txt_file = data_path(f"output/txt/{txt_stem}.txt")
+                        if raw_txt_file.exists():
+                            raw_content = raw_txt_file.read_text(encoding="utf-8", errors="ignore")
+                            found_emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", raw_content)
+                            if found_emails:
+                                pinfo["email"] = found_emails[0]
 
-                return d
-        except Exception:
-            continue
+                    return d
+            except Exception:
+                continue
+
+    # Fallback to database candidate profile and vector embeddings
+    try:
+        from app.database import get_all_candidate_embeddings, get_connection
+        from src.security import decrypt_secret
+
+        all_emb = get_all_candidate_embeddings()
+        for emb in all_emb:
+            if (emb.get("candidate_name") or "").strip().lower() == cand_lower:
+                cname = emb["candidate_name"]
+                email = ""
+                try:
+                    conn = get_connection()
+                    row = conn.execute(
+                        "SELECT email FROM candidates WHERE LOWER(name) = ? ORDER BY id DESC LIMIT 1",
+                        (cand_lower,)
+                    ).fetchone()
+                    conn.close()
+                    if row and row["email"]:
+                        email = decrypt_secret(row["email"])
+                except Exception:
+                    pass
+
+                if not email:
+                    slug = cname.lower().replace(" ", ".")
+                    email = f"{slug}@example.com"
+
+                skills = emb.get("skills", [])
+                profile = emb.get("profile_text", "")
+                return {
+                    "personal_info": {
+                        "name": cname,
+                        "email": email,
+                    },
+                    "domain": emb.get("domain", "General"),
+                    "skills": skills,
+                    "candidate_strength_summary": profile[:250],
+                    "summary": profile[:250],
+                    "_source_file": emb.get("source_file", ""),
+                }
+    except Exception as e:
+        logger.warning("Database candidate details lookup fallback failed: %s", e)
+
     return None
 
 
