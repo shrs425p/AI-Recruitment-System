@@ -6,6 +6,7 @@ configurable question counts and timers, conversational follow-up probing, and v
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from flask.testing import FlaskClient
@@ -176,3 +177,150 @@ class TestInterviewSessionEndpoints:
         data = ans_res.get_json()
         assert "evaluation" in data
         assert data["evaluation"]["total"] == 8
+
+
+class TestInterviewLinkGenerationEndpoints:
+    """Tests /api/generate-interview-links and /api/interview-links endpoints."""
+
+    def test_first_time_link_generation_creates_distinct_tokens(
+        self, auth_client: FlaskClient, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """First-time generation assigns unique tokens to all candidates without raising errors or cross-assigning."""
+        import app.routes.interview as int_mod
+        from app.database import get_all_tokens
+
+        scheduling_dir = temp_dir / "scheduling"
+        scheduling_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(int_mod, "OUTPUT_FOLDER", temp_dir)
+
+        schedule_data = {
+            "job_title": "Senior Backend Engineer",
+            "schedule": [
+                {
+                    "candidate_name": "Alice Martin",
+                    "email": "alice@example.com",
+                    "source_file": "alice_resume.pdf",
+                    "status": "CONFIRMED",
+                    "rank": 1,
+                    "score": 95.0,
+                },
+                {
+                    "candidate_name": "Bob Vance",
+                    "email": "bob@example.com",
+                    "source_file": "bob_resume.pdf",
+                    "status": "CONFIRMED",
+                    "rank": 2,
+                    "score": 88.0,
+                },
+            ],
+        }
+        with open(scheduling_dir / "schedule_20261019_120000.json", "w", encoding="utf-8") as f:
+            json.dump(schedule_data, f)
+
+        res = auth_client.post("/api/generate-interview-links")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["success"] is True
+        links = data["links"]
+        assert len(links) == 2
+
+        alice_link = next(lnk for lnk in links if lnk["candidate_name"] == "Alice Martin")
+        bob_link = next(lnk for lnk in links if lnk["candidate_name"] == "Bob Vance")
+
+        # Distinct unique tokens
+        assert alice_link["url"] != bob_link["url"]
+        assert "candidate-interview/T_" in alice_link["url"]
+        assert "candidate-interview/T_" in bob_link["url"]
+        assert alice_link["used"] == 0
+        assert bob_link["used"] == 0
+
+        # Verify in DB
+        db_tokens = get_all_tokens()
+        assert len(db_tokens) == 2
+        names_in_db = {t["candidate_name"] for t in db_tokens}
+        assert names_in_db == {"Alice Martin", "Bob Vance"}
+
+    def test_repeated_link_generation_reuses_existing_tokens_without_duplication(
+        self, auth_client: FlaskClient, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Subsequent calls reuse existing tokens without creating redundant active tokens in DB."""
+        import app.routes.interview as int_mod
+        from app.database import get_all_tokens
+
+        scheduling_dir = temp_dir / "scheduling"
+        scheduling_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(int_mod, "OUTPUT_FOLDER", temp_dir)
+
+        schedule_data = {
+            "job_title": "Data Engineer",
+            "schedule": [
+                {
+                    "candidate_name": "Charlie Day",
+                    "email": "charlie@example.com",
+                    "source_file": "charlie_resume.pdf",
+                    "status": "CONFIRMED",
+                    "rank": 1,
+                    "score": 90.0,
+                }
+            ],
+        }
+        with open(scheduling_dir / "schedule_20261019_120000.json", "w", encoding="utf-8") as f:
+            json.dump(schedule_data, f)
+
+        # Call 1
+        res1 = auth_client.post("/api/generate-interview-links")
+        assert res1.status_code == 200
+        data1 = res1.get_json()
+        token1_url = data1["links"][0]["url"]
+
+        # Call 2
+        res2 = auth_client.post("/api/generate-interview-links")
+        assert res2.status_code == 200
+        data2 = res2.get_json()
+        token2_url = data2["links"][0]["url"]
+
+        # Reuses the exact same URL/token
+        assert token1_url == token2_url
+
+        # Database contains exactly 1 token record, not 2
+        db_tokens = get_all_tokens()
+        assert len(db_tokens) == 1
+        assert db_tokens[0]["candidate_name"] == "Charlie Day"
+
+    def test_generate_interview_links_missing_schedule_returns_404(
+        self, auth_client: FlaskClient, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Missing scheduling files returns 404 error."""
+        import app.routes.interview as int_mod
+
+        scheduling_dir = temp_dir / "scheduling"
+        scheduling_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(int_mod, "OUTPUT_FOLDER", temp_dir)
+
+        res = auth_client.post("/api/generate-interview-links")
+        assert res.status_code == 404
+        data = res.get_json()
+        assert "error" in data
+
+    def test_api_interview_links_get_returns_stored_tokens(
+        self, auth_client: FlaskClient
+    ):
+        """GET /api/interview-links lists all tokens and their statuses."""
+        from app.database import create_interview_token
+
+        create_interview_token(
+            token="T_TEST_GET_TOKEN_1",
+            candidate_name="Diana Prince",
+            source_file="diana.pdf",
+            job_title="Security Lead",
+            rank=1,
+            score=98.0,
+        )
+
+        res = auth_client.get("/api/interview-links")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["success"] is True
+        links = data["links"]
+        assert any(lnk["candidate_name"] == "Diana Prince" and "T_TEST_GET_TOKEN_1" in lnk["url"] for lnk in links)
+
