@@ -3,7 +3,6 @@ import logging
 import shutil
 import threading
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
@@ -21,6 +20,7 @@ from app.database import (
     create_run,
     delete_candidate,
     finish_run,
+    generate_interview_token,
     upsert_candidate,
 )
 from app.database import save_schedule as db_save_schedule
@@ -352,7 +352,7 @@ def _run_scheduling_stage(results):
 
             for entry in new_scheduled:
                 if entry["status"] == "CONFIRMED":
-                    token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+                    token = generate_interview_token()
                     create_interview_token(
                         token=token, candidate_name=entry["candidate_name"], source_file=entry["source_file"],
                         job_title=job_title, rank=entry["rank"], score=entry["score"]

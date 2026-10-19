@@ -324,3 +324,53 @@ class TestInterviewLinkGenerationEndpoints:
         links = data["links"]
         assert any(lnk["candidate_name"] == "Diana Prince" and "T_TEST_GET_TOKEN_1" in lnk["url"] for lnk in links)
 
+    def test_interview_token_entropy_and_uniqueness(self):
+        """Tokens must have high cryptographic entropy (256 bits) and be non-predictable."""
+        from app.database import generate_interview_token
+
+        tokens = [generate_interview_token() for _ in range(100)]
+        assert len(set(tokens)) == 100
+
+        for tok in tokens:
+            assert tok.startswith("T_")
+            assert len(tok) == 66  # "T_" + 64 hex chars (256 bits of entropy)
+            parts = tok.split("_")
+            assert len(parts) == 2, "Token should be T_<high_entropy_hex>"
+            int(parts[1], 16)
+
+    def test_create_interview_token_auto_generates_token_when_none(self):
+        """create_interview_token auto-generates high-entropy token when none is specified."""
+        from app.database import create_interview_token, get_interview_token
+
+        tok = create_interview_token(candidate_name="Auto Candidate", source_file="auto.pdf", job_title="Engineer")
+        assert tok.startswith("T_")
+        assert len(tok) == 66
+
+        stored = get_interview_token(tok)
+        assert stored is not None
+        assert stored["candidate_name"] == "Auto Candidate"
+
+    def test_candidate_interview_validation_page_rate_limiting(self, candidate_client: FlaskClient):
+        """Validation page /candidate-interview/<token> throttles requests and rejects excessive attempts with HTTP 429."""
+        from app.database import create_interview_token
+        from app.routes.interview import rate_limiter
+
+        with rate_limiter.lock:
+            rate_limiter.requests.clear()
+
+        valid_tok = create_interview_token(
+            candidate_name="Rate Limited Candidate", source_file="rl.pdf", job_title="DevOps"
+        )
+
+        res_ok = candidate_client.get(f"/candidate-interview/{valid_tok}")
+        assert res_ok.status_code == 200
+
+        for _ in range(29):
+            candidate_client.get("/candidate-interview/invalid_probe_token")
+
+        res_throttled = candidate_client.get(f"/candidate-interview/{valid_tok}")
+        assert res_throttled.status_code == 429
+
+        with rate_limiter.lock:
+            rate_limiter.requests.clear()
+
