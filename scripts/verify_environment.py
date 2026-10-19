@@ -129,7 +129,7 @@ def main():
 
     print("-" * 60)
     if all(core_results):
-        print("STATUS: SUCCESS — Environment is production-ready!")
+        print("STATUS: SUCCESS — Environment verification complete and ready to run.")
         return 0
     else:
         print("STATUS: FAILED — Resolve reported errors before launch.")

@@ -406,7 +406,7 @@
 </style>
 
 <div class="intelligence-header">
-    <div class="intel-badge">Enterprise Talent Intelligence</div>
+    <div class="intel-badge">Talent Intelligence &amp; Analytics</div>
     <h1 class="page-title">Strategic Talent Intelligence & Analytics</h1>
     <p class="page-desc">
         Perform instant semantic searches across past candidate pools, generate multi-candidate comparative radar dossiers, track recruitment telemetry, and send tailored, constructive feedback.
@@ -435,23 +435,23 @@
 
 <!-- TAB NAVIGATION -->
 <div class="intel-tab-bar">
-    <button class="intel-tab active" onclick="switchIntelTab('tab-search')">
+    <button class="intel-tab active" onclick="switchIntelTab('tab-search', this)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         Semantic Vector Search
     </button>
-    <button class="intel-tab" onclick="switchIntelTab('tab-compare')">
+    <button class="intel-tab" onclick="switchIntelTab('tab-compare', this)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         Side-by-Side Comparison
     </button>
-    <button class="intel-tab" onclick="switchIntelTab('tab-analytics')">
+    <button class="intel-tab" onclick="switchIntelTab('tab-analytics', this)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
         Recruitment Telemetry & Funnel
     </button>
-    <button class="intel-tab" onclick="switchIntelTab('tab-feedback')">
+    <button class="intel-tab" onclick="switchIntelTab('tab-feedback', this)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
         Candidate Feedback & Regret Hub
     </button>
-    <button class="intel-tab" onclick="switchIntelTab('tab-offers')">
+    <button class="intel-tab" onclick="switchIntelTab('tab-offers', this)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         Selection & Offer Hub
     </button>
@@ -1202,11 +1202,14 @@
             </table>
         </div>
     </div>
-    <!-- ══════════════════════════════════════════════════════════════════════════ -->
-    <!-- TAB 5: CANDIDATE SELECTION & FORMAL JOB OFFER HUB -->
-    <!-- ══════════════════════════════════════════════════════════════════════════ -->
-    <div id="tab-offers" class="intel-tab-content">
-        <div class="feedback-editor-card">
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 5: CANDIDATE SELECTION & FORMAL JOB OFFER HUB -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-offers" class="intel-tab-content">
+    <div class="feedback-editor-card">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
                 <div>
                     <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--black);">
@@ -1250,7 +1253,7 @@
             </div>
 
             <button class="btn btn-primary" onclick="generateTailoredOffer()" id="generateOfferBtn" style="background:#059669; border-color:#059669;">
-                ✨ Draft Formal Job Offer Letter
+                Draft Formal Job Offer Letter
             </button>
 
             <div id="offerReviewArea" style="display:none; margin-top:20px;">
@@ -1330,7 +1333,6 @@
             </div>
         </div>
     </div>
-</div>
 
 {% endblock %}
 
@@ -1341,12 +1343,13 @@
 </script>
 <script>
     // ── Tab Switching ──
-    function switchIntelTab(tabId) {
+    function switchIntelTab(tabId, el) {
         document.querySelectorAll('.intel-tab').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.intel-tab-content').forEach(c => c.classList.remove('active'));
 
-        if (event && event.currentTarget) {
-            event.currentTarget.classList.add('active');
+        const targetBtn = el || (typeof event !== 'undefined' && event && event.currentTarget && event.currentTarget.classList && event.currentTarget.classList.contains('intel-tab') ? event.currentTarget : null) || document.querySelector(`.intel-tab[onclick*="${tabId}"]`);
+        if (targetBtn) {
+            targetBtn.classList.add('active');
         }
         const target = document.getElementById(tabId);
         if (target) {
@@ -1929,7 +1932,7 @@
             alert('Offer drafting error: ' + e);
         } finally {
             btn.disabled = false;
-            btn.textContent = '✨ Draft Formal Job Offer Letter';
+            btn.textContent = 'Draft Formal Job Offer Letter';
         }
     }
 
