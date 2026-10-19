@@ -13,6 +13,7 @@ from app.database import (
     get_connection,
     log_telemetry,
     save_candidate_feedback,
+    save_candidate_offer,
     upsert_candidate_embedding,
 )
 from src.common import call_ollama, data_path
@@ -606,6 +607,112 @@ Draft a balanced candidate feedback letter:
         "email": email,
         "job_title": job_title,
         "feedback_text": feedback_body,
+        "status": "DRAFT"
+    }
+
+
+def generate_candidate_offer_letter(
+    candidate_name: str,
+    job_title: str = "Software Position",
+    start_date: str = None,
+    compensation: str = None,
+    reporting_manager: str = None,
+) -> dict:
+    """
+    Generate an enthusiastic, formal job offer and selection letter for successful candidates
+    highlighting their verified technical strengths from interview evaluations and onboarding next steps.
+    """
+    cand = get_candidate_details(candidate_name)
+    if not cand:
+        return {"error": f"Candidate '{candidate_name}' not found."}
+
+    pinfo = cand.get("personal_info") or {}
+    email = pinfo.get("email") or ""
+    domain = cand.get("domain") or "Technical"
+    strength = cand.get("candidate_strength_summary") or "strong technical aptitude and problem-solving"
+    skills = cand.get("skills") or []
+    top_skills = [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in skills][:4]
+
+    start_date_str = start_date.strip() if start_date and start_date.strip() else "To be mutually agreed upon"
+    comp_str = compensation.strip() if compensation and compensation.strip() else "Competitive compensation as discussed"
+    mgr_str = reporting_manager.strip() if reporting_manager and reporting_manager.strip() else "Engineering / Department Leadership"
+
+    system_msg = (
+        "You are an inspiring Head of Talent and People drafting a formal job offer and selection letter. "
+        "Tone and style requirements:\n"
+        "- Enthusiastic, professional, welcoming, and clear.\n"
+        "- Congratulate the candidate on successfully completing the interview process and being selected for the role.\n"
+        "- Acknowledge their demonstrated technical background, domain competence, and interview performance.\n"
+        "- Explicitly outline the key offer terms: Role, Start Date, Compensation, and Reporting Structure.\n"
+        "- Provide 3 clear onboarding next steps for accepting the offer and preparing for their first day.\n"
+        "- Keep the letter structured, professional, and under 250 words. Return plain text only without markdown code fences."
+    )
+    prompt = f"""
+Candidate Name: {candidate_name}
+Target Role: {job_title}
+Domain: {domain}
+Demonstrated Interview Strengths: {strength}
+Verified Technical Skills: {', '.join(top_skills)}
+Proposed Start Date: {start_date_str}
+Compensation Package: {comp_str}
+Reporting To: {mgr_str}
+
+Draft a formal offer and selection letter:
+1. Warm, enthusiastic congratulations on receiving the offer for {job_title}.
+2. Recognition of their impressive performance in {domain} and skills ({', '.join(top_skills[:3])}).
+3. Bullet points summarizing Key Offer Terms (Role, Start Date, Compensation, Reporting Manager).
+4. Concrete Onboarding Next Steps (1: Confirm acceptance by replying, 2: Verification documentation, 3: First day orientation).
+5. Warm welcome to the team.
+"""
+
+    offer_body = ""
+    try:
+        t0 = time.time()
+        offer_body = call_ollama(system_msg, prompt)
+        lat = time.time() - t0
+        log_telemetry("ollama", "offer", len(prompt)//4, len(offer_body)//4, lat)
+    except Exception as e:
+        logger.warning("Offer letter generation failed: %s", e)
+
+    if not offer_body or not offer_body.strip():
+        offer_body = (
+            f"Dear {candidate_name},\n\n"
+            f"Congratulations! On behalf of the team, we are thrilled to formally offer you the position of {job_title}.\n\n"
+            f"Throughout our evaluation and technical interviews, your background in {domain} and strong expertise with "
+            f"{', '.join(top_skills)} truly impressed the hiring team. We are confident that your technical depth and problem-solving abilities "
+            f"will make a tremendous impact on our organization.\n\n"
+            f"Key Offer Details:\n"
+            f"• Position: {job_title}\n"
+            f"• Proposed Start Date: {start_date_str}\n"
+            f"• Compensation: {comp_str}\n"
+            f"• Reporting To: {mgr_str}\n\n"
+            f"Next Steps for Onboarding:\n"
+            f"1. Please review this offer letter and confirm your acceptance by replying to this email.\n"
+            f"2. Our HR team will reach out with the onboarding documentation, compliance checklist, and verification guidelines.\n"
+            f"3. We will schedule your welcome orientation and prepare your workspace.\n\n"
+            f"Welcome aboard! We are excited to build great things together.\n\n"
+            f"Warm regards,\nThe Talent Acquisition Team"
+        )
+
+    # Save to SQLite database
+    oid = save_candidate_offer(
+        candidate_name=candidate_name,
+        email=email,
+        job_title=job_title,
+        offer_letter=offer_body,
+        start_date=start_date_str,
+        compensation=comp_str,
+        status="DRAFT"
+    )
+
+    return {
+        "offer_id": oid,
+        "candidate_name": candidate_name,
+        "email": email,
+        "job_title": job_title,
+        "start_date": start_date_str,
+        "compensation": comp_str,
+        "offer_letter": offer_body,
         "status": "DRAFT"
     }
 

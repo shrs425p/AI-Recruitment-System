@@ -162,6 +162,19 @@ def init_db():
             created_at     TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS candidate_offers (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_name TEXT NOT NULL,
+            email          TEXT DEFAULT '',
+            job_title      TEXT DEFAULT '',
+            start_date     TEXT DEFAULT '',
+            compensation   TEXT DEFAULT '',
+            offer_letter   TEXT NOT NULL,
+            status         TEXT DEFAULT 'DRAFT',
+            sent_at        TEXT,
+            created_at     TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS candidate_notes (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             candidate_name TEXT NOT NULL UNIQUE,
@@ -836,6 +849,67 @@ def mark_feedback_sent(feedback_id: int):
             SET status = 'SENT', sent_at = datetime('now')
             WHERE id = ?
         """, (feedback_id,))
+
+
+# ─── Candidate Job Offers & Selection Letters ───
+
+def save_candidate_offer(
+    candidate_name: str,
+    email: str,
+    job_title: str,
+    offer_letter: str,
+    start_date: str = "",
+    compensation: str = "",
+    status: str = "DRAFT",
+) -> int:
+    """Save or update a formal candidate offer and selection letter."""
+    with db_session() as conn:
+        cur = conn.execute("""
+            INSERT INTO candidate_offers (candidate_name, email, job_title, start_date, compensation, offer_letter, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        """, (candidate_name.strip(), (email or "").strip(), (job_title or "").strip(), (start_date or "").strip(), (compensation or "").strip(), offer_letter, status))
+        return int(cur.lastrowid or 0)
+
+
+def get_candidate_offers(candidate_name: str = None) -> list[dict]:
+    """Fetch candidate offers, optionally filtered by candidate name, ordered newest first."""
+    with db_session() as conn:
+        if candidate_name:
+            rows = conn.execute("""
+                SELECT id, candidate_name, email, job_title, start_date, compensation, offer_letter, status, sent_at, created_at
+                FROM candidate_offers
+                WHERE candidate_name = ?
+                ORDER BY id DESC
+            """, (candidate_name.strip(),)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT id, candidate_name, email, job_title, start_date, compensation, offer_letter, status, sent_at, created_at
+                FROM candidate_offers
+                ORDER BY id DESC
+            """).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_candidate_offer_by_id(offer_id: int) -> dict | None:
+    """Fetch a single candidate offer by its primary key ID."""
+    with db_session() as conn:
+        row = conn.execute("""
+            SELECT id, candidate_name, email, job_title, start_date, compensation, offer_letter, status, sent_at, created_at
+            FROM candidate_offers
+            WHERE id = ?
+        """, (offer_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def mark_offer_sent(offer_id: int):
+    """Mark an offer letter as SENT with the current timestamp."""
+    with db_session() as conn:
+        conn.execute("""
+            UPDATE candidate_offers
+            SET status = 'SENT', sent_at = datetime('now')
+            WHERE id = ?
+        """, (offer_id,))
+
 
 
 # ─── Recruiter Candidate Notes & Tags ───

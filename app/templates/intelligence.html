@@ -451,6 +451,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
         Candidate Feedback & Regret Hub
     </button>
+    <button class="intel-tab" onclick="switchIntelTab('tab-offers')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        Selection & Offer Hub
+    </button>
 </div>
 
 
@@ -521,6 +525,9 @@
             <div style="display:flex; gap:8px; border-top:1px solid var(--gray-100); padding-top:14px; margin-top:8px;">
                 <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px;" onclick="prefillComparison('{{ cand.name }}')">
                     Compare
+                </button>
+                <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px; background:#ecfdf5; color:#065f46; border-color:#a7f3d0;" onclick="prefillOffer('{{ cand.name }}')">
+                    Offer
                 </button>
                 <button class="btn btn-secondary" style="flex:1; padding:6px 10px; font-size:12px;" onclick="prefillFeedback('{{ cand.name }}')">
                     Feedback
@@ -1195,6 +1202,134 @@
             </table>
         </div>
     </div>
+    <!-- ══════════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 5: CANDIDATE SELECTION & FORMAL JOB OFFER HUB -->
+    <!-- ══════════════════════════════════════════════════════════════════════════ -->
+    <div id="tab-offers" class="intel-tab-content">
+        <div class="feedback-editor-card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <h3 style="margin:0 0 4px 0; font-size:16px; font-weight:700; color:var(--black);">
+                        Generate Formal Job Offer & Selection Letters
+                    </h3>
+                    <p style="margin:0 0 16px 0; font-size:13px; color:var(--gray-500);">
+                        Draft tailored, enthusiastic offer letters highlighting candidate strengths, key employment terms, and onboarding instructions.
+                    </p>
+                </div>
+                <span class="score-badge score-high" style="font-size:11px;">100% Local Ollama Privacy</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:14px;">
+                <div>
+                    <label for="offerCandSelect" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Selected Candidate</label>
+                    <select id="offerCandSelect" class="compare-select" aria-label="Select Candidate">
+                        {% for c in candidates %}
+                        <option value="{{ c.name }}">{{ c.name }} ({{ c.domain }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="offerRole" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Target Role</label>
+                    <input type="text" id="offerRole" class="search-input" aria-label="Target Role" style="padding:10px 14px;" value="Senior Software Engineer" placeholder="e.g. Senior Software Engineer">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; margin-bottom:14px;">
+                <div>
+                    <label for="offerStartDate" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Proposed Start Date</label>
+                    <input type="text" id="offerStartDate" class="search-input" aria-label="Proposed Start Date" style="padding:10px 14px;" placeholder="e.g. November 1, 2026 or Immediately">
+                </div>
+                <div>
+                    <label for="offerCompensation" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Compensation Package</label>
+                    <input type="text" id="offerCompensation" class="search-input" aria-label="Compensation Package" style="padding:10px 14px;" placeholder="e.g. ₹18,00,000 PA + Benefits">
+                </div>
+                <div>
+                    <label for="offerManager" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Reporting To</label>
+                    <input type="text" id="offerManager" class="search-input" aria-label="Reporting To" style="padding:10px 14px;" placeholder="e.g. Engineering Leadership">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="generateTailoredOffer()" id="generateOfferBtn" style="background:#059669; border-color:#059669;">
+                ✨ Draft Formal Job Offer Letter
+            </button>
+
+            <div id="offerReviewArea" style="display:none; margin-top:20px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:14px;">
+                    <div>
+                        <label for="offerEmail" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Candidate Recipient Email</label>
+                        <input type="email" id="offerEmail" class="search-input" aria-label="Candidate Recipient Email" style="padding:10px 14px;" placeholder="candidate@example.com">
+                    </div>
+                    <div>
+                        <label for="offerSubject" style="font-size:12px; font-weight:600; display:block; margin-bottom:6px;">Email Subject</label>
+                        <input type="text" id="offerSubject" class="search-input" aria-label="Email Subject" style="padding:10px 14px;" value="Formal Offer of Employment & Next Steps">
+                    </div>
+                </div>
+
+                <label for="offerBody" style="font-size:12px; font-weight:600; display:block; margin-top:14px; margin-bottom:4px;">Formal Offer Letter Content</label>
+                <textarea id="offerBody" class="feedback-textarea" rows="12" aria-label="Formal Offer Letter Content" style="min-height:220px; font-family:var(--font-sans); line-height:1.6;"></textarea>
+
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:14px;">
+                    <input type="hidden" id="currentOfferId" value="">
+                    <button class="btn btn-secondary" onclick="copyOfferTextHub()">Copy Text</button>
+                    <button class="btn btn-primary" onclick="dispatchOfferEmailHub()" id="sendOfferBtnHub" style="background:#059669; border-color:#059669;">
+                        Send Offer via SMTP Email
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Offers Sent History Log -->
+        <div class="card" style="margin-top:24px;">
+            <div class="card-title">Candidate Selection & Offer Log</div>
+            <div class="card-desc">Audit history of formal offers and selection letters drafted and dispatched.</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Position</th>
+                            <th>Recipient Email</th>
+                            <th>Start Date</th>
+                            <th>Compensation</th>
+                            <th>Status</th>
+                            <th>Dispatched At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="offersHistoryTable">
+                        {% if offers_list %}
+                            {% for of in offers_list %}
+                            <tr>
+                                <td><strong>{{ of.candidate_name }}</strong></td>
+                                <td>{{ of.job_title }}</td>
+                                <td>{{ of.email or "—" }}</td>
+                                <td>{{ of.start_date or "—" }}</td>
+                                <td>{{ of.compensation or "—" }}</td>
+                                <td>
+                                    {% if of.status == 'SENT' %}
+                                    <span class="badge badge-green">DISPATCHED</span>
+                                    {% else %}
+                                    <span class="badge badge-yellow">DRAFT</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ of.sent_at or of.created_at }}</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="loadSavedOffer('{{ of.id }}', '{{ of.candidate_name | escape }}', '{{ of.email | escape }}', '{{ of.job_title | escape }}', '{{ of.start_date | escape }}', '{{ of.compensation | escape }}', `{{ of.offer_letter | escape }}`)">Review</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" style="text-align:center; color:var(--gray-500); padding:20px;">
+                                    No offer letters drafted yet. Select a candidate above to generate a formal selection and offer letter.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
@@ -1746,6 +1881,127 @@
         document.getElementById('feedbackReviewArea').style.display = 'block';
         window.scrollTo({ top: 300, behavior: 'smooth' });
     }
+
+    // ── Formal Candidate Offer & Selection Hub ──
+    function prefillOffer(candidateName) {
+        switchIntelTab('tab-offers');
+        const sel = document.getElementById('offerCandSelect');
+        if (sel) sel.value = candidateName;
+        generateTailoredOffer();
+        window.scrollTo({ top: 100, behavior: 'smooth' });
+    }
+
+    async function generateTailoredOffer() {
+        const cand = document.getElementById('offerCandSelect').value;
+        const role = document.getElementById('offerRole').value.trim() || 'Software Engineer';
+        const startDate = document.getElementById('offerStartDate').value.trim();
+        const compensation = document.getElementById('offerCompensation').value.trim();
+        const reportingManager = document.getElementById('offerManager').value.trim();
+        const btn = document.getElementById('generateOfferBtn');
+
+        btn.disabled = true;
+        btn.textContent = 'Drafting Offer Letter with AI...';
+
+        try {
+            const res = await fetch('/api/intelligence/generate-offer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidate_name: cand,
+                    job_title: role,
+                    start_date: startDate,
+                    compensation: compensation,
+                    reporting_manager: reportingManager
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const of = data.offer;
+                document.getElementById('offerReviewArea').style.display = 'block';
+                document.getElementById('currentOfferId').value = of.offer_id || '';
+                document.getElementById('offerEmail').value = of.email || '';
+                document.getElementById('offerSubject').value = `Formal Offer of Employment: ${role} — Congratulations!`;
+                document.getElementById('offerBody').value = of.offer_letter;
+            } else {
+                alert(data.error || 'Failed to generate offer letter');
+            }
+        } catch (e) {
+            alert('Offer drafting error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '✨ Draft Formal Job Offer Letter';
+        }
+    }
+
+    function copyOfferTextHub() {
+        const text = document.getElementById('offerBody').value;
+        navigator.clipboard.writeText(text);
+        alert('Offer letter copied to clipboard.');
+    }
+
+    async function dispatchOfferEmailHub() {
+        const oid = document.getElementById('currentOfferId').value;
+        const email = document.getElementById('offerEmail').value.trim();
+        const cand = document.getElementById('offerCandSelect').value;
+        const role = document.getElementById('offerRole').value.trim();
+        const subject = document.getElementById('offerSubject').value.trim();
+        const letter = document.getElementById('offerBody').value.trim();
+
+        if (!email) {
+            alert('Please specify recipient candidate email address.');
+            return;
+        }
+        if (!letter) {
+            alert('Offer letter content cannot be empty.');
+            return;
+        }
+
+        const btn = document.getElementById('sendOfferBtnHub');
+        btn.disabled = true;
+        btn.textContent = 'Dispatching Formal Offer via SMTP...';
+
+        try {
+            const res = await fetch('/api/intelligence/send-offer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    offer_id: oid,
+                    email: email,
+                    candidate_name: cand,
+                    job_title: role,
+                    subject: subject,
+                    offer_letter: letter
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.error || 'Failed to dispatch offer email');
+            }
+        } catch (e) {
+            alert('Dispatch error: ' + e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Send Offer via SMTP Email';
+        }
+    }
+
+    function loadSavedOffer(id, name, email, role, startDate, comp, text) {
+        switchIntelTab('tab-offers');
+        document.getElementById('offerCandSelect').value = name;
+        document.getElementById('offerRole').value = role;
+        document.getElementById('offerStartDate').value = startDate || '';
+        document.getElementById('offerCompensation').value = comp || '';
+        document.getElementById('offerEmail').value = email || '';
+        document.getElementById('offerSubject').value = `Formal Offer of Employment: ${role} — Congratulations!`;
+        document.getElementById('offerBody').value = text;
+        document.getElementById('currentOfferId').value = id || '';
+        document.getElementById('offerReviewArea').style.display = 'block';
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+    }
+
 
     // ── Strategic Talent Intelligence Analytics & Cockpit ──
     let _skillGapChartInstance = null;

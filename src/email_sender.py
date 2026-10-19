@@ -214,3 +214,64 @@ def send_feedback_email(
     except Exception as e:
         return False, str(e)
 
+
+def send_selection_offer_email(
+    smtp_host: str,
+    smtp_port: int,
+    smtp_email: str,
+    smtp_password: str,
+    recipient_email: str,
+    candidate_name: str,
+    subject: str,
+    offer_letter: str,
+    job_title: str = "",
+    company: str = "",
+) -> tuple[bool, str]:
+    """
+    Send a formal job offer / selection letter email to a successful candidate.
+    Returns (True, "") on success or (False, error_string) on failure.
+    """
+    if not recipient_email:
+        return False, "No recipient email address."
+    if not smtp_email or not smtp_password:
+        return False, "SMTP credentials not configured in Settings."
+
+    company_title = company or "The Hiring Team"
+    role_title = job_title or "Offered Position"
+    paragraphs = [p.strip() for p in offer_letter.split("\n\n") if p.strip()]
+    paragraphs_html = "".join(f"<p style='color:#374151; font-size:15px; line-height:1.6; margin-bottom:14px;'>{p.replace(chr(10), '<br>')}</p>" for p in paragraphs)
+
+    body_html = f"""
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;margin:0 auto;padding:32px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="background:linear-gradient(135deg, #059669 0%, #10b981 100%);padding:20px 24px;border-radius:8px;margin-bottom:24px;color:#ffffff;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.9;">Formal Offer of Employment</div>
+            <h1 style="font-size:22px;font-weight:700;margin:6px 0 0 0;color:#ffffff;">Congratulations, {candidate_name}!</h1>
+            <p style="font-size:14px;margin:4px 0 0 0;opacity:0.95;">Position: {role_title}</p>
+        </div>
+        <div style="padding:0 4px;">
+            {paragraphs_html}
+        </div>
+        <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;">
+            <p style="color:#111827;font-weight:700;margin:0;font-size:14px;">{company_title}</p>
+            <p style="color:#9ca3af;font-size:12px;margin:4px 0 0 0;">This email contains confidential offer details and onboarding instructions.</p>
+        </div>
+    </div>
+    """
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject or f"Job Offer: {role_title} - Welcome to {company_title}"
+    msg["From"] = smtp_email
+    msg["To"] = recipient_email
+    msg.attach(MIMEText(offer_letter, "plain"))
+    msg.attach(MIMEText(body_html, "html"))
+
+    try:
+        with smtplib.SMTP(smtp_host, int(smtp_port), timeout=25) as server:
+            server.starttls()
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
