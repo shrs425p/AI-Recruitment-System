@@ -8,6 +8,7 @@ import time
 from flask import Response, jsonify, render_template
 
 from app.core import OUTPUT_FOLDER, _save_tasks, pipeline_tasks
+from app.database import get_candidate_offers
 from app.utils import login_required
 from src.report_generator import (
     calculate_combined_score,
@@ -38,6 +39,21 @@ def register_reports_routes(app):
             except Exception:
                 pass
 
+        # Build candidate email lookup map from NLP cache
+        email_map = {}
+        nlp_path = OUTPUT_FOLDER / "nlp"
+        if nlp_path.exists():
+            for nf in nlp_path.glob("*_nlp.json"):
+                try:
+                    with open(nf, encoding="utf-8") as f:
+                        ndata = json.load(f)
+                    pinfo = ndata.get("personal_info") or {}
+                    n_cand = (pinfo.get("name") or ndata.get("candidate_name") or nf.stem.replace("_nlp", "")).strip().lower()
+                    if pinfo.get("email"):
+                        email_map[n_cand] = pinfo["email"]
+                except Exception:
+                    pass
+
         for rf in reports_files:
             try:
                 with open(rf, encoding="utf-8") as f:
@@ -46,6 +62,8 @@ def register_reports_routes(app):
                     rdata["_filename"] = rf.name
 
                     c_name = rdata.get("candidate_name")
+                    c_key = (c_name or "").strip().lower()
+
                     if c_name in interviews_map:
                         idata = interviews_map[c_name]
                         if not rdata.get("responses") and idata.get("responses"):
@@ -55,6 +73,17 @@ def register_reports_routes(app):
                             proctor_info["browser_log"] = idata.get("browser_log", [])
                         if not proctor_info.get("webcam_log"):
                             proctor_info["webcam_log"] = idata.get("webcam_log", [])
+                        if idata.get("email"):
+                            rdata["email"] = idata["email"]
+
+                    if not rdata.get("email") and c_key in email_map:
+                        rdata["email"] = email_map[c_key]
+
+                    # Check for existing job offer
+                    if c_name:
+                        cand_offers = get_candidate_offers(c_name)
+                        if cand_offers:
+                            rdata["latest_offer"] = cand_offers[0]
 
                     reports_data.append(rdata)
             except Exception as e:

@@ -5,19 +5,23 @@ from flask import jsonify, render_template, request
 
 import config
 from app.database import (
+    create_hr_notification,
     get_all_candidate_embeddings,
     get_all_candidate_feedback,
+    get_candidate_offers,
     get_telemetry_metrics,
     mark_feedback_sent,
+    mark_offer_sent,
 )
 from app.utils import login_required
 from src.common import data_path
-from src.email_sender import send_feedback_email
+from src.email_sender import send_feedback_email, send_selection_offer_email
 from src.talent_intelligence import (
     compare_candidates_matrix,
     compute_talent_intelligence_analytics,
     extract_flat_skills,
     generate_candidate_feedback_letter,
+    generate_candidate_offer_letter,
     index_talent_pool,
     semantic_search_talent,
 )
@@ -188,6 +192,7 @@ def register_intelligence_routes(app):
         indexed_count = len(stored_embeddings)
         telemetry = get_telemetry_metrics()
         feedback_list = get_all_candidate_feedback()
+        offers_list = get_candidate_offers()
         funnel, score_distribution = _get_funnel_and_distribution()
         analytics = compute_talent_intelligence_analytics()
 
@@ -198,6 +203,7 @@ def register_intelligence_routes(app):
             total_candidates=len(candidates),
             telemetry=telemetry,
             feedback_list=feedback_list,
+            offers_list=offers_list,
             funnel=funnel,
             score_distribution=score_distribution,
             analytics=analytics,
@@ -334,11 +340,11 @@ def register_intelligence_routes(app):
             return jsonify({"success": False, "error": "Feedback content cannot be empty"}), 400
 
         # Retrieve SMTP configuration
-        smtp_host = getattr(config, "SMTP_HOST", "").strip()
-        smtp_port = getattr(config, "SMTP_PORT", 587)
-        smtp_email = getattr(config, "SMTP_EMAIL", "").strip()
-        smtp_password = getattr(config, "SMTP_PASSWORD", "").strip()
-        company = getattr(config, "COMPANY_NAME", "AI Recruitment System").strip()
+        smtp_host = str(getattr(config, "SMTP_HOST", "") or "").strip()
+        smtp_port = int(getattr(config, "SMTP_PORT", 587) or 587)
+        smtp_email = str(getattr(config, "SMTP_EMAIL", "") or "").strip()
+        smtp_password = str(getattr(config, "SMTP_PASSWORD", "") or "").strip()
+        company = str(getattr(config, "COMPANY_NAME", "") or "AI Recruitment System").strip()
 
         success, err = send_feedback_email(
             smtp_host=smtp_host,
@@ -378,3 +384,110 @@ def register_intelligence_routes(app):
             return jsonify({"success": True, "feedback": history, "count": len(history)})
         except Exception as e:
             return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/api/intelligence/generate-offer", methods=["POST"])
+    @login_required
+    def api_generate_offer():
+        """Draft a formal candidate job offer and selection letter with verified strengths and onboarding steps."""
+        data = request.get_json(silent=True) or {}
+        candidate_name = data.get("candidate_name", "").strip()
+        job_title = data.get("job_title", "Software Engineer").strip()
+        start_date = data.get("start_date", "").strip()
+        compensation = data.get("compensation", "").strip()
+        reporting_manager = data.get("reporting_manager", "").strip()
+
+        if not candidate_name:
+            return jsonify({"success": False, "error": "Candidate name is required"}), 400
+
+        try:
+            result = generate_candidate_offer_letter(
+                candidate_name=candidate_name,
+                job_title=job_title,
+                start_date=start_date,
+                compensation=compensation,
+                reporting_manager=reporting_manager,
+            )
+            if "error" in result:
+                return jsonify({"success": False, "error": result["error"]}), 404
+            return jsonify({"success": True, "offer": result})
+        except Exception as e:
+            logger.exception("Failed to generate offer letter: %s", e)
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/api/intelligence/send-offer", methods=["POST"])
+    @login_required
+    def api_send_offer():
+        """Send formal job offer email to selected candidate via configured SMTP credentials."""
+        data = request.get_json(silent=True) or {}
+        offer_id = data.get("offer_id")
+        recipient_email = data.get("email", "").strip()
+        candidate_name = data.get("candidate_name", "").strip()
+        job_title = data.get("job_title", "Software Engineer").strip()
+        subject = data.get("subject", "").strip()
+        offer_letter = data.get("offer_letter", "").strip()
+
+        if not recipient_email:
+            return jsonify({"success": False, "error": "Recipient email address is required"}), 400
+        if not offer_letter:
+            return jsonify({"success": False, "error": "Offer letter content cannot be empty"}), 400
+
+        # Retrieve SMTP configuration
+        smtp_host = str(getattr(config, "SMTP_HOST", "") or "").strip()
+        smtp_port = int(getattr(config, "SMTP_PORT", 587) or 587)
+        smtp_email = str(getattr(config, "SMTP_EMAIL", "") or "").strip()
+        smtp_password = str(getattr(config, "SMTP_PASSWORD", "") or "").strip()
+        company = str(getattr(config, "COMPANY_NAME", "") or "AI Recruitment System").strip()
+
+        success, err = send_selection_offer_email(
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_email=smtp_email,
+            smtp_password=smtp_password,
+            recipient_email=recipient_email,
+            candidate_name=candidate_name,
+            subject=subject,
+            offer_letter=offer_letter,
+            job_title=job_title,
+            company=company,
+        )
+
+        if not success:
+            return jsonify({
+                "success": False,
+                "error": f"Failed to dispatch offer email: {err}. Please check your SMTP settings in Settings."
+            }), 400
+
+        if offer_id:
+            try:
+                mark_offer_sent(int(offer_id))
+            except Exception:
+                pass
+
+        # Trigger HR Notification
+        try:
+            create_hr_notification(
+                title="Job Offer Dispatched",
+                message=f"Formal offer email sent to {candidate_name} for '{job_title}'.",
+                candidate_name=candidate_name,
+                job_title=job_title,
+                notif_type="offer_sent",
+                link="/reports",
+            )
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True,
+            "message": f"Formal offer email successfully dispatched to {recipient_email}."
+        })
+
+    @app.route("/api/intelligence/offers-history", methods=["GET"])
+    @login_required
+    def api_offers_history():
+        """Fetch history of all formal offers and selection letters drafted and dispatched."""
+        try:
+            offers = get_candidate_offers()
+            return jsonify({"success": True, "offers": offers, "count": len(offers)})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+

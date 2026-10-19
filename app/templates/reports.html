@@ -207,6 +207,23 @@
             <span style="font-size:12px; color:var(--gray-400);">Risk: {{ r.ai_report.risk_level }}</span>
 
             <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                {% if r.latest_offer and r.latest_offer.status == 'SENT' %}
+                <button type="button" class="btn" style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:6px 12px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:5px;" onclick="openOfferModal('{{ r.candidate_name | escape }}', '{{ r.job_title | escape }}', '{{ r.email | default('') | escape }}', '{{ r.latest_offer.id }}')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Offer Sent
+                </button>
+                {% elif r.latest_offer and r.latest_offer.status == 'DRAFT' %}
+                <button type="button" class="btn" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; padding:6px 12px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:5px;" onclick="openOfferModal('{{ r.candidate_name | escape }}', '{{ r.job_title | escape }}', '{{ r.email | default('') | escape }}', '{{ r.latest_offer.id }}')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    Resume Offer
+                </button>
+                {% else %}
+                <button type="button" class="btn" style="background:#059669; color:#ffffff; border:none; padding:6px 13px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:5px;" onclick="openOfferModal('{{ r.candidate_name | escape }}', '{{ r.job_title | escape }}', '{{ r.email | default('') | escape }}')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    Send Offer Letter
+                </button>
+                {% endif %}
+
                 <button type="button" class="btn btn-secondary toggle-details-btn" onclick="toggleReportDetails('details-{{ loop.index }}', this)"
                         style="padding:6px 14px; font-size:12px; font-weight:600;">
                     <span>View Detailed Breakdown ▾</span>
@@ -432,8 +449,85 @@
     </div>
     {% endif %}
 
-    <div style="margin-top:24px; display:flex; justify-content:flex-start;">
-        <a href="/interview" class="btn btn-secondary">← Interview Bot</a>
+    <!-- CANDIDATE SELECTION & JOB OFFER MODAL -->
+    <div id="offerModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; backdrop-filter:blur(3px); align-items:center; justify-content:center; padding:16px;">
+        <div style="background:var(--md-sys-color-surface, #ffffff); border-radius:12px; max-width:680px; width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.08); border:1px solid var(--md-sys-color-outline-variant, #e5e7eb); padding:24px;">
+            
+            <!-- Modal Header -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; border-bottom:1px solid var(--md-sys-color-outline-variant, #e5e7eb); padding-bottom:12px;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10b981;"></span>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--md-sys-color-on-surface);">Candidate Selection & Job Offer Hub</h3>
+                    </div>
+                    <div style="font-size:13px; color:var(--gray-500); margin-top:4px;">
+                        Generate an enthusiastic, customized offer letter and notify selected candidate via SMTP email.
+                    </div>
+                </div>
+                <button type="button" onclick="closeOfferModal()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--gray-400); line-height:1;">&times;</button>
+            </div>
+
+            <!-- Form Inputs Grid -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Candidate Name</label>
+                    <input type="text" id="modalCandidateName" readonly style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; box-sizing:border-box;" />
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Target Role</label>
+                    <input type="text" id="modalJobTitle" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Senior Software Engineer" />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Candidate Recipient Email</label>
+                    <input type="email" id="modalCandidateEmail" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="candidate@example.com" />
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Proposed Start Date</label>
+                    <input type="text" id="modalStartDate" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. November 1, 2026 or Immediately" />
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Compensation / Package</label>
+                    <input type="text" id="modalCompensation" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. ₹18,00,000 PA + Benefits" />
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Reporting Manager / Lead</label>
+                    <input type="text" id="modalReportingManager" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Engineering Leadership" />
+                </div>
+            </div>
+
+            <!-- AI Draft Button -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <button type="button" class="btn btn-primary" id="btnDraftOffer" onclick="draftOfferFromModal()" style="font-size:12.5px; padding:7px 16px; background:#4f46e5;">
+                    ✨ Draft Offer Letter with Local Ollama AI
+                </button>
+                <span id="draftOfferStatus" style="font-size:12px; color:var(--gray-500);"></span>
+            </div>
+
+            <!-- Letter Editor -->
+            <div style="margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="font-size:12px; font-weight:600;">Customizable Offer & Selection Letter</label>
+                    <button type="button" onclick="copyOfferText()" style="background:none; border:none; color:#4f46e5; font-size:11.5px; font-weight:600; cursor:pointer;">📋 Copy Text</button>
+                </div>
+                <textarea id="modalOfferLetter" rows="10" style="width:100%; font-family:var(--font-sans); font-size:13px; line-height:1.5; padding:12px; border:1px solid #d1d5db; border-radius:8px; resize:vertical; box-sizing:border-box;" placeholder="Click 'Draft Offer Letter' above or write custom offer letter text here..."></textarea>
+            </div>
+
+            <!-- Modal Footer Actions -->
+            <div style="display:flex; justify-content:flex-end; align-items:center; gap:10px; border-top:1px solid var(--md-sys-color-outline-variant, #e5e7eb); padding-top:14px;">
+                <input type="hidden" id="modalOfferId" value="" />
+                <button type="button" class="btn btn-secondary" onclick="closeOfferModal()" style="padding:7px 16px; font-size:13px;">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSendOffer" onclick="sendOfferFromModal()" style="background:#059669; border:none; padding:7px 18px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    Send Formal Offer via SMTP
+                </button>
+            </div>
+        </div>
     </div>
 
     {% endblock %}
@@ -514,6 +608,136 @@
             showToast(`Generated ${data.count} report(s)! Refreshing…`, 'success');
             // Short delay then reload to show new reports from server
             setTimeout(() => location.reload(), 1500);
+        }
+
+        // ── Candidate Selection & Job Offer Modal Functions ──
+        async function openOfferModal(candidateName, jobTitle, email, offerId) {
+            document.getElementById('modalCandidateName').value = candidateName || '';
+            document.getElementById('modalJobTitle').value = jobTitle || 'Software Engineer';
+            document.getElementById('modalCandidateEmail').value = email || '';
+            document.getElementById('modalOfferId').value = offerId || '';
+            document.getElementById('modalStartDate').value = '';
+            document.getElementById('modalCompensation').value = '';
+            document.getElementById('modalReportingManager').value = '';
+            document.getElementById('modalOfferLetter').value = '';
+            document.getElementById('draftOfferStatus').textContent = '';
+
+            const modal = document.getElementById('offerModal');
+            modal.style.display = 'flex';
+
+            // Auto-draft if no offer yet
+            if (candidateName) {
+                draftOfferFromModal();
+            }
+        }
+
+        function closeOfferModal() {
+            document.getElementById('offerModal').style.display = 'none';
+        }
+
+        async function draftOfferFromModal() {
+            const cand = document.getElementById('modalCandidateName').value;
+            const role = document.getElementById('modalJobTitle').value.trim() || 'Software Engineer';
+            const startDate = document.getElementById('modalStartDate').value.trim();
+            const compensation = document.getElementById('modalCompensation').value.trim();
+            const reportingManager = document.getElementById('modalReportingManager').value.trim();
+
+            const btn = document.getElementById('btnDraftOffer');
+            const statusEl = document.getElementById('draftOfferStatus');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Drafting with Ollama…';
+            statusEl.textContent = 'Generating personalized offer…';
+
+            try {
+                const res = await fetch('/api/intelligence/generate-offer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        candidate_name: cand,
+                        job_title: role,
+                        start_date: startDate,
+                        compensation: compensation,
+                        reporting_manager: reportingManager
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const of = data.offer;
+                    document.getElementById('modalOfferId').value = of.offer_id || '';
+                    if (of.email && !document.getElementById('modalCandidateEmail').value) {
+                        document.getElementById('modalCandidateEmail').value = of.email;
+                    }
+                    document.getElementById('modalOfferLetter').value = of.offer_letter;
+                    statusEl.textContent = 'Draft ready!';
+                    showToast('Offer letter drafted successfully!', 'success');
+                } else {
+                    statusEl.textContent = data.error || 'Failed to draft';
+                    showToast(data.error || 'Drafting failed', 'error');
+                }
+            } catch (e) {
+                statusEl.textContent = 'Error: ' + e.message;
+                showToast('Drafting failed: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '✨ Draft Offer Letter with Local Ollama AI';
+            }
+        }
+
+        function copyOfferText() {
+            const text = document.getElementById('modalOfferLetter').value;
+            navigator.clipboard.writeText(text);
+            showToast('Offer letter copied to clipboard!', 'success');
+        }
+
+        async function sendOfferFromModal() {
+            const oid = document.getElementById('modalOfferId').value;
+            const email = document.getElementById('modalCandidateEmail').value.trim();
+            const cand = document.getElementById('modalCandidateName').value.trim();
+            const role = document.getElementById('modalJobTitle').value.trim();
+            const letter = document.getElementById('modalOfferLetter').value.trim();
+
+            if (!email) {
+                showToast('Please specify candidate recipient email address.', 'error');
+                document.getElementById('modalCandidateEmail').focus();
+                return;
+            }
+            if (!letter) {
+                showToast('Offer letter content cannot be empty.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btnSendOffer');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></span> Dispatching…';
+
+            try {
+                const res = await fetch('/api/intelligence/send-offer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        offer_id: oid,
+                        email: email,
+                        candidate_name: cand,
+                        job_title: role,
+                        subject: `Formal Offer of Employment: ${role} — Congratulations!`,
+                        offer_letter: letter
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message || 'Offer letter dispatched successfully!', 'success');
+                    closeOfferModal();
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showToast(data.error || 'Failed to dispatch offer email', 'error');
+                }
+            } catch (e) {
+                showToast('Dispatch failed: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Send Formal Offer via SMTP';
+            }
         }
 
         // Restore running state if report generation was in progress
