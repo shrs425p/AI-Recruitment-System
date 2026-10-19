@@ -207,6 +207,11 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_candidate_notes_name ON candidate_notes(candidate_name);
         CREATE INDEX IF NOT EXISTS idx_hr_notifications_read ON hr_notifications(is_read);
     """)
+    try:
+        from src.security import migrate_database_secrets
+        migrate_database_secrets(conn)
+    except Exception:
+        pass
     conn.commit()
     conn.close()
     print("[DB] Database initialised:", DB_PATH)
