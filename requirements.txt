@@ -17,7 +17,7 @@ waitress>=3.0
 icalendar>=7.3.0
 
 # Face detection
-mediapipe>=1.0.1
+mediapipe>=1.1.1
 opencv-python>=4.9
 
 # Voice / Speech
