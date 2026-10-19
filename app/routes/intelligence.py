@@ -33,64 +33,88 @@ def _get_candidate_list() -> list[dict]:
     """Retrieve all available candidates with their domain and basic skills."""
     nlp_dir = data_path("output/nlp")
     candidates: list[dict] = []
-    if not nlp_dir.exists():
-        return candidates
+    if nlp_dir.exists():
+        for jf in sorted(nlp_dir.glob("*_nlp.json")):
+            try:
+                with open(jf, encoding="utf-8") as f:
+                    data = json.load(f)
+                cand_name = (
+                    data.get("personal_info", {}).get("name")
+                    or data.get("candidate_name")
+                    or jf.stem.replace("_nlp", "")
+                )
+                domain = data.get("domain") or "General"
+                skills_flat = extract_flat_skills(data.get("skills"))
 
-    for jf in sorted(nlp_dir.glob("*_nlp.json")):
+                # Extract personalized summary or construct role-based snippet
+                summary = data.get("summary") or data.get("candidate_strength_summary")
+                if not summary:
+                    work_exp = data.get("work_experience") or []
+                    if work_exp and isinstance(work_exp, list) and isinstance(work_exp[0], dict):
+                        role = work_exp[0].get("job_title") or "Professional"
+                        comp = work_exp[0].get("company") or ""
+                        resp = work_exp[0].get("responsibilities") or []
+                        resp_str = resp[0] if isinstance(resp, list) and resp else ""
+                        comp_str = f" at {comp}" if comp else ""
+                        summary = f"{role}{comp_str}. {resp_str}".strip()
+
+                if not summary:
+                    projects = data.get("projects") or []
+                    if projects and isinstance(projects, list) and isinstance(projects[0], dict):
+                        pname = projects[0].get("name") or projects[0].get("title") or "Project"
+                        pdesc = projects[0].get("description") or ""
+                        summary = f"{pname}: {pdesc}".strip()
+
+                if not summary:
+                    skills_preview = ", ".join(skills_flat[:3]) if skills_flat else "verified competencies"
+                    summary = f"Experienced {domain} talent specialized in {skills_preview}. Profile indexed for semantic matching."
+
+                exp_yrs = data.get("total_experience_years")
+                exp_display = ""
+                if exp_yrs is not None:
+                    try:
+                        exp_val = float(exp_yrs)
+                        exp_display = f"{int(exp_val)} yrs exp" if exp_val.is_integer() else f"{exp_val:.1f} yrs exp"
+                    except (ValueError, TypeError):
+                        exp_display = ""
+
+                candidates.append({
+                    "name": cand_name,
+                    "domain": domain,
+                    "skills": skills_flat[:6],
+                    "source_file": jf.name,
+                    "summary": summary,
+                    "snippet": summary,
+                    "experience_display": exp_display,
+                })
+            except Exception:
+                continue
+
+    # Fallback to database embeddings if JSON files are absent
+    if not candidates:
         try:
-            with open(jf, encoding="utf-8") as f:
-                data = json.load(f)
-            cand_name = (
-                data.get("personal_info", {}).get("name")
-                or data.get("candidate_name")
-                or jf.stem.replace("_nlp", "")
-            )
-            domain = data.get("domain") or "General"
-            skills_flat = extract_flat_skills(data.get("skills"))
+            stored = get_all_candidate_embeddings()
+            for s in stored:
+                name = s.get("candidate_name") or "Candidate"
+                domain = s.get("domain") or "General"
+                skills = s.get("skills") or []
+                profile = s.get("profile_text") or ""
+                summary = profile[:160] + "..." if len(profile) > 160 else profile
+                if not summary:
+                    summary = f"Indexed talent profile for {domain}."
 
-            # Extract personalized summary or construct role-based snippet
-            summary = data.get("summary") or data.get("candidate_strength_summary")
-            if not summary:
-                work_exp = data.get("work_experience") or []
-                if work_exp and isinstance(work_exp, list) and isinstance(work_exp[0], dict):
-                    role = work_exp[0].get("job_title") or "Professional"
-                    comp = work_exp[0].get("company") or ""
-                    resp = work_exp[0].get("responsibilities") or []
-                    resp_str = resp[0] if isinstance(resp, list) and resp else ""
-                    comp_str = f" at {comp}" if comp else ""
-                    summary = f"{role}{comp_str}. {resp_str}".strip()
+                candidates.append({
+                    "name": name,
+                    "domain": domain,
+                    "skills": skills[:6],
+                    "source_file": s.get("source_file") or "",
+                    "summary": summary,
+                    "snippet": summary,
+                    "experience_display": "",
+                })
+        except Exception as e:
+            logger.warning("Failed to retrieve candidate list from database fallback: %s", e)
 
-            if not summary:
-                projects = data.get("projects") or []
-                if projects and isinstance(projects, list) and isinstance(projects[0], dict):
-                    pname = projects[0].get("name") or projects[0].get("title") or "Project"
-                    pdesc = projects[0].get("description") or ""
-                    summary = f"{pname}: {pdesc}".strip()
-
-            if not summary:
-                skills_preview = ", ".join(skills_flat[:3]) if skills_flat else "verified competencies"
-                summary = f"Experienced {domain} talent specialized in {skills_preview}. Profile indexed for semantic matching."
-
-            exp_yrs = data.get("total_experience_years")
-            exp_display = ""
-            if exp_yrs is not None:
-                try:
-                    exp_val = float(exp_yrs)
-                    exp_display = f"{int(exp_val)} yrs exp" if exp_val.is_integer() else f"{exp_val:.1f} yrs exp"
-                except (ValueError, TypeError):
-                    exp_display = ""
-
-            candidates.append({
-                "name": cand_name,
-                "domain": domain,
-                "skills": skills_flat[:6],
-                "source_file": jf.name,
-                "summary": summary,
-                "snippet": summary,
-                "experience_display": exp_display,
-            })
-        except Exception:
-            continue
     return candidates
 
 

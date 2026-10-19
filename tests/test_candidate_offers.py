@@ -11,10 +11,7 @@ Verifies:
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.database import (
-    create_hr_notification,
     get_candidate_offer_by_id,
     get_candidate_offers,
     get_hr_notifications,
@@ -23,7 +20,6 @@ from app.database import (
 )
 from src.email_sender import send_selection_offer_email
 from src.talent_intelligence import generate_candidate_offer_letter
-
 
 # ─────────────────────────────────────────────────────────────
 # 1. GENERATION & FALLBACK TESTS
@@ -103,12 +99,12 @@ def test_generate_candidate_offer_letter_candidate_not_found():
 def test_database_candidate_offers_lifecycle():
     # 1. Save new offer
     offer_id = save_candidate_offer(
-        candidate_name="Ethan Hunt",
-        email="ethan.hunt@imf.gov",
-        job_title="Special Operations Lead",
+        candidate_name="David Miller",
+        email="david.miller@example.com",
+        job_title="Senior Infrastructure Engineer",
         start_date="Immediate",
-        compensation="Top Secret Tier 5",
-        offer_letter="Dear Ethan, Welcome to the team.",
+        compensation="₹22,00,000 PA",
+        offer_letter="Dear David, Welcome to the team.",
         status="DRAFT",
     )
     assert offer_id > 0
@@ -117,16 +113,16 @@ def test_database_candidate_offers_lifecycle():
     all_offers = get_candidate_offers()
     assert any(o["id"] == offer_id for o in all_offers)
 
-    ethan_offers = get_candidate_offers("Ethan Hunt")
-    assert len(ethan_offers) >= 1
-    assert ethan_offers[0]["job_title"] == "Special Operations Lead"
-    assert ethan_offers[0]["status"] == "DRAFT"
+    david_offers = get_candidate_offers("David Miller")
+    assert len(david_offers) >= 1
+    assert david_offers[0]["job_title"] == "Senior Infrastructure Engineer"
+    assert david_offers[0]["status"] == "DRAFT"
 
     # 3. Fetch single offer by ID
     single = get_candidate_offer_by_id(offer_id)
     assert single is not None
-    assert single["candidate_name"] == "Ethan Hunt"
-    assert single["email"] == "ethan.hunt@imf.gov"
+    assert single["candidate_name"] == "David Miller"
+    assert single["email"] == "david.miller@example.com"
 
     # 4. Mark offer sent
     mark_offer_sent(offer_id)
