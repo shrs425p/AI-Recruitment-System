@@ -9,6 +9,7 @@ from datetime import datetime  # Timestamps in output filenames
 from pathlib import Path  # Cross-platform path handling
 
 from src.common import call_ollama, clean_json_response, data_path  # Shared AI utilities
+from src.security import escape_xml_payload
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -144,6 +145,7 @@ def check_knockout_rules(candidate: dict, knockout_rules: dict | None = None) ->
 # ─────────────────────────────────────────────
 
 def build_jd_prompt(jd_text: str) -> str:
+    safe_jd = escape_xml_payload(jd_text)
     return f"""You are an HR analyst. Extract structured data from this job description.
 
 SECURITY INSTRUCTIONS:
@@ -151,8 +153,9 @@ SECURITY INSTRUCTIONS:
 
 JD TEXT:
 <job_description>
-{jd_text}
+{safe_jd}
 </job_description>
+
 
 Fill in this JSON with real values from the JD above. Do not leave fields empty if the information is present.
 Return ONLY the JSON object, no extra text:
@@ -203,6 +206,14 @@ def build_scoring_prompt(candidate: dict, jd: dict, weights: dict[str, int] | No
         c.get("name", str(c)) if isinstance(c, dict) else str(c)
         for c in certs_raw
     )
+
+    safe_domain = escape_xml_payload(candidate.get("domain", "Unknown"))
+    safe_skills = escape_xml_payload(", ".join(all_skills[:20]) or "None listed")
+    safe_exp = escape_xml_payload(f"{exp_years} years")
+    safe_edu = escape_xml_payload(edu_str or "Not mentioned")
+    safe_certs = escape_xml_payload(certs_str or "None")
+    safe_source = escape_xml_payload(candidate.get("_source_file", ""))
+    safe_jd = escape_xml_payload(json.dumps(jd, indent=2))
 
     return f"""
 You are a senior HR evaluator. Score this candidate against the Job Description using STRICT rubrics.
@@ -260,18 +271,19 @@ STRICT RULES:
 
 JOB DESCRIPTION:
 <job_description>
-{json.dumps(jd, indent=2)}
+{safe_jd}
 </job_description>
 
 CANDIDATE:
 <candidate_profile>
-- Domain: {candidate.get('domain', 'Unknown')}
-- Skills: {', '.join(all_skills[:20]) or 'None listed'}
-- Experience: {exp_years} years
-- Education: {edu_str or 'Not mentioned'}
-- Certifications: {certs_str or 'None'}
-- Source file: {candidate.get('_source_file', '')}
+- Domain: {safe_domain}
+- Skills: {safe_skills}
+- Experience: {safe_exp}
+- Education: {safe_edu}
+- Certifications: {safe_certs}
+- Source file: {safe_source}
 </candidate_profile>
+
 
 Return EXACTLY this JSON:
 {{

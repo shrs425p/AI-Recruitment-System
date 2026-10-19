@@ -394,3 +394,24 @@ def migrate_database_secrets(conn=None) -> int:
             pass
 
     return migrated_count
+
+
+def escape_xml_payload(text: object, escape_quotes: bool = False) -> str:
+    """
+    Escape XML delimiter characters in untrusted text (&, <, >)
+    to prevent prompt injection and tag boundary breakout in LLM templates.
+    """
+    if text is None:
+        return ""
+    if isinstance(text, (dict, list)):
+        import json
+
+        s = json.dumps(text, indent=2)
+    else:
+        s = str(text)
+
+    escaped = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    if escape_quotes:
+        escaped = escaped.replace('"', "&quot;").replace("'", "&apos;")
+    return escaped
+
