@@ -528,8 +528,9 @@ Stores real-time alerts notifying recruitment staff of interview completions.
 - Tokens are bound to the active user session and verified using constant-time string comparison algorithms to prevent timing attacks.
 
 ### 10.3 In-Memory Sliding-Window Rate Limiting
-- The candidate portal incorporates an in-memory sliding-window IP rate limiter restricting clients to a maximum of 60 requests per minute per IP address.
-- Defends against denial-of-service attempts and rapid automated answer submission attacks.
+- The candidate portal incorporates an in-memory sliding-window IP rate limiter restricting clients on candidate endpoints—including the public interview token validation entrypoint (`/candidate-interview/<token>`) and candidate REST APIs.
+- Candidate access tokens are generated with 256 bits of cryptographic entropy (`secrets.token_hex(32)`), mitigating brute-force enumeration attacks.
+- Defends against denial-of-service attempts, token guessing, and rapid automated answer submission attacks.
 
 ### 10.4 Loopback Desktop Nonces
 - Upon startup, the `pywebview` desktop launcher generates a high-entropy single-use cryptographic token passed into the native window.

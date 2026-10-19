@@ -90,10 +90,11 @@ Sensitive credentials and candidate documents are encrypted at rest using AES-Fe
 
 ## 4. Rate Limiting & Denial-of-Service Defense
 
-A thread-safe in-memory sliding window rate limiter (`SimpleRateLimiter`) inspects incoming requests on public candidate endpoints:
-- Limits requests to a configurable threshold (default: 60 requests per minute per IP address).
-- Sliding-window tracking automatically expires timestamps older than 60 seconds.
-- Memory leak protection limits tracked client IP keys to 10,000 maximum entries.
+A thread-safe in-memory sliding window rate limiter (`SimpleRateLimiter`) inspects incoming requests on all public candidate endpoints, including the public interview link validation page (`/candidate-interview/<token>`) and candidate REST APIs:
+- Limits requests to a configurable threshold (sliding-window tracking across 60 seconds).
+- Mitigates automated brute-force attacks and token guessing against interview access links.
+- Interview access tokens are generated using cryptographically strong 256-bit random tokens (`secrets.token_hex(32)`), rendering enumeration mathematically infeasible.
+- Memory leak protection limits tracked client IP keys to 10,000 maximum entries with automatic least-recently-used eviction.
 - Requests exceeding the limit are rejected with HTTP 429 Too Many Requests.
 
 ---

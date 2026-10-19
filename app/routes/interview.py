@@ -7,12 +7,16 @@ import os
 import re
 import secrets
 import time
-import uuid
 
 from flask import jsonify, render_template, request
 
 from app.core import OUTPUT_FOLDER
-from app.database import create_interview_token, get_all_tokens, get_interview_token
+from app.database import (
+    create_interview_token,
+    generate_interview_token,
+    get_all_tokens,
+    get_interview_token,
+)
 from app.rate_limiter import SimpleRateLimiter
 from app.utils import login_required
 from src.interview_bot import (
@@ -327,6 +331,22 @@ def register_candidate_interview_routes(app):
 
     @app.route("/candidate-interview/<token>")
     def candidate_interview(token):
+        client_ip = request.remote_addr or "127.0.0.1"
+        if not rate_limiter.is_allowed(client_ip):
+            if request.accept_mimetypes.best == "application/json":
+                return jsonify({"error": "Rate limit exceeded. Please wait before retrying."}), 429
+            from flask import render_template_string
+            return render_template_string("""
+            <html><head><title>Too Many Requests</title>
+            <style>body{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}</style>
+            </head><body>
+            <div style="text-align:center; padding:40px; background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+            <h2 style="color:#ef4444; margin-top:0;">Too Many Requests</h2>
+            <p style="color:#6b7280;">Rate limit exceeded. Please wait a moment before trying again.</p>
+            </div>
+            </body></html>
+            """), 429
+
         valid, token_data, reason = is_token_valid_and_active(token)
         if not valid or not token_data:
             from flask import render_template_string
@@ -384,7 +404,7 @@ def register_candidate_interview_routes(app):
         plan = get_interview_plan_for_role(job_title, domain)
         import config as cfg
         time_limit = getattr(cfg, "INTERVIEW_TIME_LIMIT_SECONDS", 120)
-        session_id = f"S_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        session_id = f"S_{secrets.token_urlsafe(24)}"
         session_key = secrets.token_urlsafe(32)
         fingerprint = _client_fingerprint()
         interview_session[session_id] = {
@@ -853,7 +873,7 @@ def register_hr_interview_routes(app):
                     token = token_record["token"]
                     used = token_record.get("used", 0)
                 else:
-                    token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+                    token = generate_interview_token()
                     cand_ctx = {
                         "candidate_name": cand_name,
                         "source_file": entry.get("source_file", ""),

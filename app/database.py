@@ -1,4 +1,5 @@
 import json
+import secrets
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -526,8 +527,14 @@ def update_schedule_slot(candidate_name, selected_slot):
 
 # ─── Interview token helpers ───
 
-def create_interview_token(token, candidate_name, source_file, job_title="", rank=0, score=0):
+def generate_interview_token() -> str:
+    """Generate a high-entropy cryptographically secure interview access token (256 bits)."""
+    return f"T_{secrets.token_hex(32)}"
+
+def create_interview_token(token=None, candidate_name="", source_file="", job_title="", rank=0, score=0):
     """Create a unique interview token for a candidate. Returns the token string."""
+    if not token:
+        token = generate_interview_token()
     conn = get_connection()
     try:
         conn.execute(
