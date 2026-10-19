@@ -20,7 +20,17 @@ from app.database import (
 from app.rate_limiter import SimpleRateLimiter
 from src.provider_router import sanitize_prompt_pii
 from src.ranking_engine import build_scoring_prompt
-from src.security import decrypt_bytes, decrypt_secret, encrypt_bytes, encrypt_secret
+from src.security import (
+    _derive_fernet_key,
+    _get_machine_secret,
+    _get_salt,
+    decrypt_bytes,
+    decrypt_secret,
+    encrypt_bytes,
+    encrypt_secret,
+    migrate_database_secrets,
+    reset_cipher_cache,
+)
 
 
 class TestCsrfProtection:
@@ -219,3 +229,139 @@ class TestTlsCertificateGeneration:
         assert key_p.stat().st_size > 100
         assert b"BEGIN CERTIFICATE" in cert_p.read_bytes()
         assert b"BEGIN" in key_p.read_bytes()
+
+
+class TestHardwareBoundSecretKeyDerivation:
+    """Verifies that secrets are cryptographically bound to host machine hardware and isolated from other machines."""
+
+    @pytest.fixture(autouse=True)
+    def reset_ciphers(self):
+        reset_cipher_cache()
+        yield
+        reset_cipher_cache()
+
+    def test_machine_secret_resolution(self, monkeypatch: pytest.MonkeyPatch):
+        secret = _get_machine_secret()
+        assert isinstance(secret, str)
+        assert len(secret) > 0
+
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "custom-machine-identifier-12345")
+        assert _get_machine_secret() == "custom-machine-identifier-12345"
+
+    def test_salt_creation_and_persistence(self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch):
+        salt_file = temp_dir / ".custom_salt"
+        monkeypatch.setenv("ARS_SALT_FILE", str(salt_file))
+
+        salt1 = _get_salt()
+        assert isinstance(salt1, bytes)
+        assert len(salt1) == 16
+        assert salt_file.is_file()
+
+        salt2 = _get_salt()
+        assert salt2 == salt1
+
+    def test_machine_bound_isolation_prevents_cross_machine_decryption(
+        self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        salt_file = temp_dir / ".secret_salt"
+        monkeypatch.setenv("ARS_SALT_FILE", str(salt_file))
+
+        # Encrypt secret and bytes on Machine A
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "hardware-guid-workstation-A")
+        reset_cipher_cache()
+
+        secret_text = "sk-live-secret-api-key-value"
+        ciphertext = encrypt_secret(secret_text)
+        assert ciphertext.startswith("ENC:")
+        assert decrypt_secret(ciphertext) == secret_text
+
+        secret_bytes = b"Sensitive Resume Binary Payload"
+        cipherbytes = encrypt_bytes(secret_bytes)
+        assert cipherbytes.startswith(b"ARS_ENC:")
+        assert decrypt_bytes(cipherbytes) == secret_bytes
+
+        # Attempt to decrypt on Machine B (with identical database & salt file)
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "hardware-guid-workstation-B")
+        reset_cipher_cache()
+
+        assert decrypt_secret(ciphertext) == ""
+        assert decrypt_bytes(cipherbytes) == b""
+
+        # Restoring Machine A secret restores decryption ability
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "hardware-guid-workstation-A")
+        reset_cipher_cache()
+        assert decrypt_secret(ciphertext) == secret_text
+        assert decrypt_bytes(cipherbytes) == secret_bytes
+
+    def test_legacy_ciphertext_decryption_fallback(
+        self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        from cryptography.fernet import Fernet
+
+        from src.common import APP_NAME
+
+        salt_file = temp_dir / ".secret_salt"
+        monkeypatch.setenv("ARS_SALT_FILE", str(salt_file))
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "hardware-guid-current-host")
+        reset_cipher_cache()
+
+        # Generate ciphertext using old legacy derivation (APP_NAME alone)
+        salt = _get_salt()
+        legacy_key = _derive_fernet_key(APP_NAME, salt)
+        legacy_fernet = Fernet(legacy_key)
+        legacy_secret = "legacy-stored-smtp-password"
+        legacy_token = f"ENC:{legacy_fernet.encrypt(legacy_secret.encode('utf-8')).decode('utf-8')}"
+
+        # Current decrypt_secret should transparently decrypt via legacy fallback
+        assert decrypt_secret(legacy_token) == legacy_secret
+
+    def test_database_secrets_migration(
+        self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        import sqlite3
+
+        from cryptography.fernet import Fernet
+
+        from src.common import APP_NAME
+
+        salt_file = temp_dir / ".secret_salt"
+        db_file = temp_dir / "migration_test.db"
+        monkeypatch.setenv("ARS_SALT_FILE", str(salt_file))
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "machine-origin-guid")
+        reset_cipher_cache()
+
+        # Create test DB with legacy encrypted records
+        salt = _get_salt()
+        legacy_key = _derive_fernet_key(APP_NAME, salt)
+        legacy_fernet = Fernet(legacy_key)
+
+        legacy_val = f"ENC:{legacy_fernet.encrypt(b'old-api-key').decode('utf-8')}"
+        legacy_email = f"ENC:{legacy_fernet.encrypt(b'applicant@example.com').decode('utf-8')}"
+
+        conn = sqlite3.connect(db_file)
+        conn.execute("CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT, is_encrypted INTEGER)")
+        conn.execute("CREATE TABLE candidates (id INTEGER PRIMARY KEY, email TEXT)")
+        conn.execute("CREATE TABLE email_log (id INTEGER PRIMARY KEY, recipient TEXT)")
+
+        conn.execute("INSERT INTO app_settings VALUES ('OPENAI_KEY', ?, 1)", (legacy_val,))
+        conn.execute("INSERT INTO candidates VALUES (1, ?)", (legacy_email,))
+        conn.commit()
+
+        # Run migration on Origin Machine
+        migrated = migrate_database_secrets(conn)
+        assert migrated == 2
+
+        # Verify Origin Machine can decrypt migrated values
+        row_setting = conn.execute("SELECT value FROM app_settings WHERE key='OPENAI_KEY'").fetchone()[0]
+        row_candidate = conn.execute("SELECT email FROM candidates WHERE id=1").fetchone()[0]
+        assert decrypt_secret(row_setting) == "old-api-key"
+        assert decrypt_secret(row_candidate) == "applicant@example.com"
+
+        # Simulate copying DB and salt to Attacker Machine B
+        monkeypatch.setenv("ARS_MACHINE_SECRET", "attacker-machine-guid")
+        reset_cipher_cache()
+
+        # Attacker cannot decrypt the migrated database records
+        assert decrypt_secret(row_setting) == ""
+        assert decrypt_secret(row_candidate) == ""
+        conn.close()

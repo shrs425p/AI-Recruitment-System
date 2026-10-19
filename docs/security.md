@@ -76,7 +76,8 @@ The system separates administrative privileges from candidate access by binding 
 Sensitive credentials and candidate documents are encrypted at rest using AES-Fernet with key derivation:
 
 ### Key Derivation
-- Master keys are derived using PBKDF2-HMAC-SHA256 with 100,000 iterations from a machine-specific secret and salt.
+- Master keys are derived using PBKDF2-HMAC-SHA256 with 100,000 iterations from a machine-specific secret and a persistent random salt.
+- The machine-specific secret is resolved from host system hardware identifiers (Windows Registry MachineGuid at `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography\MachineGuid`, Linux `/etc/machine-id`, or macOS hardware UUID) and domain context (`APP_NAME`), preventing decryption if the application data directory is exfiltrated or copied to another workstation.
 - Stored secrets are prefixed with `ENC:` to allow transparent runtime decryption.
 - Encrypted raw binary files (such as stored PDF and Word resumes) use the `ARS_ENC:` binary prefix.
 
