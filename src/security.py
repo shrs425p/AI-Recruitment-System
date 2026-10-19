@@ -8,9 +8,12 @@ Key derivation uses PBKDF2-HMAC-SHA256 (100,000 iterations) bound to a host mach
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -80,8 +83,8 @@ def _get_machine_secret() -> str:
                             return str(val).strip()
                 except OSError:
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed querying Windows Registry MachineGuid: %s", e)
 
     # 2. Linux machine ID
     for mid_path in (Path("/etc/machine-id"), Path("/var/lib/dbus/machine-id")):
@@ -90,8 +93,8 @@ def _get_machine_secret() -> str:
                 mid = mid_path.read_text(encoding="utf-8").strip()
                 if mid:
                     return mid
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed reading Linux machine-id from %s: %s", mid_path, e)
 
     # 3. macOS IOPlatformUUID
     if sys.platform == "darwin":
@@ -111,8 +114,8 @@ def _get_machine_secret() -> str:
                         uuid_val = parts[1].strip().strip('"')
                         if uuid_val:
                             return uuid_val
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed reading macOS IOPlatformUUID: %s", e)
 
     # 4. Hardware fingerprint fallback
     try:
@@ -131,12 +134,13 @@ def _get_machine_secret() -> str:
         ]
         try:
             components.append(getpass.getuser())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed fetching user login name for fingerprint: %s", e)
         return hashlib.sha256(":".join(components).encode("utf-8")).hexdigest()
-    except Exception:
+    except Exception as e:
         import uuid
 
+        logger.debug("Failed generating hardware fingerprint, falling back to node UUID: %s", e)
         return f"fallback-node-{uuid.getnode()}"
 
 
@@ -153,8 +157,8 @@ def _get_salt() -> bytes:
             salt = salt_file.read_bytes()
             if len(salt) >= 16:
                 return salt[:16]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed reading existing salt file: %s", e)
 
     salt = os.urandom(16)
     try:
@@ -163,10 +167,10 @@ def _get_salt() -> bytes:
         if os.name != "nt":
             try:
                 os.chmod(salt_file, 0o600)
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.debug("Failed setting permissions on salt file: %s", e)
+    except Exception as e:
+        logger.debug("Failed persisting salt file: %s", e)
     return salt
 
 
@@ -242,15 +246,15 @@ def decrypt_secret(ciphertext: str) -> str:
     try:
         fernet = _get_fernet()
         return fernet.decrypt(raw_payload).decode("utf-8")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Primary Fernet decrypt failed, falling back to legacy: %s", e)
 
     # 2. Legacy fallback for backward-compatibility & migration
     try:
         legacy = _get_legacy_fernet()
         return legacy.decrypt(raw_payload).decode("utf-8")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Legacy Fernet decrypt failed: %s", e)
 
     return ""
 
@@ -281,15 +285,15 @@ def decrypt_bytes(data: bytes) -> bytes:
     try:
         fernet = _get_fernet()
         return fernet.decrypt(raw_payload)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Primary Fernet binary decrypt failed, falling back to legacy: %s", e)
 
     # 2. Legacy fallback
     try:
         legacy = _get_legacy_fernet()
         return legacy.decrypt(raw_payload)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Legacy Fernet binary decrypt failed: %s", e)
 
     return b""
 
@@ -324,17 +328,17 @@ def migrate_database_secrets(conn=None) -> int:
                 try:
                     primary.decrypt(payload)
                     continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Primary decrypt failed for app_settings key %s: %s", k, e)
                 try:
                     decrypted = legacy.decrypt(payload).decode("utf-8")
                     new_enc = f"ENC:{primary.encrypt(decrypted.encode('utf-8')).decode('utf-8')}"
                     conn.execute("UPDATE app_settings SET value = ? WHERE key = ?", (new_enc, k))
                     migrated_count += 1
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.debug("Legacy migration failed for app_settings key %s: %s", k, e)
+    except Exception as e:
+        logger.debug("Failed querying app_settings for migration: %s", e)
 
     # 2. candidates
     try:
@@ -347,17 +351,17 @@ def migrate_database_secrets(conn=None) -> int:
                 try:
                     primary.decrypt(payload)
                     continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Primary decrypt failed for candidate %s: %s", cid, e)
                 try:
                     decrypted = legacy.decrypt(payload).decode("utf-8")
                     new_enc = f"ENC:{primary.encrypt(decrypted.encode('utf-8')).decode('utf-8')}"
                     conn.execute("UPDATE candidates SET email = ? WHERE id = ?", (new_enc, cid))
                     migrated_count += 1
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.debug("Legacy migration failed for candidate %s: %s", cid, e)
+    except Exception as e:
+        logger.debug("Failed querying candidates for migration: %s", e)
 
     # 3. email_log
     try:
@@ -370,28 +374,28 @@ def migrate_database_secrets(conn=None) -> int:
                 try:
                     primary.decrypt(payload)
                     continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Primary decrypt failed for email_log id %s: %s", lid, e)
                 try:
                     decrypted = legacy.decrypt(payload).decode("utf-8")
                     new_enc = f"ENC:{primary.encrypt(decrypted.encode('utf-8')).decode('utf-8')}"
                     conn.execute("UPDATE email_log SET recipient = ? WHERE id = ?", (new_enc, lid))
                     migrated_count += 1
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    logger.debug("Legacy migration failed for email_log id %s: %s", lid, e)
+    except Exception as e:
+        logger.debug("Failed querying email_log for migration: %s", e)
 
     try:
         conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to commit migrated secrets: %s", e)
 
     if should_close:
         try:
             conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to close connection after migration: %s", e)
 
     return migrated_count
 
@@ -414,4 +418,20 @@ def escape_xml_payload(text: object, escape_quotes: bool = False) -> str:
     if escape_quotes:
         escaped = escaped.replace('"', "&quot;").replace("'", "&apos;")
     return escaped
+
+
+def mask_secret(val: str, prefix_len: int = 4, suffix_len: int = 4) -> str:
+    """
+    Mask sensitive secrets for safe display in UI templates (e.g. sk-a••••••••••••cdef).
+    Returns empty string if val is empty/None.
+    """
+    if not val or not isinstance(val, str):
+        return ""
+    val = val.strip()
+    if not val:
+        return ""
+    if len(val) <= prefix_len + suffix_len:
+        return "••••••••"
+    return f"{val[:prefix_len]}{'•' * 12}{val[-suffix_len:]}"
+
 

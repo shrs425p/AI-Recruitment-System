@@ -35,6 +35,14 @@ def _isolated_auth_app() -> Flask:
 class TestUserCredentialsAuthentication:
     """Tests HR manager username/password authentication, hashing, and password migration."""
 
+    @pytest.fixture(autouse=True)
+    def reset_limiter(self):
+        from app.routes.auth import login_rate_limiter
+
+        login_rate_limiter.requests.clear()
+        yield
+        login_rate_limiter.requests.clear()
+
     def test_login_accepts_hashed_password(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(config, "LOGIN_ENABLED", True, raising=False)
         monkeypatch.setattr(config, "HR_USERNAME", "hr_admin", raising=False)
@@ -66,6 +74,7 @@ class TestUserCredentialsAuthentication:
             raising=False,
         )
 
+        monkeypatch.setattr("time.sleep", lambda s: None)
         client = _isolated_auth_app().test_client()
         response = client.post(
             "/login",
@@ -103,6 +112,87 @@ class TestUserCredentialsAuthentication:
         client = app.test_client()
         response = client.get("/login")
         assert response.status_code == 403
+
+    def test_login_csrf_validation(self, monkeypatch: pytest.MonkeyPatch):
+        from app.routes.auth import login_rate_limiter
+
+        login_rate_limiter.requests.clear()
+        monkeypatch.setattr(config, "LOGIN_ENABLED", True, raising=False)
+        monkeypatch.setattr(config, "HR_USERNAME", "hr_admin", raising=False)
+        monkeypatch.setattr(
+            config,
+            "HR_PASSWORD_HASH",
+            generate_password_hash("Secret123!"),
+            raising=False,
+        )
+        monkeypatch.setattr("time.sleep", lambda s: None)
+
+        client = _isolated_auth_app().test_client()
+
+        # Set CSRF token in session
+        with client.session_transaction() as sess:
+            sess["_csrf_token"] = "valid-csrf-token-12345"
+
+        # Missing CSRF token
+        r_missing = client.post(
+            "/login",
+            data={"username": "hr_admin", "password": "Secret123!"},
+        )
+        assert r_missing.status_code == 403
+        assert b"CSRF token" in r_missing.data
+
+        # Invalid CSRF token
+        r_invalid = client.post(
+            "/login",
+            data={"username": "hr_admin", "password": "Secret123!", "csrf_token": "wrong-token"},
+        )
+        assert r_invalid.status_code == 403
+
+        # Valid CSRF token
+        r_valid = client.post(
+            "/login",
+            data={"username": "hr_admin", "password": "Secret123!", "csrf_token": "valid-csrf-token-12345"},
+        )
+        assert r_valid.status_code == 302
+        assert r_valid.headers["Location"].endswith("/dashboard")
+
+    def test_login_rate_limiting_enforces_lockout(self, monkeypatch: pytest.MonkeyPatch):
+        from app.routes.auth import login_rate_limiter
+
+        login_rate_limiter.requests.clear()
+        monkeypatch.setattr(config, "LOGIN_ENABLED", True, raising=False)
+        monkeypatch.setattr(config, "HR_USERNAME", "hr_admin", raising=False)
+        monkeypatch.setattr(
+            config,
+            "HR_PASSWORD_HASH",
+            generate_password_hash("Secret123!"),
+            raising=False,
+        )
+        monkeypatch.setattr("time.sleep", lambda s: None)
+
+        client = _isolated_auth_app().test_client()
+
+        test_ip = "192.168.1.100"
+        headers = {"X-Forwarded-For": test_ip}
+
+        # 5 failed attempts allowed
+        for _ in range(5):
+            r = client.post(
+                "/login",
+                data={"username": "hr_admin", "password": "WrongPassword"},
+                headers=headers,
+            )
+            assert r.status_code == 200
+
+        # 6th attempt should be blocked with 429
+        r_blocked = client.post(
+            "/login",
+            data={"username": "hr_admin", "password": "Secret123!"},
+            headers=headers,
+        )
+        assert r_blocked.status_code == 429
+        assert b"Too many login attempts" in r_blocked.data
+        login_rate_limiter.requests.clear()
 
 
 class TestDesktopNonceSecurity:

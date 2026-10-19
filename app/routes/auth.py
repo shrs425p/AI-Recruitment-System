@@ -1,9 +1,13 @@
 import hmac
+import time
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 import config
+from app.rate_limiter import SimpleRateLimiter
+
+login_rate_limiter = SimpleRateLimiter(requests_per_minute=5, max_keys=1000)
 
 
 def register_auth_routes(app):
@@ -94,6 +98,28 @@ def register_auth_routes(app):
             ), 403
         error = None
         if request.method == "POST":
+            # SEC-02: Rate limiting on authentication attempts
+            client_ip = (
+                request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1")
+                .split(",")[0]
+                .strip()
+            )
+            if not login_rate_limiter.is_allowed(client_ip):
+                return render_template(
+                    "login.html",
+                    error="Too many login attempts. Please wait 1 minute before trying again.",
+                ), 429
+
+            # SEC-01: CSRF validation for HTML form POST
+            expected_csrf = session.get("_csrf_token", "")
+            if expected_csrf:
+                provided_csrf = request.form.get("csrf_token", "") or request.headers.get("X-CSRF-Token", "")
+                if not provided_csrf or not hmac.compare_digest(provided_csrf, expected_csrf):
+                    return render_template(
+                        "login.html",
+                        error="Session expired or invalid CSRF token. Please refresh and try again.",
+                    ), 403
+
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
             password_hash = getattr(config, "HR_PASSWORD_HASH", "")
@@ -124,8 +150,10 @@ def register_auth_routes(app):
                 session.permanent = True
                 return redirect(url_for("dashboard"))
             else:
+                time.sleep(1.0)
                 error = "Invalid credentials. Please try again."
         return render_template("login.html", error=error)
+
 
     @app.route("/logout")
     def logout():

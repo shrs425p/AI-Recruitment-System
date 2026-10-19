@@ -146,3 +146,80 @@ class TestEmailInvitationDispatch:
         )
         assert success is True
         assert err == ""
+
+    def test_send_interview_email_smtp_ssl_port_465(self, monkeypatch: pytest.MonkeyPatch):
+        called_ssl = []
+
+        class MockSMTPSSL:
+            def __init__(self, host, port, timeout=30):
+                called_ssl.append((host, port))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def login(self, user, pwd):
+                pass
+
+            def send_message(self, msg):
+                pass
+
+        monkeypatch.setattr("smtplib.SMTP_SSL", MockSMTPSSL)
+
+        success, err = send_interview_email(
+            smtp_host="smtp.example.com",
+            smtp_port=465,
+            smtp_email="hr@example.com",
+            smtp_password="password",
+            recipient_email="candidate@example.com",
+            candidate_name="John Doe",
+            job_title="Security Engineer",
+            interview_slot="2026-11-10 14:00",
+        )
+        assert success is True
+        assert called_ssl == [("smtp.example.com", 465)]
+
+    def test_send_interview_email_header_newline_sanitization(self, monkeypatch: pytest.MonkeyPatch):
+        import config
+
+        monkeypatch.setattr(config, "EMAIL_TEMPLATE_SUBJECT", "{job_title} - {candidate_name}")
+
+        captured_subject = []
+
+        class MockSMTP:
+            def __init__(self, host, port, timeout=30):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def starttls(self):
+                pass
+
+            def login(self, user, pwd):
+                pass
+
+            def send_message(self, msg):
+                captured_subject.append(msg["Subject"])
+
+        monkeypatch.setattr("smtplib.SMTP", MockSMTP)
+
+        success, err = send_interview_email(
+            smtp_host="localhost",
+            smtp_port=587,
+            smtp_email="hr@example.com",
+            smtp_password="password",
+            recipient_email="candidate@example.com\r\nBcc: evil@example.com",
+            candidate_name="John Doe\r\nBcc: injected@example.com",
+            job_title="DevOps Lead\nSubject: Injected Subject",
+            interview_slot="2026-11-10 14:00",
+        )
+        assert success is True
+        assert len(captured_subject) == 1
+        assert "\r" not in captured_subject[0]
+        assert "\n" not in captured_subject[0]

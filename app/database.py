@@ -663,8 +663,7 @@ def delete_candidate(candidate_id: int) -> dict | None:
                     except Exception:
                         pass
             if ids_to_del:
-                placeholders = ",".join("?" for _ in ids_to_del)
-                conn.execute(f"DELETE FROM email_log WHERE id IN ({placeholders})", tuple(ids_to_del))
+                conn.executemany("DELETE FROM email_log WHERE id=?", [(i,) for i in ids_to_del])
 
         # Delete from schedules
         conn.execute("DELETE FROM schedules WHERE candidate_name=?", (name,))

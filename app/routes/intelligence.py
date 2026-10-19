@@ -146,8 +146,8 @@ def _get_funnel_and_distribution() -> tuple[dict, dict]:
                                 scores.append(float(s))
                             except (ValueError, TypeError):
                                 pass
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed parsing ranking output file: %s", e)
 
     completed_interviews = 0
     if interviews_dir.exists():
@@ -157,8 +157,8 @@ def _get_funnel_and_distribution() -> tuple[dict, dict]:
                     idata = json.load(f)
                     if idata.get("status") == "COMPLETED" or len(idata.get("responses", [])) > 0:
                         completed_interviews += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed reading interview transcript %s: %s", int_f, e)
 
     reports_count = len(list(reports_dir.glob("report_*.json"))) if reports_dir.exists() else 0
 
@@ -391,8 +391,8 @@ def register_intelligence_routes(app):
         if feedback_id:
             try:
                 mark_feedback_sent(int(feedback_id))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed marking feedback %s as sent: %s", feedback_id, e)
 
         return jsonify({
             "success": True,
@@ -484,8 +484,8 @@ def register_intelligence_routes(app):
         if offer_id:
             try:
                 mark_offer_sent(int(offer_id))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed marking offer %s as sent: %s", offer_id, e)
 
         # Trigger HR Notification
         try:
@@ -497,8 +497,8 @@ def register_intelligence_routes(app):
                 notif_type="offer_sent",
                 link="/reports",
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed creating HR notification for offer dispatch: %s", e)
 
         return jsonify({
             "success": True,

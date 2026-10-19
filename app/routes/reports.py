@@ -36,8 +36,8 @@ def register_reports_routes(app):
                     c_name = idata.get("candidate_name")
                     if c_name:
                         interviews_map[c_name] = idata
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed loading interview file %s: %s", int_f, e)
 
         # Build candidate email lookup map from NLP cache
         email_map = {}
@@ -51,8 +51,8 @@ def register_reports_routes(app):
                     n_cand = (pinfo.get("name") or ndata.get("candidate_name") or nf.stem.replace("_nlp", "")).strip().lower()
                     if pinfo.get("email"):
                         email_map[n_cand] = pinfo["email"]
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed reading NLP cache file %s: %s", nf, e)
 
         for rf in reports_files:
             try:
@@ -170,8 +170,8 @@ def register_reports_routes(app):
                         if tdata.get("candidate_name") == cname:
                             report["responses"] = tdata.get("responses", [])
                             break
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed reading interview %s for candidate %s: %s", jf, cname, e)
 
         try:
             from src.report_generator import generate_evaluation_pdf
@@ -211,8 +211,8 @@ def register_reports_routes(app):
                         if tdata.get("candidate_name") == cname:
                             report["responses"] = tdata.get("responses", [])
                             break
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed reading interview %s for candidate %s: %s", jf, cname, e)
 
         try:
             from src.report_generator import generate_evaluation_pdf
@@ -224,8 +224,8 @@ def register_reports_routes(app):
             # Auto-open with system PDF viewer if available
             try:
                 _os.startfile(str(pdf_path))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed opening PDF with system viewer: %s", e)
         except Exception as e:
             return jsonify({"error": f"PDF save failed: {e}"}), 500
 
