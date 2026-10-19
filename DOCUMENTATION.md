@@ -710,7 +710,6 @@ AI-Recruitment-System/
 ├── pyproject.toml                   ← Package specification, dependencies, and Ruff config
 ├── requirements.txt                 ← Production dependency manifest
 ├── README.md                        ← Public repository documentation & feature overview
-├── report.md                        ← Master System Manual & Technical Reference
 ├── DOCUMENTATION.md                 ← Complete System Documentation
 │
 ├── app/                             ← Application Web Package

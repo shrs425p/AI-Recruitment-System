@@ -7,7 +7,6 @@
 
   <p>
     <a href="DOCUMENTATION.md">System Documentation</a> | 
-    <a href="report.md">Master System Manual</a> | 
     <a href="docs/getting-started.md">Getting Started</a> | 
     <a href="docs/index.md">Documentation Hub</a> | 
     <a href="https://github.com/shrs425p/AI-Recruitment-System">GitHub Repository</a>
@@ -172,7 +171,6 @@ Comprehensive guides, architectural diagrams, and operational specifications are
 | Document | Focus & Contents |
 |---|---|
 | [System Documentation](DOCUMENTATION.md) | Single-file technical documentation covering architecture, setup, APIs, schemas, security, and troubleshooting. |
-| [Master System Manual](report.md) | Exhaustive, end-to-end technical manual covering all operations, workflows, database tables, API routes, configurations, troubleshooting, and manifests. |
 | [Getting Started](docs/getting-started.md) | Installation prerequisites, environment verification, first-run guide, and initial setup. |
 | [Architecture](docs/architecture.md) | Two-server network isolation model, subsystem boundaries, data flow, and threading topology. |
 | [Pipeline Guide](docs/pipeline.md) | Step-by-step walkthrough of all 8 recruitment pipeline stages from upload to report generation. |
