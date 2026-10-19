@@ -613,17 +613,31 @@ def delete_job_template(template_id: int) -> bool:
 
 
 def delete_candidate(candidate_id: int) -> dict | None:
-    """Purge a candidate and all related database records (schedules, email_logs, tokens).
-    Returns deleted candidate metadata (name, source_file) or None if not found."""
+    """Purge a candidate and all related database records (schedules, email_logs, tokens, feedback, offers, notes, embeddings, notifications).
+    Returns deleted candidate metadata (name, source_file, email) or None if not found."""
     conn = get_connection()
     try:
-        cur = conn.execute("SELECT id, name, source_file FROM candidates WHERE id=?", (candidate_id,))
+        cur = conn.execute("SELECT id, name, email, source_file FROM candidates WHERE id=?", (candidate_id,))
         cand = cur.fetchone()
         if not cand:
             return None
         cand_dict = dict(cand)
         name = cand_dict["name"]
-        source_file = cand_dict["source_file"]
+        source_file = cand_dict.get("source_file") or ""
+        email = cand_dict.get("email") or ""
+
+        # Resolve effective plaintext email
+        effective_email = ""
+        if email:
+            if email.startswith("ENC:"):
+                try:
+                    from src.security import decrypt_secret
+
+                    effective_email = decrypt_secret(email)
+                except Exception:
+                    effective_email = ""
+            else:
+                effective_email = email
 
         # Delete from email_log for matching schedules
         conn.execute("""
@@ -631,6 +645,26 @@ def delete_candidate(candidate_id: int) -> dict | None:
                 SELECT id FROM schedules WHERE candidate_name=?
             )
         """, (name,))
+
+        # Delete from email_log for matching recipient (plaintext or encrypted)
+        if effective_email:
+            rows = conn.execute("SELECT id, recipient FROM email_log WHERE recipient != ''").fetchall()
+            from src.security import decrypt_secret
+
+            ids_to_del = []
+            for r in rows:
+                recip = r["recipient"]
+                if recip == effective_email:
+                    ids_to_del.append(r["id"])
+                elif recip.startswith("ENC:"):
+                    try:
+                        if decrypt_secret(recip) == effective_email:
+                            ids_to_del.append(r["id"])
+                    except Exception:
+                        pass
+            if ids_to_del:
+                placeholders = ",".join("?" for _ in ids_to_del)
+                conn.execute(f"DELETE FROM email_log WHERE id IN ({placeholders})", tuple(ids_to_del))
 
         # Delete from schedules
         conn.execute("DELETE FROM schedules WHERE candidate_name=?", (name,))
@@ -640,6 +674,27 @@ def delete_candidate(candidate_id: int) -> dict | None:
 
         # Delete from interview_sessions
         conn.execute("DELETE FROM interview_sessions WHERE candidate_name=?", (name,))
+
+        # Delete from candidate_feedback
+        if effective_email:
+            conn.execute("DELETE FROM candidate_feedback WHERE candidate_name=? OR (email != '' AND email=?)", (name, effective_email))
+        else:
+            conn.execute("DELETE FROM candidate_feedback WHERE candidate_name=?", (name,))
+
+        # Delete from candidate_offers
+        if effective_email:
+            conn.execute("DELETE FROM candidate_offers WHERE candidate_name=? OR (email != '' AND email=?)", (name, effective_email))
+        else:
+            conn.execute("DELETE FROM candidate_offers WHERE candidate_name=?", (name,))
+
+        # Delete from candidate_notes
+        conn.execute("DELETE FROM candidate_notes WHERE candidate_name=? OR (source_file != '' AND source_file=?)", (name, source_file))
+
+        # Delete from candidate_embeddings
+        conn.execute("DELETE FROM candidate_embeddings WHERE candidate_name=? OR (source_file != '' AND source_file=?)", (name, source_file))
+
+        # Delete from hr_notifications
+        conn.execute("DELETE FROM hr_notifications WHERE candidate_name=?", (name,))
 
         # Delete from candidates
         conn.execute("DELETE FROM candidates WHERE id=?", (candidate_id,))
