@@ -1154,8 +1154,8 @@ def compute_interview_difficulty_breakdown() -> dict:
             except Exception:
                 continue
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed querying interview answers for topic analytics: %s", e)
 
     topics_summary = []
     is_benchmark = False
@@ -1352,16 +1352,16 @@ def compute_hiring_velocity_metrics() -> dict:
             if r["run_type"] == "nlp" and not nlp_ts:
                 try:
                     nlp_ts = datetime.fromisoformat(r["run_ts"].replace("Z", ""))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed parsing nlp run_ts: %s", e)
             elif r["run_type"] == "ranking" and nlp_ts:
                 try:
                     r_ts = datetime.fromisoformat(r["run_ts"].replace("Z", ""))
                     delta = (r_ts - nlp_ts).total_seconds() / 60.0
                     if 0 < delta < 180:
                         time_to_screen_min = round(delta, 1)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed calculating ranking delta: %s", e)
 
         # 2. Candidate turnaround: schedule to interview token used
         sched_row = conn.execute("SELECT created_at FROM schedules ORDER BY id ASC LIMIT 1").fetchone()
@@ -1373,12 +1373,12 @@ def compute_hiring_velocity_metrics() -> dict:
                 diff_hrs = (t_created - s_created).total_seconds() / 3600.0
                 if 0 < diff_hrs < 168:
                     candidate_turnaround_hrs = round(diff_hrs, 1)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed calculating turnaround hours: %s", e)
 
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed querying telemetry pipeline stages: %s", e)
 
     stages = [
         {

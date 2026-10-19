@@ -6,8 +6,10 @@ from werkzeug.security import generate_password_hash
 
 import config as cfg
 from app.utils import login_required
+from src.security import mask_secret
 
 logger = logging.getLogger(__name__)
+
 
 
 def _get_about_html() -> str:
@@ -133,14 +135,23 @@ def register_settings_routes(app):
 
             if "app_mode" in request.form:
                 cfg.APP_MODE = request.form.get("app_mode", "privacy").strip()
-                cfg.ANTHROPIC_KEY = request.form.get("anthropic_key", "").strip()
-                cfg.GEMINI_KEY    = request.form.get("gemini_key", "").strip()
-                cfg.GROQ_KEY      = request.form.get("groq_key", "").strip()
-                cfg.OPENAI_KEY    = request.form.get("openai_key", "").strip()
-                cfg.NVIDIA_KEY    = request.form.get("nvidia_key", "").strip()
-                cfg.OPENROUTER_KEY = request.form.get("openrouter_key", "").strip()
-                cfg.GITHUB_KEY    = request.form.get("github_key", "").strip()
-                cfg.OLLAMA_CLOUD_KEY = request.form.get("ollama_cloud_key", "").strip()
+
+                def _update_secret_if_changed(current_val: str, form_val: str) -> str:
+                    stripped = form_val.strip() if form_val else ""
+                    if not stripped:
+                        return current_val
+                    if any(c in stripped for c in ("•", "*")):
+                        return current_val
+                    return stripped
+
+                cfg.ANTHROPIC_KEY = _update_secret_if_changed(cfg.ANTHROPIC_KEY, request.form.get("anthropic_key", ""))
+                cfg.GEMINI_KEY    = _update_secret_if_changed(cfg.GEMINI_KEY, request.form.get("gemini_key", ""))
+                cfg.GROQ_KEY      = _update_secret_if_changed(cfg.GROQ_KEY, request.form.get("groq_key", ""))
+                cfg.OPENAI_KEY    = _update_secret_if_changed(cfg.OPENAI_KEY, request.form.get("openai_key", ""))
+                cfg.NVIDIA_KEY    = _update_secret_if_changed(cfg.NVIDIA_KEY, request.form.get("nvidia_key", ""))
+                cfg.OPENROUTER_KEY = _update_secret_if_changed(cfg.OPENROUTER_KEY, request.form.get("openrouter_key", ""))
+                cfg.GITHUB_KEY    = _update_secret_if_changed(cfg.GITHUB_KEY, request.form.get("github_key", ""))
+                cfg.OLLAMA_CLOUD_KEY = _update_secret_if_changed(cfg.OLLAMA_CLOUD_KEY, request.form.get("ollama_cloud_key", ""))
 
                 if "privacy_model" in request.form:
                     cfg.PRIVACY_MODEL = request.form.get("privacy_model", cfg.PRIVACY_MODEL).strip()
@@ -172,7 +183,10 @@ def register_settings_routes(app):
             # ── Email / SMTP & Templates ──
             if "smtp_email" in request.form or "email_template_subject" in request.form:
                 cfg.SMTP_EMAIL    = request.form.get("smtp_email", cfg.SMTP_EMAIL).strip()
-                cfg.SMTP_PASSWORD = request.form.get("smtp_password", cfg.SMTP_PASSWORD).strip()
+                if "smtp_password" in request.form:
+                    raw_pw = request.form.get("smtp_password", "")
+                    if raw_pw.strip() and not any(c in raw_pw for c in ("•", "*")):
+                        cfg.SMTP_PASSWORD = raw_pw.strip()
                 cfg.SMTP_HOST     = request.form.get("smtp_host", cfg.SMTP_HOST).strip()
                 try:
                     cfg.SMTP_PORT = int(request.form.get("smtp_port", cfg.SMTP_PORT))
@@ -234,7 +248,9 @@ def register_settings_routes(app):
             about_html=_get_about_html(),
             scoring_weights=parsed_weights,
             knockout_rules=parsed_knockouts,
+            mask_secret=mask_secret,
         )
+
 
     @app.route("/api/settings/scoring", methods=["POST"])
     @login_required
@@ -360,8 +376,22 @@ def register_settings_routes(app):
         provider = data.get("provider", "")
         key = data.get("key", "").strip()
 
+        if not key or any(c in key for c in ("•", "*")):
+            key_map = {
+                "openai": getattr(cfg, "OPENAI_KEY", ""),
+                "groq": getattr(cfg, "GROQ_KEY", ""),
+                "gemini": getattr(cfg, "GEMINI_KEY", ""),
+                "anthropic": getattr(cfg, "ANTHROPIC_KEY", ""),
+                "openrouter": getattr(cfg, "OPENROUTER_KEY", ""),
+                "nvidia": getattr(cfg, "NVIDIA_KEY", ""),
+                "github": getattr(cfg, "GITHUB_KEY", ""),
+                "ollama_cloud": getattr(cfg, "OLLAMA_CLOUD_KEY", ""),
+            }
+            key = key_map.get(provider, "")
+
         if not key and provider != "ollama_cloud":
             return jsonify({"success": False, "error": "API Key is required to fetch models."})
+
 
         import json
         import urllib.request

@@ -851,7 +851,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="anthropic_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="anthropic_key" id="anthropic_key" type="password"
-                            value="{{ cfg.ANTHROPIC_KEY }}" placeholder="sk-ant-...">
+                            value="{{ mask_secret(cfg.ANTHROPIC_KEY) }}" placeholder="sk-ant-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="anthropic_model" style="font-size:0.8rem;">Model</label>
@@ -893,7 +893,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="gemini_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="gemini_key" id="gemini_key" type="password"
-                            value="{{ cfg.GEMINI_KEY }}" placeholder="AIza...">
+                            value="{{ mask_secret(cfg.GEMINI_KEY) }}" placeholder="AIza...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="gemini_model" style="font-size:0.8rem;">Model</label>
@@ -935,7 +935,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="groq_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="groq_key" id="groq_key" type="password"
-                            value="{{ cfg.GROQ_KEY }}" placeholder="gsk_...">
+                            value="{{ mask_secret(cfg.GROQ_KEY) }}" placeholder="gsk_...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="groq_model" style="font-size:0.8rem;">Model</label>
@@ -976,7 +976,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="openai_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="openai_key" id="openai_key" type="password"
-                            value="{{ cfg.OPENAI_KEY }}" placeholder="sk-...">
+                            value="{{ mask_secret(cfg.OPENAI_KEY) }}" placeholder="sk-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="openai_model" style="font-size:0.8rem;">Model</label>
@@ -1018,7 +1018,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="nvidia_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="nvidia_key" id="nvidia_key" type="password"
-                            value="{{ cfg.NVIDIA_KEY }}" placeholder="nvapi-...">
+                            value="{{ mask_secret(cfg.NVIDIA_KEY) }}" placeholder="nvapi-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="nvidia_model" style="font-size:0.8rem;">Model</label>
@@ -1060,7 +1060,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="openrouter_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="openrouter_key" id="openrouter_key" type="password"
-                            value="{{ cfg.OPENROUTER_KEY }}" placeholder="sk-or-...">
+                            value="{{ mask_secret(cfg.OPENROUTER_KEY) }}" placeholder="sk-or-...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="openrouter_model" style="font-size:0.8rem;">Model</label>
@@ -1102,7 +1102,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="github_key" style="font-size:0.8rem;">GitHub Token</label>
                         <input class="form-input" name="github_key" id="github_key" type="password"
-                            value="{{ cfg.GITHUB_KEY }}" placeholder="ghp_...">
+                            value="{{ mask_secret(cfg.GITHUB_KEY) }}" placeholder="ghp_...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="github_model" style="font-size:0.8rem;">Model</label>
@@ -1144,7 +1144,7 @@
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="ollama_cloud_key" style="font-size:0.8rem;">API Key</label>
                         <input class="form-input" name="ollama_cloud_key" id="ollama_cloud_key" type="password"
-                            value="{{ cfg.OLLAMA_CLOUD_KEY }}" placeholder="ollama_...">
+                            value="{{ mask_secret(cfg.OLLAMA_CLOUD_KEY) }}" placeholder="ollama_...">
                     </div>
                     <div class="form-group" style="margin-bottom:0;">
                         <label class="form-label" for="ollama_cloud_model" style="font-size:0.8rem;">Model</label>
@@ -1201,7 +1201,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="smtpPassword">App Password</label>
-                    <input class="form-input" id="smtpPassword" name="smtp_password" type="password" value="{{ cfg.SMTP_PASSWORD }}"
+                    <input class="form-input" id="smtpPassword" name="smtp_password" type="password" value="{{ mask_secret(cfg.SMTP_PASSWORD) }}"
                         placeholder="xxxx xxxx xxxx xxxx">
                 </div>
                 <div class="form-group">

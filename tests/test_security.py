@@ -28,6 +28,7 @@ from src.security import (
     decrypt_secret,
     encrypt_bytes,
     encrypt_secret,
+    mask_secret,
     migrate_database_secrets,
     reset_cipher_cache,
 )
@@ -329,6 +330,58 @@ class TestTlsCertificateGeneration:
         assert key_p.stat().st_size > 100
         assert b"BEGIN CERTIFICATE" in cert_p.read_bytes()
         assert b"BEGIN" in key_p.read_bytes()
+
+    def test_mask_secret_utility(self):
+        assert mask_secret("") == ""
+        assert mask_secret(None) == ""
+        assert mask_secret("short") == "••••••••"
+        masked = mask_secret("sk-ant-api03-12345678abcdef")
+        assert masked.startswith("sk-a")
+        assert masked.endswith("cdef")
+        assert "•" in masked
+        assert "12345678" not in masked
+
+    def test_settings_secret_preservation_on_masked_submission(self, auth_client: FlaskClient):
+        import config as cfg
+
+        cfg.ANTHROPIC_KEY = "sk-ant-original-secret-key-1234"
+        cfg.SMTP_PASSWORD = "original-app-password-5678"
+
+        # 1. Submitting masked value should preserve existing key
+        resp = auth_client.post(
+            "/settings",
+            data={
+                "app_mode": "cloud",
+                "anthropic_key": mask_secret(cfg.ANTHROPIC_KEY),
+                "anthropic_model": "claude-3-5-haiku-latest",
+            },
+        )
+        assert resp.status_code in (200, 302)
+        assert cfg.ANTHROPIC_KEY == "sk-ant-original-secret-key-1234"
+
+        # 2. Submitting empty string should preserve existing key
+        resp = auth_client.post(
+            "/settings",
+            data={
+                "app_mode": "cloud",
+                "anthropic_key": "   ",
+                "anthropic_model": "claude-3-5-haiku-latest",
+            },
+        )
+        assert resp.status_code in (200, 302)
+        assert cfg.ANTHROPIC_KEY == "sk-ant-original-secret-key-1234"
+
+        # 3. Submitting genuine new key should update
+        resp = auth_client.post(
+            "/settings",
+            data={
+                "app_mode": "cloud",
+                "anthropic_key": "sk-ant-new-updated-key-9999",
+                "anthropic_model": "claude-3-5-haiku-latest",
+            },
+        )
+        assert resp.status_code in (200, 302)
+        assert cfg.ANTHROPIC_KEY == "sk-ant-new-updated-key-9999"
 
 
 class TestHardwareBoundSecretKeyDerivation:

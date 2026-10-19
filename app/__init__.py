@@ -70,7 +70,11 @@ def register_csrf_protection(app: Flask):
             if "_csrf_token" not in session:
                 session["_csrf_token"] = secrets.token_hex(32)
             return session["_csrf_token"]
-        return {"csrf_token": get_csrf_token}
+        from src.security import mask_secret
+        return {"csrf_token": get_csrf_token, "mask_secret": mask_secret}
+
+    from src.security import mask_secret
+    app.jinja_env.filters["mask_secret"] = mask_secret
 
     @app.before_request
     def validate_csrf():

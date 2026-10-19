@@ -1,7 +1,38 @@
+import logging
+import re
 import smtplib
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+logger = logging.getLogger(__name__)
+
+
+def _sanitize_header(value: str) -> str:
+    """
+    Remove linebreaks and carriage returns from email header values to prevent
+    header injection attacks or ValueError exceptions from email libraries.
+    """
+    if not value or not isinstance(value, str):
+        return ""
+    return re.sub(r"[\r\n]+", " ", value).strip()
+
+
+def _connect_smtp(smtp_host: str, smtp_port: int, timeout: int = 30):
+    """
+    Establish an SMTP connection. If smtp_port is 465, use smtplib.SMTP_SSL directly
+    for implicit SSL. For other ports, initialize smtplib.SMTP and upgrade via starttls().
+    """
+    try:
+        port = int(smtp_port)
+    except (TypeError, ValueError):
+        port = 587
+
+    if port == 465:
+        return smtplib.SMTP_SSL(smtp_host, port, timeout=timeout)
+    server = smtplib.SMTP(smtp_host, port, timeout=timeout)
+    server.starttls()
+    return server
 
 
 def send_interview_email(
@@ -116,19 +147,19 @@ def send_interview_email(
     )
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = smtp_email
-    msg["To"] = recipient_email
+    msg["Subject"] = _sanitize_header(subject)
+    msg["From"] = _sanitize_header(smtp_email)
+    msg["To"] = _sanitize_header(recipient_email)
     msg.attach(MIMEText(body_text, "plain"))
     msg.attach(MIMEText(body_html, "html"))
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-            server.starttls()
+        with _connect_smtp(smtp_host, smtp_port, timeout=30) as server:
             server.login(smtp_email, smtp_password)
             server.send_message(msg)
         return True, ""
     except Exception as e:
+        logger.warning("Failed to send interview invitation email: %s", e)
         return False, str(e)
 
 
@@ -152,11 +183,11 @@ def test_smtp_connection() -> tuple[bool, str]:
         return False, "SMTP credentials are not configured."
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-            server.starttls()
+        with _connect_smtp(smtp_host, smtp_port, timeout=10) as server:
             server.login(smtp_email, smtp_password)
         return True, ""
     except Exception as e:
+        logger.warning("SMTP connection test failed: %s", e)
         return False, str(e)
 
 
@@ -199,19 +230,19 @@ def send_feedback_email(
     """
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject or "Your Application Feedback"
-    msg["From"] = smtp_email
-    msg["To"] = recipient_email
+    msg["Subject"] = _sanitize_header(subject or "Your Application Feedback")
+    msg["From"] = _sanitize_header(smtp_email)
+    msg["To"] = _sanitize_header(recipient_email)
     msg.attach(MIMEText(feedback_text, "plain"))
     msg.attach(MIMEText(body_html, "html"))
 
     try:
-        with smtplib.SMTP(smtp_host, int(smtp_port), timeout=25) as server:
-            server.starttls()
+        with _connect_smtp(smtp_host, smtp_port, timeout=25) as server:
             server.login(smtp_email, smtp_password)
             server.send_message(msg)
         return True, ""
     except Exception as e:
+        logger.warning("Failed to send feedback email: %s", e)
         return False, str(e)
 
 
@@ -259,19 +290,19 @@ def send_selection_offer_email(
     """
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject or f"Job Offer: {role_title} - Welcome to {company_title}"
-    msg["From"] = smtp_email
-    msg["To"] = recipient_email
+    msg["Subject"] = _sanitize_header(subject or f"Job Offer: {role_title} - Welcome to {company_title}")
+    msg["From"] = _sanitize_header(smtp_email)
+    msg["To"] = _sanitize_header(recipient_email)
     msg.attach(MIMEText(offer_letter, "plain"))
     msg.attach(MIMEText(body_html, "html"))
 
     try:
-        with smtplib.SMTP(smtp_host, int(smtp_port), timeout=25) as server:
-            server.starttls()
+        with _connect_smtp(smtp_host, smtp_port, timeout=25) as server:
             server.login(smtp_email, smtp_password)
             server.send_message(msg)
         return True, ""
     except Exception as e:
+        logger.warning("Failed to send offer email: %s", e)
         return False, str(e)
 
 
