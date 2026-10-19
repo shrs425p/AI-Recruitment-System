@@ -831,7 +831,11 @@ def register_hr_interview_routes(app):
 
         from app.database import get_all_tokens
         existing_tokens = get_all_tokens()
-        cand_to_token = {t["candidate_name"]: t for t in existing_tokens}
+        cand_to_token = {}
+        for t in existing_tokens:
+            cname = t["candidate_name"]
+            if cname not in cand_to_token:
+                cand_to_token[cname] = t
 
         host_url = request.host_url
         if "127.0.0.1" in host_url or "localhost" in host_url:
@@ -847,25 +851,35 @@ def register_hr_interview_routes(app):
                 if cand_name in cand_to_token:
                     token_record = cand_to_token[cand_name]
                     token = token_record["token"]
-                    used = token_record["used"]
+                    used = token_record.get("used", 0)
+                else:
                     token = f"T_{int(time.time())}_{uuid.uuid4().hex[:6]}"
-                    cand_ctx = {"candidate_name": cand_name, "source_file": entry["source_file"], "job_title": sdata.get("job_title", "")}
+                    cand_ctx = {
+                        "candidate_name": cand_name,
+                        "source_file": entry.get("source_file", ""),
+                        "job_title": sdata.get("job_title", ""),
+                    }
                     resolved_title, _, _ = _resolve_candidate_job_context(cand_ctx)
                     create_interview_token(
                         token=token,
                         candidate_name=cand_name,
-                        source_file=entry["source_file"],
+                        source_file=entry.get("source_file", ""),
                         job_title=resolved_title,
                         rank=entry.get("rank", 0),
-                        score=entry.get("score", 0)
+                        score=entry.get("score", 0),
                     )
                     used = 0
+                    cand_to_token[cand_name] = {
+                        "token": token,
+                        "candidate_name": cand_name,
+                        "used": 0,
+                    }
 
                 links.append({
                     "candidate_name": cand_name,
                     "url": host_url + f"candidate-interview/{token}",
                     "used": used,
-                    "email": entry.get("email", "")
+                    "email": entry.get("email", ""),
                 })
         return jsonify({"success": True, "links": links})
 
@@ -970,7 +984,7 @@ def register_hr_interview_routes(app):
                 "url": host_url + f"candidate-interview/{t['token']}",
                 "used": t["used"]
             })
-        return jsonify({"links": links})
+        return jsonify({"success": True, "links": links})
 
     @app.route("/api/interviews/list", methods=["GET"])
     @login_required
