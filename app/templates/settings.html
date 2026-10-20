@@ -1644,11 +1644,11 @@
     function updateSettingsWeightsUI(changedKey) {
         const skillsEl = document.getElementById('settingsWeightSkills');
         if (!skillsEl) return;
-        const skills = parseInt(skillsEl.value) || 0;
-        const exp    = parseInt(document.getElementById('settingsWeightExp').value) || 0;
-        const domain = parseInt(document.getElementById('settingsWeightDomain').value) || 0;
-        const edu    = parseInt(document.getElementById('settingsWeightEdu').value) || 0;
-        const certs  = parseInt(document.getElementById('settingsWeightCerts').value) || 0;
+        const skills = Number.parseInt(skillsEl.value, 10) || 0;
+        const exp    = Number.parseInt(document.getElementById('settingsWeightExp').value, 10) || 0;
+        const domain = Number.parseInt(document.getElementById('settingsWeightDomain').value, 10) || 0;
+        const edu    = Number.parseInt(document.getElementById('settingsWeightEdu').value, 10) || 0;
+        const certs  = Number.parseInt(document.getElementById('settingsWeightCerts').value, 10) || 0;
 
         document.getElementById('settingsWeightSkillsVal').textContent = skills + '%';
         document.getElementById('settingsWeightExpVal').textContent = exp + '%';
@@ -1677,11 +1677,11 @@
     }
 
     function autoBalanceSettingsWeights() {
-        const skills = parseInt(document.getElementById('settingsWeightSkills').value) || 0;
-        const exp    = parseInt(document.getElementById('settingsWeightExp').value) || 0;
-        const domain = parseInt(document.getElementById('settingsWeightDomain').value) || 0;
-        const edu    = parseInt(document.getElementById('settingsWeightEdu').value) || 0;
-        const certs  = parseInt(document.getElementById('settingsWeightCerts').value) || 0;
+        const skills = Number.parseInt(document.getElementById('settingsWeightSkills').value, 10) || 0;
+        const exp    = Number.parseInt(document.getElementById('settingsWeightExp').value, 10) || 0;
+        const domain = Number.parseInt(document.getElementById('settingsWeightDomain').value, 10) || 0;
+        const edu    = Number.parseInt(document.getElementById('settingsWeightEdu').value, 10) || 0;
+        const certs  = Number.parseInt(document.getElementById('settingsWeightCerts').value, 10) || 0;
         const sum = skills + exp + domain + edu + certs;
         if (sum <= 0) {
             applySettingsPreset('default');
@@ -1710,16 +1710,16 @@
         btn.textContent = 'Saving...';
 
         const weights = {
-            skills_match: parseInt(document.getElementById('settingsWeightSkills').value) || 0,
-            experience_years: parseInt(document.getElementById('settingsWeightExp').value) || 0,
-            domain_match: parseInt(document.getElementById('settingsWeightDomain').value) || 0,
-            education: parseInt(document.getElementById('settingsWeightEdu').value) || 0,
-            certifications: parseInt(document.getElementById('settingsWeightCerts').value) || 0,
+            skills_match: Number.parseInt(document.getElementById('settingsWeightSkills').value, 10) || 0,
+            experience_years: Number.parseInt(document.getElementById('settingsWeightExp').value, 10) || 0,
+            domain_match: Number.parseInt(document.getElementById('settingsWeightDomain').value, 10) || 0,
+            education: Number.parseInt(document.getElementById('settingsWeightEdu').value, 10) || 0,
+            certifications: Number.parseInt(document.getElementById('settingsWeightCerts').value, 10) || 0,
         };
 
         const koMinExpRaw = document.getElementById('settingsKoMinExp').value.trim();
         const knockout_rules = {
-            min_experience_years: koMinExpRaw ? parseFloat(koMinExpRaw) : 0,
+            min_experience_years: koMinExpRaw ? Number.parseFloat(koMinExpRaw) : 0,
             required_skills: document.getElementById('settingsKoSkills').value.split(',').map(s => s.trim()).filter(Boolean),
             required_certifications: document.getElementById('settingsKoCerts').value.split(',').map(c => c.trim()).filter(Boolean),
         };
