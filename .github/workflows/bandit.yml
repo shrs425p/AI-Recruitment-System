@@ -1,0 +1,43 @@
+name: Bandit Security Scan
+
+on:
+  push:
+    branches: [ main, fix/audit ]
+  pull_request:
+    branches: [ main, fix/audit ]
+  schedule:
+    - cron: '0 3 * * 1' # Weekly on Monday at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  bandit:
+    name: Bandit SAST Code Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Bandit & SARIF Formatter
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "bandit>=1.8.0" "bandit-sarif-formatter>=1.1.1"
+
+      - name: Run Bandit SAST Scan
+        run: |
+          bandit -r app src -f sarif -o bandit.sarif --exit-zero
+
+      - name: Upload Bandit SARIF Report to Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit.sarif
+          category: bandit
