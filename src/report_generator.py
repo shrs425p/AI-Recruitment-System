@@ -266,15 +266,21 @@ def save_report_txt(transcript: dict, ai_report: dict, combined_score: float, ou
         f.write("  DETAILED Q&A TRANSCRIPT\n")
         f.write("=" * 65 + "\n\n")
 
-        for r in transcript.get("responses", []):
-            f.write(f"Q{r['question_num']} [{r['type']}] — {r.get('topic', '')}\n")
+        for idx, r in enumerate(transcript.get("responses", []), start=1):
+            q_num = r.get("question_num", idx)
+            q_type = r.get("type", "TECHNICAL")
+            f.write(f"Q{q_num} [{q_type}] — {r.get('topic', '')}\n")
             f.write("─" * 40 + "\n")
             f.write(f"  Question  : {r.get('question', '')}\n")
             f.write(f"  Answer    : {r.get('answer', '')}\n")
             f.write(f"  Score     : {r.get('score', 0)}/10\n")
-            f.write(f"  Feedback  : {r.get('evaluation', {}).get('feedback', '')}\n")
-            if r.get("proctor", {}).get("flagged"):
-                f.write(f"  FLAGS     : {', '.join(r['proctor']['flags'])}\n")
+            eval_data = r.get("evaluation") or {}
+            f.write(f"  Feedback  : {eval_data.get('feedback', '')}\n")
+            proctor_info = r.get("proctor") or {}
+            if proctor_info.get("flagged"):
+                flags = proctor_info.get("flags") or []
+                flags_str = ", ".join(str(fl) for fl in flags)
+                f.write(f"  FLAGS     : {flags_str}\n")
             f.write(f"  Time      : {r.get('time_taken', 0)}s\n\n")
 
     logger.info(f"  Report TXT saved: {txt_file.name}")
@@ -818,8 +824,8 @@ def save_final_summary(all_reports: list, output_path: Path):
     txt_file  = output_path / f"final_summary_{timestamp}.txt"
     json_file = output_path / f"final_summary_{timestamp}.json"
 
-    # Sort by combined score
-    sorted_reports = sorted(all_reports, key=lambda x: x["combined_score"], reverse=True)
+    # Sort by combined score safely
+    sorted_reports = sorted(all_reports, key=lambda x: float(x.get("combined_score") or 0.0), reverse=True)
 
     # Save TXT summary
     output_path.mkdir(parents=True, exist_ok=True)
@@ -832,14 +838,14 @@ def save_final_summary(all_reports: list, output_path: Path):
         f.write("=" * 65 + "\n\n")
 
         for rank, r in enumerate(sorted_reports, start=1):
-            f.write(f"RANK #{rank}  —  {r['candidate_name']}\n")
+            f.write(f"RANK #{rank}  —  {r.get('candidate_name', 'Unknown')}\n")
             f.write("─" * 40 + "\n")
-            f.write(f"  Combined Score    : {r['combined_score']}/100\n")
-            f.write(f"  Ranking Score     : {r['ranking_score']}/100\n")
-            f.write(f"  Interview Score   : {r['interview_pct']}%\n")
-            f.write(f"  Proctoring        : {r['proctoring_status']}\n")
-            f.write(f"  Recommendation    : {r['hire_recommendation']}\n")
-            f.write(f"  Risk Level        : {r['risk_level']}\n\n")
+            f.write(f"  Combined Score    : {r.get('combined_score', 0)}/100\n")
+            f.write(f"  Ranking Score     : {r.get('ranking_score', 0)}/100\n")
+            f.write(f"  Interview Score   : {r.get('interview_pct', 0)}%\n")
+            f.write(f"  Proctoring        : {r.get('proctoring_status', 'UNKNOWN')}\n")
+            f.write(f"  Recommendation    : {r.get('hire_recommendation', 'N/A')}\n")
+            f.write(f"  Risk Level        : {r.get('risk_level', 'N/A')}\n\n")
 
     # Save JSON summary
     with open(json_file, "w", encoding="utf-8") as f:

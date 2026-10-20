@@ -51,9 +51,22 @@ def register_error_handlers(app: Flask):
     def request_too_large_error(e):
         return _error_response(413, "Upload exceeds the maximum allowed size.")
 
+    @app.errorhandler(405)
+    def method_not_allowed_error(e):
+        return _error_response(405, "The method is not allowed for the requested URL.")
+
     @app.errorhandler(500)
     def internal_server_error(e):
         return _error_response(500, "An internal server error occurred.")
+
+    @app.errorhandler(Exception)
+    def unhandled_exception_error(e):
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            return _error_response(e.code or 500, str(getattr(e, "description", e)))
+        import logging
+        logging.getLogger(__name__).exception("Unhandled application exception: %s", e)
+        return _error_response(500, "An unexpected internal error occurred.")
 
 
 def register_csrf_protection(app: Flask):

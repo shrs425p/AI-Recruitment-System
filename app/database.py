@@ -31,6 +31,15 @@ def get_connection():
     return conn
 
 
+def safe_json_loads(payload: str | None, default=None):
+    """Safely decode JSON string with fallback default on decode errors."""
+    if not payload:
+        return default
+    try:
+        return json.loads(payload)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return default
+
 @contextmanager
 def db_session():
     """Context manager for SQLite database transactions with auto-commit/rollback and automatic cleanup."""
@@ -733,7 +742,7 @@ def get_interview_session(session_id: str) -> dict | None:
             "SELECT session_data FROM interview_sessions WHERE session_id=?", (session_id,)
         ).fetchone()
         if row and row["session_data"]:
-            return json.loads(row["session_data"])
+            return safe_json_loads(row["session_data"], default=None)
         return None
 
 
@@ -745,7 +754,7 @@ def get_active_session_by_token(token: str) -> tuple[str | None, dict | None]:
             (token,),
         ).fetchone()
         if row and row["session_data"]:
-            return row["session_id"], json.loads(row["session_data"])
+            return row["session_id"], safe_json_loads(row["session_data"], default=None)
         return None, None
 
 
@@ -804,9 +813,9 @@ def get_all_candidate_embeddings() -> list:
                 "candidate_name": r["candidate_name"],
                 "source_file": r["source_file"],
                 "domain": r["domain"],
-                "skills": json.loads(r["skills_json"]) if r["skills_json"] else [],
+                "skills": safe_json_loads(r["skills_json"], default=[]),
                 "profile_text": r["profile_text"],
-                "vector": json.loads(r["vector_json"]) if r["vector_json"] else [],
+                "vector": safe_json_loads(r["vector_json"], default=[]),
                 "updated_at": r["updated_at"]
             })
         return result

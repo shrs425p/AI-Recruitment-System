@@ -488,15 +488,36 @@ def score_candidate(
         score_result["is_knocked_out"] = False
         score_result["knockout_reason"] = None
 
-        # Clamp each sub-score to [0, max_weight]
-        scores = score_result.get("scores") or {}
-        for key, val in scores.items():
-            max_val      = active_weights.get(key, 0)
-            val["score"] = min(max(int(val.get("score", 0)), 0), max_val)
-            val["max"]   = max_val
+        # Clamp each sub-score to [0, max_weight] with polymorphic schema defense
+        raw_scores = score_result.get("scores") or {}
+        normalized_scores = {}
+        total = 0
+        for key in active_weights.keys():
+            max_val = active_weights.get(key, 0)
+            val = raw_scores.get(key, 0) if isinstance(raw_scores, dict) else 0
 
-        # Recalculate total from clamped sub-scores
-        total = sum(v.get("score", 0) for v in scores.values())
+            if isinstance(val, dict):
+                raw_num = val.get("score", 0)
+                reason = str(val.get("reason", ""))
+            else:
+                raw_num = val
+                reason = ""
+
+            try:
+                numeric_val = int(float(raw_num)) if raw_num is not None else 0
+            except (ValueError, TypeError):
+                numeric_val = 0
+
+            clamped = min(max(numeric_val, 0), max_val)
+            normalized_scores[key] = {
+                "score": clamped,
+                "max": max_val,
+                "reason": reason
+            }
+
+            total += clamped
+
+        score_result["scores"] = normalized_scores
         score_result["total_score"] = total
         score_result["percentage"]  = round(total, 1)
 

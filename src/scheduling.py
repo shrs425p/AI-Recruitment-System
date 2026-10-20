@@ -56,10 +56,23 @@ def load_top_candidates(ranking_folder: Path, top_n: int) -> list:
     latest_file = ranking_files[0]  # most recent ranking run
     logger.info(f"> Loading ranking from: {latest_file.name}")
 
-    with open(latest_file, encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        if latest_file.stat().st_size == 0:
+            logger.warning(f"[WARNING] Ranking file '{latest_file.name}' is empty (0 bytes).")
+            return []
+        with open(latest_file, encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"[ERROR] Could not parse ranking file '{latest_file.name}': {e}")
+        return []
+
+    if not isinstance(data, dict):
+        logger.warning(f"[WARNING] Ranking data in '{latest_file.name}' is not a JSON object.")
+        return []
 
     all_candidates = data.get("ranked_candidates", [])
+    if not isinstance(all_candidates, list):
+        return []
 
     # Guard: ranking file exists but contains no candidates (shouldn't happen, but safe)
     if not all_candidates:
@@ -300,9 +313,9 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str, me
             "job_title":    job_title,
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "total":        len(scheduled),
-            "confirmed":    sum(1 for s in scheduled if s["status"] == "CONFIRMED"),
-            "pending":      sum(1 for s in scheduled if s["status"] == "PENDING"),
-            "skipped":      sum(1 for s in scheduled if s["status"] == "SKIPPED"),
+            "confirmed":    sum(1 for s in scheduled if s.get("status") == "CONFIRMED"),
+            "pending":      sum(1 for s in scheduled if s.get("status") == "PENDING"),
+            "skipped":      sum(1 for s in scheduled if s.get("status") == "SKIPPED"),
             "metadata":     metadata or {},
             "schedule":     scheduled
         }, f, indent=4, ensure_ascii=False)
@@ -316,9 +329,9 @@ def save_schedule_summary(scheduled: list, output_path: Path, job_title: str, me
         f.write(f"Job Title  : {job_title}\n")
         f.write(f"Generated  : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Total      : {len(scheduled)}\n")
-        f.write(f"Confirmed  : {sum(1 for s in scheduled if s['status'] == 'CONFIRMED')}\n")
-        f.write(f"Pending    : {sum(1 for s in scheduled if s['status'] == 'PENDING')}\n")
-        f.write(f"Skipped    : {sum(1 for s in scheduled if s['status'] == 'SKIPPED')}\n")
+        f.write(f"Confirmed  : {sum(1 for s in scheduled if s.get('status') == 'CONFIRMED')}\n")
+        f.write(f"Pending    : {sum(1 for s in scheduled if s.get('status') == 'PENDING')}\n")
+        f.write(f"Skipped    : {sum(1 for s in scheduled if s.get('status') == 'SKIPPED')}\n")
         if metadata:
             f.write(f"Slot Count : {metadata.get('slot_count', 'N/A')}\n")
             f.write(f"Top N      : {metadata.get('top_n', 'N/A')}\n")
