@@ -16,10 +16,13 @@ def open_folder(folder: Path) -> str:
 
     try:
         if os.name == "nt":
-            try:
+            if hasattr(os, "startfile"):
+                try:
+                    os.startfile(folder_path)
+                except OSError:
+                    subprocess.Popen(["explorer.exe", folder_path])
+            else:
                 subprocess.Popen(["explorer.exe", folder_path])
-            except (FileNotFoundError, OSError):
-                os.startfile(folder_path)
         elif sys.platform == "darwin":
             subprocess.Popen(["open", folder_path])
         else:

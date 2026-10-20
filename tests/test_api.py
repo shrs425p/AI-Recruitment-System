@@ -68,14 +68,14 @@ class TestDesktopIntegration:
         assert response.status_code in (401, 302, 403)
 
     def test_open_folder_blocks_path_traversal(self, auth_client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setattr("os.startfile", lambda path: None, raising=False)
+        monkeypatch.setattr("app.routes.dashboard.open_folder", lambda path: str(path))
         response = auth_client.post("/api/open-output-folder")
         assert response.status_code == 200
 
     def test_open_folder_accepts_valid_configured_target(
         self, auth_client: FlaskClient, monkeypatch: pytest.MonkeyPatch
     ):
-        monkeypatch.setattr("os.startfile", lambda path: None, raising=False)
+        monkeypatch.setattr("app.routes.dashboard.open_folder", lambda path: str(path))
         response = auth_client.post("/api/open-output-folder")
         assert response.status_code == 200
 
