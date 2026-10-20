@@ -470,34 +470,34 @@
             <!-- Form Inputs Grid -->
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Candidate Name</label>
-                    <input type="text" id="modalCandidateName" readonly style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; box-sizing:border-box;" />
+                    <label for="modalCandidateName" style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Candidate Name</label>
+                    <input type="text" id="modalCandidateName" aria-label="Candidate Name" readonly style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; box-sizing:border-box;" />
                 </div>
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Target Role</label>
-                    <input type="text" id="modalJobTitle" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Senior Software Engineer" />
+                    <label for="modalJobTitle" style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Target Role</label>
+                    <input type="text" id="modalJobTitle" aria-label="Target Role" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Senior Software Engineer" />
                 </div>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Candidate Recipient Email</label>
-                    <input type="email" id="modalCandidateEmail" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="candidate@example.com" />
+                    <label for="modalCandidateEmail" style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Candidate Recipient Email</label>
+                    <input type="email" id="modalCandidateEmail" aria-label="Candidate Recipient Email" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="candidate@example.com" />
                 </div>
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Proposed Start Date</label>
-                    <input type="text" id="modalStartDate" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. November 1, 2026 or Immediately" />
+                    <label for="modalStartDate" style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Proposed Start Date</label>
+                    <input type="text" id="modalStartDate" aria-label="Proposed Start Date" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. November 1, 2026 or Immediately" />
                 </div>
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Compensation / Package</label>
-                    <input type="text" id="modalCompensation" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. ₹18,00,000 PA + Benefits" />
+                    <label for="modalCompensation" style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Compensation / Package</label>
+                    <input type="text" id="modalCompensation" aria-label="Compensation / Package" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. ₹18,00,000 PA + Benefits" />
                 </div>
                 <div>
-                    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Reporting Manager / Lead</label>
-                    <input type="text" id="modalReportingManager" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Engineering Leadership" />
+                    <label for="modalReportingManager" style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Reporting Manager / Lead</label>
+                    <input type="text" id="modalReportingManager" aria-label="Reporting Manager / Lead" style="width:100%; padding:8px 12px; font-size:13px; border:1px solid #d1d5db; border-radius:6px; box-sizing:border-box;" placeholder="e.g. Engineering Leadership" />
                 </div>
             </div>
 
@@ -512,10 +512,10 @@
             <!-- Letter Editor -->
             <div style="margin-bottom:14px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <label style="font-size:12px; font-weight:600;">Customizable Offer & Selection Letter</label>
+                    <label for="modalOfferLetter" style="font-size:12px; font-weight:600;">Customizable Offer & Selection Letter</label>
                     <button type="button" onclick="copyOfferText()" style="background:none; border:none; color:#4f46e5; font-size:11.5px; font-weight:600; cursor:pointer;">📋 Copy Text</button>
                 </div>
-                <textarea id="modalOfferLetter" rows="10" style="width:100%; font-family:var(--font-sans); font-size:13px; line-height:1.5; padding:12px; border:1px solid #d1d5db; border-radius:8px; resize:vertical; box-sizing:border-box;" placeholder="Click 'Draft Offer Letter' above or write custom offer letter text here..."></textarea>
+                <textarea id="modalOfferLetter" aria-label="Customizable Offer & Selection Letter" rows="10" style="width:100%; font-family:var(--font-sans); font-size:13px; line-height:1.5; padding:12px; border:1px solid #d1d5db; border-radius:8px; resize:vertical; box-sizing:border-box;" placeholder="Click 'Draft Offer Letter' above or write custom offer letter text here..."></textarea>
             </div>
 
             <!-- Modal Footer Actions -->

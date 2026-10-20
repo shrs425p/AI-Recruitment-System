@@ -325,7 +325,9 @@
                                 {% endfor %}
                             </div>
                             <div style="display:flex; align-items:center; gap:6px;">
-                                <input type="text" class="form-input" 
+                                <label for="note-input-{{ loop.index }}" class="sr-only" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;">Recruiter note for {{ cand_name }}</label>
+                                <input type="text" id="note-input-{{ loop.index }}" class="form-input" 
+                                       aria-label="Recruiter note for {{ cand_name }}"
                                        placeholder="Add recruiter note..." 
                                        value="{{ c_note.get('note', '') }}"
                                        style="padding:4px 8px; font-size:11.5px; height:28px;"
@@ -462,11 +464,11 @@
     function updateWeightsUI(changedKey) {
         const skillsEl = document.getElementById('weightSkills');
         if (!skillsEl) return;
-        const skills = parseInt(skillsEl.value) || 0;
-        const exp    = parseInt(document.getElementById('weightExp').value) || 0;
-        const domain = parseInt(document.getElementById('weightDomain').value) || 0;
-        const edu    = parseInt(document.getElementById('weightEdu').value) || 0;
-        const certs  = parseInt(document.getElementById('weightCerts').value) || 0;
+        const skills = Number.parseInt(skillsEl.value, 10) || 0;
+        const exp    = Number.parseInt(document.getElementById('weightExp').value, 10) || 0;
+        const domain = Number.parseInt(document.getElementById('weightDomain').value, 10) || 0;
+        const edu    = Number.parseInt(document.getElementById('weightEdu').value, 10) || 0;
+        const certs  = Number.parseInt(document.getElementById('weightCerts').value, 10) || 0;
 
         document.getElementById('weightSkillsVal').textContent = skills + '%';
         document.getElementById('weightExpVal').textContent = exp + '%';
@@ -502,11 +504,11 @@
     }
 
     function autoBalanceWeights() {
-        const skills = parseInt(document.getElementById('weightSkills').value) || 0;
-        const exp    = parseInt(document.getElementById('weightExp').value) || 0;
-        const domain = parseInt(document.getElementById('weightDomain').value) || 0;
-        const edu    = parseInt(document.getElementById('weightEdu').value) || 0;
-        const certs  = parseInt(document.getElementById('weightCerts').value) || 0;
+        const skills = Number.parseInt(document.getElementById('weightSkills').value, 10) || 0;
+        const exp    = Number.parseInt(document.getElementById('weightExp').value, 10) || 0;
+        const domain = Number.parseInt(document.getElementById('weightDomain').value, 10) || 0;
+        const edu    = Number.parseInt(document.getElementById('weightEdu').value, 10) || 0;
+        const certs  = Number.parseInt(document.getElementById('weightCerts').value, 10) || 0;
         const sum = skills + exp + domain + edu + certs;
         if (sum <= 0) {
             applyRolePreset('default');
@@ -549,16 +551,16 @@
         if (!jd) { showToast('Please paste a Job Description first', 'error'); return; }
 
         const weights = {
-            skills_match: parseInt(document.getElementById('weightSkills').value) || 0,
-            experience_years: parseInt(document.getElementById('weightExp').value) || 0,
-            domain_match: parseInt(document.getElementById('weightDomain').value) || 0,
-            education: parseInt(document.getElementById('weightEdu').value) || 0,
-            certifications: parseInt(document.getElementById('weightCerts').value) || 0,
+            skills_match: Number.parseInt(document.getElementById('weightSkills').value, 10) || 0,
+            experience_years: Number.parseInt(document.getElementById('weightExp').value, 10) || 0,
+            domain_match: Number.parseInt(document.getElementById('weightDomain').value, 10) || 0,
+            education: Number.parseInt(document.getElementById('weightEdu').value, 10) || 0,
+            certifications: Number.parseInt(document.getElementById('weightCerts').value, 10) || 0,
         };
 
         const koMinExpRaw = document.getElementById('koMinExp').value.trim();
         const knockout_rules = {
-            min_experience_years: koMinExpRaw ? parseFloat(koMinExpRaw) : null,
+            min_experience_years: koMinExpRaw ? Number.parseFloat(koMinExpRaw) : null,
             required_skills: document.getElementById('koSkills').value.split(',').map(s => s.trim()).filter(Boolean),
             required_certifications: document.getElementById('koCerts').value.split(',').map(c => c.trim()).filter(Boolean),
         };
@@ -626,7 +628,9 @@
                         ${tagsHtml}
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <input type="text" class="form-input" 
+                        <label for="note-input-dyn-${idx}" class="sr-only" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;">Recruiter note for ${candName}</label>
+                        <input type="text" id="note-input-dyn-${idx}" class="form-input" 
+                               aria-label="Recruiter note for ${candName}"
                                placeholder="Add recruiter note..." 
                                value="${noteData.note || ''}"
                                style="padding:4px 8px; font-size:11.5px; height:28px;"
