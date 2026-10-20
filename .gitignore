@@ -32,9 +32,6 @@ data/
 output/
 resumes/
 !models/.gitkeep
-models/Tesseract-OCR/
-models/vosk-model-*/
-Inno Setup 6/
 *.db
 *.sqlite
 *.sqlite3
