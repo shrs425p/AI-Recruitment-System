@@ -15,7 +15,7 @@ if errorlevel 1 (
 )
 
 if errorlevel 1 (
-    echo [ERROR] Python 3.10-3.12 was not found.
+    echo [ERROR] Python 3.10-3.14 was not found.
     echo Install Python from https://www.python.org/downloads/ and run this file again.
     pause
     exit /b 1

@@ -1,7 +1,7 @@
 [Setup]
 AppName=AI Recruitment System
-AppVersion=3.0.0
-AppPublisher=shrs
+AppVersion=4.0.0
+AppPublisher=Shreyas Pawar
 AppPublisherURL=https://github.com/shrs425p/AI-Recruitment-System
 AppSupportURL=https://github.com/shrs425p/AI-Recruitment-System
 AppUpdatesURL=https://github.com/shrs425p/AI-Recruitment-System
@@ -12,7 +12,7 @@ UninstallDisplayIcon={app}\ARS.exe
 Compression=lzma2
 SolidCompression=yes
 OutputDir=..\installer_output
-OutputBaseFilename=ARS_Setup_3.0.0
+OutputBaseFilename=ARS_Setup_4.0.0
 ArchitecturesInstallIn64BitMode=x64
 SetupIconFile=..\app\static\icon\ai.ico
 

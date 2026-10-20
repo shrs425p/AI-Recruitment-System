@@ -84,7 +84,7 @@ The **AI Recruitment System (ARS)** consolidates this entire workflow into a sin
 
 For recruiters and HR operators who want a ready-to-run desktop application without managing Python environments:
 
-1. Download the latest installer (`ARS_Setup_3.0.0_Public.exe`) from [GitHub Releases](https://github.com/shrs425p/AI-Recruitment-System/releases/latest).
+1. Download the latest installer (`ARS_Setup_4.0.0_Public.exe`) from [GitHub Releases](https://github.com/shrs425p/AI-Recruitment-System/releases/latest).
 2. Run the setup executable. If Windows SmartScreen displays *"Windows protected your PC"*, click **More info** &rarr; **Run anyway** (expected for community open-source installers without commercial EV code-signing).
 3. Follow the installation wizard and launch the application from the Desktop shortcut.
 4. The desktop administration console will start automatically on `http://127.0.0.1:5001`.
@@ -93,9 +93,9 @@ For recruiters and HR operators who want a ready-to-run desktop application with
 > **Installer Integrity & SHA-256 Checksum**:
 > Verify your download in PowerShell using `Get-FileHash`:
 > ```powershell
-> Get-FileHash .\ARS_Setup_3.0.0_Public.exe -Algorithm SHA256
+> Get-FileHash .\ARS_Setup_4.0.0_Public.exe -Algorithm SHA256
 > ```
-> Expected SHA-256: `37002FFBCA80CFE843007298122B4517B405EA927642F09A5DD88C19BD7779A7`
+> Expected SHA-256: `0B128142902D4FC706D63B1C0A6CCFF0A9F15258C07114E574E01BC01FFC12A3` (or inspect `ARS_Setup_4.0.0_Public.exe.sha256`)
 
 ---
 

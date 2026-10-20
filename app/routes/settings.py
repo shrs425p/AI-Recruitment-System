@@ -18,7 +18,7 @@ def _get_about_html() -> str:
         "<img src='/static/icon/ai.png' alt='AI Recruitment System Logo' style='width:64px; height:64px; border-radius:16px; object-fit:contain; box-shadow:0 4px 12px rgba(0,0,0,0.05);'>"
         "<div>"
         "<h2 style='margin:0 0 4px 0; border:none; padding:0; font-size:24px; font-weight:800; color:var(--md-sys-color-on-surface);'>AI Recruitment System</h2>"
-        "<p style='margin:0; font-size:13px; color:var(--md-sys-color-primary); font-weight:600;'>Version 2.5 — Local-First Intelligent Hiring Platform</p>"
+        "<p style='margin:0; font-size:13px; color:var(--md-sys-color-primary); font-weight:600;'>Version 4.0.0 — Local-First Intelligent Hiring Platform</p>"
         "</div>"
         "</div>"
         "<p>The AI Recruitment System is an on-premises, privacy-first talent acquisition platform engineered to streamline the full technical hiring lifecycle. The system provides end-to-end recruitment automation—from high-fidelity resume extraction and explainable candidate ranking to automated calendar coordination, adaptive voice/text technical interviews, and automated proctoring verification.</p>"
