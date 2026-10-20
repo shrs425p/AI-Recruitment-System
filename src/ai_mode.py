@@ -54,7 +54,7 @@ def get_providers():
             "name":    "nvidia",
             "enabled": getattr(config, 'NVIDIA_ENABLED', False),
             "key":     getattr(config, 'NVIDIA_KEY', ''),
-            "model":   getattr(config, 'NVIDIA_MODEL', 'meta/llama-3.3-70b-instruct'),
+            "model":   getattr(config, 'NVIDIA_MODEL', 'openai/gpt-oss-20b'),
             "base_url": "https://integrate.api.nvidia.com/v1",
             "rpm":     40,
         },

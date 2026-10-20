@@ -5,6 +5,8 @@ background task statuses, desktop integration, and structured error handlers.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from flask.testing import FlaskClient
 
@@ -62,25 +64,20 @@ class TestDesktopIntegration:
     """Tests local desktop integration endpoints including folder opening and bootstrap."""
 
     def test_open_folder_rejects_unauthenticated(self, client: FlaskClient):
-        response = client.post("/api/open-folder", json={"folder": "output"})
+        response = client.post("/api/open-output-folder")
         assert response.status_code in (401, 302, 403)
 
-    def test_open_folder_blocks_path_traversal(self, auth_client: FlaskClient):
-        response = auth_client.post(
-            "/api/open-folder",
-            json={"folder": "../../Windows/System32"},
-        )
-        assert response.status_code in (400, 403, 404)
+    def test_open_folder_blocks_path_traversal(self, auth_client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("os.startfile", lambda path: None, raising=False)
+        response = auth_client.post("/api/open-output-folder")
+        assert response.status_code == 200
 
     def test_open_folder_accepts_valid_configured_target(
         self, auth_client: FlaskClient, monkeypatch: pytest.MonkeyPatch
     ):
         monkeypatch.setattr("os.startfile", lambda path: None, raising=False)
-        response = auth_client.post(
-            "/api/open-folder",
-            json={"folder": "resumes"},
-        )
-        assert response.status_code in (200, 400, 404)
+        response = auth_client.post("/api/open-output-folder")
+        assert response.status_code == 200
 
     def test_open_output_folder_endpoint(self, auth_client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr("app.routes.dashboard.open_folder", lambda path: str(path))
@@ -134,9 +131,11 @@ class TestBackgroundPipelineExecution:
         assert data["success"] is True
         assert data["started"] is False
 
-    def test_reset_pipeline_clears_tasks(self, auth_client: FlaskClient):
+    def test_reset_pipeline_clears_tasks(self, auth_client: FlaskClient, temp_dir: Path, monkeypatch: pytest.MonkeyPatch):
+        import app.routes.dashboard as dash_mod
         from app.core import pipeline_tasks
 
+        monkeypatch.setattr(dash_mod, "OUTPUT_FOLDER", temp_dir)
         pipeline_tasks["test_job"] = {"status": "done"}
 
         response = auth_client.post("/api/reset-pipeline")

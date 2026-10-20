@@ -55,7 +55,7 @@ DEFAULT_SETTINGS = {
     "GEMINI_MODEL": "gemini-1.5-flash",
     "GROQ_MODEL": "llama3-8b-8192",
     "OPENAI_MODEL": "gpt-4o-mini",
-    "NVIDIA_MODEL": "meta/llama-3.1-8b-instruct",
+    "NVIDIA_MODEL": "openai/gpt-oss-20b",
     "OPENROUTER_MODEL": "meta-llama/llama-3.1-8b-instruct:free",
     "GITHUB_MODEL": "gpt-4o-mini",
     "OLLAMA_CLOUD_MODEL": "llama3.2:3b",
@@ -73,6 +73,8 @@ DEFAULT_SETTINGS = {
     "INTERVIEW_TECH_QUESTIONS": 3,
     "INTERVIEW_BEH_QUESTIONS": 2,
     "INTERVIEW_TIME_LIMIT_SECONDS": 120,
+    "AI_THINKING_NLP": False,
+    "AI_THINKING_INTERVIEW": True,
 }
 
 _cache: dict[str, Any] = {}
@@ -227,4 +229,3 @@ SCORING_WEIGHTS: str
 KNOCKOUT_RULES: str
 
 sys.modules[__name__] = _ConfigProxy(__name__)
-

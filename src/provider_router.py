@@ -56,7 +56,7 @@ def _validate_endpoint(url: str) -> None:
         raise RuntimeError("Plain HTTP provider endpoints are only allowed for local Ollama.")
 
 
-def sync_http_post(url, headers, payload):
+def sync_http_post(url, headers, payload, timeout=90):
     """Perform a synchronous HTTP POST request."""
     _validate_endpoint(url)
     req = urllib.request.Request(
@@ -67,7 +67,7 @@ def sync_http_post(url, headers, payload):
     )
     try:
         # Endpoint scheme is validated above.
-        with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
+        with urllib.request.urlopen(req, timeout=timeout) as response:  # nosec B310
             return response.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         body = ""
@@ -75,8 +75,10 @@ def sync_http_post(url, headers, payload):
             body = e.read().decode("utf-8", errors="replace")[:400]
         except Exception as e:
             logger.warning('Caught exception: %s', e, exc_info=True)
+        parsed_url = urlparse(url)
+        sanitized_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
         raise RuntimeError(
-            f"HTTP {e.code} {e.reason} calling {url} "
+            f"HTTP {e.code} {e.reason} calling {sanitized_url} "
             f"[model={payload.get('model', payload.get('contents','?'))}] "
             f"- response: {body}"
         ) from e
@@ -97,7 +99,7 @@ def _calc_provider_cost(provider_name: str, p_tok: int, c_tok: int) -> float:
     return round((p_tok * p_rate) + (c_tok * c_rate), 6)
 
 
-def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name=""):
+def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_name="", think=None, format=None):
     """Synchronously call a specific cloud provider's API endpoint with PII sanitized."""
     name = provider["name"]
     key = provider["key"]
@@ -122,12 +124,18 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_nam
                 "system": sanitized_system_msg,
                 "messages": [{"role": "user", "content": sanitized_user_msg}],
             }
+            if think is True and "3-7" in model:
+                budget = min(1024, max(1000, max_tokens - 1000))
+                payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
             res = sync_http_post(url, headers, payload)
             result_text = json.loads(res)["content"][0]["text"]
 
         elif name == "gemini":
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-            headers = {"Content-Type": "application/json"}
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": key,
+            }
             payload = {
                 "contents": [
                     {
@@ -135,6 +143,16 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_nam
                     }
                 ]
             }
+            gen_config = {}
+            if format == "json":
+                gen_config["responseMimeType"] = "application/json"
+            if think is False:
+                gen_config["thinkingConfig"] = {"thinkingBudget": 0}
+            elif think is True and ("2.5" in model or "thinking" in model):
+                gen_config["thinkingConfig"] = {"thinkingBudget": -1}
+            if gen_config:
+                payload["generationConfig"] = gen_config
+
             res = sync_http_post(url, headers, payload)
             result_text = json.loads(res)["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -166,6 +184,13 @@ def call_provider_sync(provider, system_msg, user_msg, max_tokens, candidate_nam
                     {"role": "user", "content": sanitized_user_msg},
                 ],
             }
+            if format == "json":
+                payload["response_format"] = {"type": "json_object"}
+            if think is False and any(r in model.lower() for r in ("o1", "o3", "deepseek-r1", "reason")):
+                payload["reasoning_effort"] = "low"
+            elif think is True and any(r in model.lower() for r in ("o1", "o3", "deepseek-r1", "reason")):
+                payload["reasoning_effort"] = "medium"
+
             res = sync_http_post(url, headers, payload)
             result_text = json.loads(res)["choices"][0]["message"]["content"]
 
@@ -261,13 +286,13 @@ class ProviderRouter:
             self._log_call(active[0])
             return active[0]
 
-    async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048, candidate_name: str = "") -> str:
+    async def call(self, system_msg: str, user_msg: str, max_tokens: int = 2048, candidate_name: str = "", think: bool | None = None, format: str | None = None) -> str:
         """Query LLM asynchronously using round-robin provider balancing with local fallback."""
         active = self.get_active_providers()
         if not active:
             logger.warning("  [WARNING] No cloud providers active. Falling back to local Ollama...")
             from src.common import call_ollama_async
-            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens)
+            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens, think=think, format=format)
 
         last_error = None
         loop = asyncio.get_running_loop()
@@ -275,7 +300,7 @@ class ProviderRouter:
         for provider in active:
             try:
                 def _sync_wrapper(prov=provider):
-                    return call_provider_sync(prov, system_msg, user_msg, max_tokens, candidate_name=candidate_name)
+                    return call_provider_sync(prov, system_msg, user_msg, max_tokens, candidate_name=candidate_name, think=think, format=format)
                 return await loop.run_in_executor(None, _sync_wrapper)
             except Exception as e:
                 last_error = e
@@ -285,7 +310,7 @@ class ProviderRouter:
         logger.warning(f"  [WARNING] All cloud providers failed or quota exceeded ({last_error}). Falling back to local Ollama...")
         try:
             from src.common import call_ollama_async
-            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens)
+            return await call_ollama_async(system_msg, user_msg, num_predict=max_tokens, think=think, format=format)
         except Exception as oe:
             logger.error(f"  [ERROR] Fallback to local Ollama also failed: {oe}")
             if last_error:

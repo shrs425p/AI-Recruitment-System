@@ -340,15 +340,17 @@ def get_candidate_details(candidate_name: str) -> dict | None:
                 email = ""
                 try:
                     conn = get_connection()
-                    row = conn.execute(
-                        "SELECT email FROM candidates WHERE LOWER(name) = ? ORDER BY id DESC LIMIT 1",
-                        (cand_lower,)
-                    ).fetchone()
-                    conn.close()
-                    if row and row["email"]:
-                        email = decrypt_secret(row["email"])
-                except Exception:
-                    pass
+                    try:
+                        row = conn.execute(
+                            "SELECT email FROM candidates WHERE LOWER(name) = ? ORDER BY id DESC LIMIT 1",
+                            (cand_lower,)
+                        ).fetchone()
+                        if row and row["email"]:
+                            email = decrypt_secret(row["email"])
+                    finally:
+                        conn.close()
+                except Exception as e:
+                    logger.debug("Failed querying candidate email in talent intelligence: %s", e)
 
                 if not email:
                     slug = cname.lower().replace(" ", ".")
@@ -659,9 +661,9 @@ Draft a balanced candidate feedback letter:
 def generate_candidate_offer_letter(
     candidate_name: str,
     job_title: str = "Software Position",
-    start_date: str = None,
-    compensation: str = None,
-    reporting_manager: str = None,
+    start_date: str | None = None,
+    compensation: str | None = None,
+    reporting_manager: str | None = None,
 ) -> dict:
     """
     Generate an enthusiastic, formal job offer and selection letter for successful candidates
@@ -1137,23 +1139,25 @@ def compute_interview_difficulty_breakdown() -> dict:
     # 2. From SQLite interview_sessions
     try:
         conn = get_connection()
-        rows = conn.execute("SELECT session_data FROM interview_sessions").fetchall()
-        for row in rows:
-            try:
-                sdata = json.loads(row["session_data"])
-                for r in sdata.get("responses", []):
-                    top = r.get("topic") or "Problem Solving"
-                    qtype = r.get("type") or "TECHNICAL"
-                    score = r.get("score")
-                    t_taken = r.get("time_taken") or 60.0
-                    if score is not None:
-                        topic_scores.setdefault(top, []).append(float(score))
-                        topic_times.setdefault(top, []).append(float(t_taken))
-                        topic_types[top] = qtype
-                        total_responses += 1
-            except Exception:
-                continue
-        conn.close()
+        try:
+            rows = conn.execute("SELECT session_data FROM interview_sessions").fetchall()
+            for row in rows:
+                try:
+                    sdata = json.loads(row["session_data"])
+                    for r in sdata.get("responses", []):
+                        top = r.get("topic") or "Problem Solving"
+                        qtype = r.get("type") or "TECHNICAL"
+                        score = r.get("score")
+                        t_taken = r.get("time_taken") or 60.0
+                        if score is not None:
+                            topic_scores.setdefault(top, []).append(float(score))
+                            topic_times.setdefault(top, []).append(float(t_taken))
+                            topic_types[top] = qtype
+                            total_responses += 1
+                except Exception:
+                    continue
+        finally:
+            conn.close()
     except Exception as e:
         logger.debug("Failed querying interview answers for topic analytics: %s", e)
 
@@ -1345,38 +1349,40 @@ def compute_hiring_velocity_metrics() -> dict:
 
     try:
         conn = get_connection()
-        # 1. Pipeline run times
-        run_rows = conn.execute("SELECT run_ts, run_type FROM pipeline_runs ORDER BY id ASC").fetchall()
-        nlp_ts = None
-        for r in run_rows:
-            if r["run_type"] == "nlp" and not nlp_ts:
-                try:
-                    nlp_ts = datetime.fromisoformat(r["run_ts"].replace("Z", ""))
-                except Exception as e:
-                    logger.debug("Failed parsing nlp run_ts: %s", e)
-            elif r["run_type"] == "ranking" and nlp_ts:
-                try:
-                    r_ts = datetime.fromisoformat(r["run_ts"].replace("Z", ""))
-                    delta = (r_ts - nlp_ts).total_seconds() / 60.0
-                    if 0 < delta < 180:
-                        time_to_screen_min = round(delta, 1)
-                except Exception as e:
-                    logger.debug("Failed calculating ranking delta: %s", e)
+        try:
+            # 1. Pipeline run times
+            run_rows = conn.execute("SELECT run_ts, run_type FROM pipeline_runs ORDER BY id ASC").fetchall()
+            nlp_ts = None
+            for r in run_rows:
+                if r["run_type"] == "nlp" and not nlp_ts:
+                    try:
+                        nlp_ts = datetime.fromisoformat(r["run_ts"].replace("Z", ""))
+                    except Exception as e:
+                        logger.debug("Failed parsing nlp run_ts: %s", e)
+                elif r["run_type"] == "ranking" and nlp_ts:
+                    try:
+                        r_ts = datetime.fromisoformat(r["run_ts"].replace("Z", ""))
+                        delta = (r_ts - nlp_ts).total_seconds() / 60.0
+                        if 0 < delta < 180:
+                            time_to_screen_min = round(delta, 1)
+                    except Exception as e:
+                        logger.debug("Failed calculating ranking delta: %s", e)
 
-        # 2. Candidate turnaround: schedule to interview token used
-        sched_row = conn.execute("SELECT created_at FROM schedules ORDER BY id ASC LIMIT 1").fetchone()
-        token_row = conn.execute("SELECT created_at FROM interview_sessions ORDER BY created_at ASC LIMIT 1").fetchone()
-        if sched_row and token_row:
-            try:
-                s_created = datetime.fromisoformat(sched_row["created_at"].replace("Z", ""))
-                t_created = datetime.fromtimestamp(float(token_row["created_at"]))
-                diff_hrs = (t_created - s_created).total_seconds() / 3600.0
-                if 0 < diff_hrs < 168:
-                    candidate_turnaround_hrs = round(diff_hrs, 1)
-            except Exception as e:
-                logger.debug("Failed calculating turnaround hours: %s", e)
+            # 2. Candidate turnaround: schedule to interview token used
+            sched_row = conn.execute("SELECT created_at FROM schedules ORDER BY id ASC LIMIT 1").fetchone()
+            token_row = conn.execute("SELECT created_at FROM interview_sessions ORDER BY created_at ASC LIMIT 1").fetchone()
+            if sched_row and token_row:
+                try:
+                    s_created = datetime.fromisoformat(sched_row["created_at"].replace("Z", ""))
+                    t_created = datetime.fromtimestamp(float(token_row["created_at"]))
+                    diff_hrs = (t_created - s_created).total_seconds() / 3600.0
+                    if 0 < diff_hrs < 168:
+                        candidate_turnaround_hrs = round(diff_hrs, 1)
+                except Exception as e:
+                    logger.debug("Failed calculating turnaround hours: %s", e)
 
-        conn.close()
+        finally:
+            conn.close()
     except Exception as e:
         logger.debug("Failed querying telemetry pipeline stages: %s", e)
 

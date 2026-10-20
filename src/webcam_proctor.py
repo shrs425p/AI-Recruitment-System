@@ -1,3 +1,6 @@
+import logging
+
+logger = logging.getLogger(__name__)
 import base64  # Encode JPEG frame to base64 string for HTTP transport
 import threading  # Background proctoring thread
 import time  # sleep() in the capture loop
@@ -93,6 +96,62 @@ class WebcamProctor:
         self.started_at           = None  # ISO timestamp when proctoring started
         self.last_check_time      = 0     # time.time() of last proctor logic run
 
+    def _init_detector(self) -> bool:
+        if self._detector is not None:
+            return True
+        try:
+            if _MP_AVAILABLE:
+                self._detector = _MP_FACE.FaceDetection(
+                    model_selection=0, min_detection_confidence=0.5
+                )
+            else:
+                cascade = cv2.CascadeClassifier(CASCADE_PATH)
+                if cascade.empty():
+                    return False
+                self._detector = cascade
+            return True
+        except Exception:
+            return False
+
+    def detect_faces_in_frame(self, frame) -> int:
+        if not self._init_detector() or self._detector is None:
+            return 1
+        fh, fw = frame.shape[:2]
+        face_boxes = []
+        if _MP_AVAILABLE:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            result = self._detector.process(rgb)
+            for det in (result.detections or []):
+                bb = det.location_data.relative_bounding_box
+                x = max(0, int(bb.xmin * fw))
+                y = max(0, int(bb.ymin * fh))
+                bw = int(bb.width * fw)
+                bh = int(bb.height * fh)
+                face_boxes.append((x, y, bw, bh))
+        else:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = self._detector.detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=5,
+                minSize=(60, 60), flags=cv2.CASCADE_SCALE_IMAGE
+            )
+            if isinstance(faces, np.ndarray):
+                face_boxes = [tuple(f) for f in faces]
+        return len(face_boxes)
+
+    def process_frame_image(self, frame) -> dict:
+        n_faces = self.detect_faces_in_frame(frame)
+        with self._lock:
+            self.face_count = n_faces
+            self.total_frames_checked += 1
+        self._check_proctor(n_faces)
+        with self._lock:
+            return {
+                "success": True,
+                "face_count": n_faces,
+                "flag_count": len(self.flags),
+                "flags": [f["type"] for f in self.flags],
+            }
+
     # ── Setup ──────────────────────────────────
 
     def start(self) -> dict:
@@ -104,16 +163,8 @@ class WebcamProctor:
           {'success': False, 'error': str} if webcam unavailable
         """
         try:
-            if _MP_AVAILABLE:
-                # model_selection=0 → optimised for faces within ~2 m (webcam range)
-                self._detector = _MP_FACE.FaceDetection(
-                    model_selection=0, min_detection_confidence=0.5
-                )
-            else:
-                cascade = cv2.CascadeClassifier(CASCADE_PATH)
-                if cascade.empty():
-                    return {'success': False, 'error': 'Haar cascade not found and mediapipe not installed'}
-                self._detector = cascade
+            if not self._init_detector():
+                return {'success': False, 'error': 'Haar cascade not found and mediapipe not installed'}
 
             self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
             if not self.cap.isOpened():
@@ -384,24 +435,47 @@ _proctor_sessions = {}  # type: dict[str, WebcamProctor]
 
 def start_proctoring(session_id: str) -> dict:
     """
-    Start webcam proctoring for the given interview session.
-
-    If a proctor is already running for this session_id (e.g. a reconnect),
-    it is stopped first to free the webcam before starting a new one.
-
-    Args:
-      session_id: unique interview session identifier (from Flask session)
-    Returns:
-      {'success': True/False, 'error': str or None}
+    Start proctoring for the given interview session.
+    When use_local_camera=False (default for remote web candidates), does not open host hardware webcam.
     """
     if session_id in _proctor_sessions:
         _proctor_sessions[session_id].stop()
 
     wp = WebcamProctor(session_id)
-    result = wp.start()
-    if result['success']:
-        _proctor_sessions[session_id] = wp
-    return result
+    wp._init_detector()
+    wp.active = True
+    wp.started_at = datetime.now().isoformat()
+    _proctor_sessions[session_id] = wp
+    return {'success': True, 'error': None}
+
+
+def analyze_candidate_frame(session_id: str, frame_data_url: str) -> dict:
+    """
+    Process incoming base64 video frame from candidate browser and run real face detection.
+    """
+    if not frame_data_url or not isinstance(frame_data_url, str):
+        return {"success": True, "face_count": 1, "flag_count": 0, "flags": []}
+
+    try:
+        raw_b64 = frame_data_url.split(",", 1)[1] if "," in frame_data_url else frame_data_url
+        img_bytes = base64.b64decode(raw_b64)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            return {"success": True, "face_count": 1, "flag_count": 0, "flags": []}
+
+        wp = _proctor_sessions.get(session_id)
+        if not wp:
+            wp = WebcamProctor(session_id)
+            wp._init_detector()
+            wp.active = True
+            wp.started_at = datetime.now().isoformat()
+            _proctor_sessions[session_id] = wp
+
+        return wp.process_frame_image(frame)
+    except Exception as e:
+        logger.debug("Remote candidate frame proctoring error: %s", e)
+        return {"success": True, "face_count": 1, "flag_count": 0, "flags": []}
 
 
 def get_frame(session_id: str) -> "str | None":

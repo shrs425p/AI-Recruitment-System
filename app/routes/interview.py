@@ -1,4 +1,5 @@
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 import hmac
@@ -36,6 +37,7 @@ rate_limiter = SimpleRateLimiter(requests_per_minute=30)
 interview_session: dict = {}
 candidate_tokens: dict = {}
 active_token_sessions: dict = {}
+session_lock = threading.RLock()
 
 TECHNICAL_INTERVIEW_PLAN = [
     ("TECHNICAL", "Introduction"),
@@ -126,16 +128,17 @@ def _cleanup_expired_sessions():
         logger.warning("Failed cleaning expired DB sessions: %s", e)
 
     now = time.time()
-    expired = [
-        sid
-        for sid, sess in interview_session.items()
-        if now - (sess.get("started_at") or sess.get("created_at", now)) > SESSION_TTL_SECONDS
-    ]
-    for sid in expired:
-        token = interview_session[sid].get("token")
-        if token and active_token_sessions.get(token) == sid:
-            active_token_sessions.pop(token, None)
-        interview_session.pop(sid, None)
+    with session_lock:
+        expired = [
+            sid
+            for sid, sess in list(interview_session.items())
+            if now - (sess.get("started_at") or sess.get("created_at", now)) > SESSION_TTL_SECONDS
+        ]
+        for sid in expired:
+            token = interview_session.get(sid, {}).get("token")
+            if token and active_token_sessions.get(token) == sid:
+                active_token_sessions.pop(token, None)
+            interview_session.pop(sid, None)
 
 
 def _save_sessions():
@@ -143,7 +146,9 @@ def _save_sessions():
     try:
         from app.database import save_interview_session
 
-        for sid, sess in interview_session.items():
+        with session_lock:
+            items = list(interview_session.items())
+        for sid, sess in items:
             save_interview_session(sid, sess)
     except Exception as e:
         logger.warning("Failed persisting sessions: %s", e)
@@ -166,32 +171,36 @@ def _get_candidate_session(data):
     if not session_id:
         return None, (jsonify({"error": "Missing session_id"}), 400)
 
-    session_data = interview_session.get(session_id)
-    if not session_data:
-        # Attempt recovery from SQLite (e.g. following process restart)
-        from app.database import get_interview_session
+    with session_lock:
+        session_data = interview_session.get(session_id)
+        if not session_data:
+            # Attempt recovery from SQLite (e.g. following process restart)
+            from app.database import get_interview_session
 
-        session_data = get_interview_session(session_id)
-        if session_data:
-            interview_session[session_id] = session_data
+            session_data = get_interview_session(session_id)
+            if session_data:
+                interview_session[session_id] = session_data
+                token = session_data.get("token")
+                if token:
+                    active_token_sessions[token] = session_id
+
+        if not session_data:
+            return None, (jsonify({"error": "Session expired or invalid"}), 404)
+
+        now = time.time()
+        session_start = session_data.get("started_at") or session_data.get("created_at", now)
+        if now - session_start > SESSION_TTL_SECONDS:
+            interview_session.pop(session_id, None)
             token = session_data.get("token")
-            if token:
-                active_token_sessions[token] = session_id
+            if token and active_token_sessions.get(token) == session_id:
+                active_token_sessions.pop(token, None)
+            try:
+                from app.database import delete_interview_session
 
-    if not session_data:
-        return None, (jsonify({"error": "Session expired or invalid"}), 404)
-
-    now = time.time()
-    session_start = session_data.get("started_at") or session_data.get("created_at", now)
-    if now - session_start > SESSION_TTL_SECONDS:
-        interview_session.pop(session_id, None)
-        try:
-            from app.database import delete_interview_session
-
-            delete_interview_session(session_id)
-        except Exception:
-            pass
-        return None, (jsonify({"error": "Session expired"}), 404)
+                delete_interview_session(session_id)
+            except Exception:
+                pass
+            return None, (jsonify({"error": "Session expired"}), 404)
 
     provided_key = _session_key_from_request(data)
     expected_key = session_data.get("session_key", "")
@@ -308,6 +317,25 @@ def is_token_valid_and_active(token: str, max_age_hours: int = 72) -> tuple[bool
                 return False, token_data, "This interview link has expired. Please contact HR for a new link."
         except Exception as e:
             logger.warning("Failed parsing token created_at: %s", e)
+
+    # Heal candidate name if placeholder was persisted
+    cname = token_data.get("candidate_name") or ""
+    sfile = token_data.get("source_file") or ""
+    if (not cname or "[CANDIDATE_NAME]" in cname or "Unknown" in cname) and sfile:
+        nlp_file = OUTPUT_FOLDER / "nlp" / f"{sfile}.json"
+        if nlp_file.exists():
+            try:
+                with open(nlp_file, encoding="utf-8") as fh:
+                    ndata = json.load(fh)
+                real_name = (ndata.get("personal_info") or {}).get("name")
+                if real_name:
+                    token_data["candidate_name"] = real_name
+                    from app.database import db_session
+                    with db_session() as conn:
+                        conn.execute("UPDATE interview_tokens SET candidate_name = ? WHERE token = ?", (real_name, token))
+            except Exception:
+                pass
+
     return True, token_data, ""
 
 
@@ -350,16 +378,17 @@ def register_candidate_interview_routes(app):
         valid, token_data, reason = is_token_valid_and_active(token)
         if not valid or not token_data:
             from flask import render_template_string
-            return render_template_string(f"""
+            safe_reason = str(reason).replace("<", "&lt;").replace(">", "&gt;")
+            return render_template_string("""
             <html><head><title>Interview Link Inactive</title>
-            <style>body{{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}}</style>
+            <style>body{font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f9fafb;}</style>
             </head><body>
             <div style="text-align:center; padding:40px; background:white; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
             <h2 style="color:#ef4444; margin-top:0;">Invalid or Expired Link</h2>
-            <p style="color:#6b7280;">{reason}</p>
+            <p style="color:#6b7280;">{{ reason }}</p>
             </div>
             </body></html>
-            """), 403
+            """, reason=safe_reason), 403
 
         return render_template("candidate_interview.html",
                                token=token,
@@ -391,44 +420,45 @@ def register_candidate_interview_routes(app):
 
         from app.database import get_active_session_by_token, save_interview_session
 
-        if token in active_token_sessions and active_token_sessions[token] in interview_session:
-            return jsonify({"error": "Interview already in progress for this token."}), 409
-
-        existing_sid, existing_sess = get_active_session_by_token(token)
-        if existing_sid and existing_sess:
-            now = time.time()
-            if now - (existing_sess.get("started_at") or existing_sess.get("created_at", now)) < SESSION_TTL_SECONDS:
+        with session_lock:
+            if token in active_token_sessions and active_token_sessions[token] in interview_session:
                 return jsonify({"error": "Interview already in progress for this token."}), 409
 
-        job_title, domain, skills = _resolve_candidate_job_context(token_data)
-        plan = get_interview_plan_for_role(job_title, domain)
-        import config as cfg
-        time_limit = getattr(cfg, "INTERVIEW_TIME_LIMIT_SECONDS", 120)
-        session_id = f"S_{secrets.token_urlsafe(24)}"
-        session_key = secrets.token_urlsafe(32)
-        fingerprint = _client_fingerprint()
-        interview_session[session_id] = {
-            "session_id":        session_id,
-            "token":             token,
-            "session_key":       session_key,
-            "remote_addr":       fingerprint["remote_addr"],
-            "user_agent":        fingerprint["user_agent"],
-            "candidate_name":    token_data["candidate_name"],
-            "source_file":       token_data["source_file"],
-            "job_title":         job_title,
-            "domain":            domain,
-            "skills":            skills,
-            "ranking_score":     token_data["score"],
-            "consent_given":     True,
-            "consent_timestamp": time.time(),
-            "responses":         [],
-            "started_at":        time.time(),
-            "webcam_log":        [],
-            "browser_log":       [],
-            "interview_plan":    plan,
-            "time_limit":        time_limit,
-        }
-        active_token_sessions[token] = session_id
+            existing_sid, existing_sess = get_active_session_by_token(token)
+            if existing_sid and existing_sess:
+                now = time.time()
+                if now - (existing_sess.get("started_at") or existing_sess.get("created_at", now)) < SESSION_TTL_SECONDS:
+                    return jsonify({"error": "Interview already in progress for this token."}), 409
+
+            job_title, domain, skills = _resolve_candidate_job_context(token_data)
+            plan = get_interview_plan_for_role(job_title, domain)
+            import config as cfg
+            time_limit = getattr(cfg, "INTERVIEW_TIME_LIMIT_SECONDS", 120)
+            session_id = f"S_{secrets.token_urlsafe(24)}"
+            session_key = secrets.token_urlsafe(32)
+            fingerprint = _client_fingerprint()
+            interview_session[session_id] = {
+                "session_id":        session_id,
+                "token":             token,
+                "session_key":       session_key,
+                "remote_addr":       fingerprint["remote_addr"],
+                "user_agent":        fingerprint["user_agent"],
+                "candidate_name":    token_data["candidate_name"],
+                "source_file":       token_data["source_file"],
+                "job_title":         job_title,
+                "domain":            domain,
+                "skills":            skills,
+                "ranking_score":     token_data["score"],
+                "consent_given":     True,
+                "consent_timestamp": time.time(),
+                "responses":         [],
+                "started_at":        time.time(),
+                "webcam_log":        [],
+                "browser_log":       [],
+                "interview_plan":    plan,
+                "time_limit":        time_limit,
+            }
+            active_token_sessions[token] = session_id
 
         start_proctoring_session(session_id)
 
@@ -442,11 +472,13 @@ def register_candidate_interview_routes(app):
             skills=skills,
             domain=domain,
         )
-        interview_session[session_id]["pending_question"] = first_q
-        interview_session[session_id]["pending_topic"]    = plan[0][1]
-        interview_session[session_id]["pending_q_type"]   = plan[0][0]
-        interview_session[session_id]["question_issued_at"] = time.time()
-        save_interview_session(session_id, interview_session[session_id])
+        with session_lock:
+            if session_id in interview_session:
+                interview_session[session_id]["pending_question"] = first_q
+                interview_session[session_id]["pending_topic"]    = plan[0][1]
+                interview_session[session_id]["pending_q_type"]   = plan[0][0]
+                interview_session[session_id]["question_issued_at"] = time.time()
+                save_interview_session(session_id, interview_session[session_id])
 
         return jsonify({
             "success":         True,
@@ -744,8 +776,9 @@ def register_candidate_interview_routes(app):
         except Exception as ne:
             logger.warning("Could not create completion notification: %s", ne)
 
-        active_token_sessions.pop(token, None)
-        interview_session.pop(session_id, None)
+        with session_lock:
+            active_token_sessions.pop(token, None)
+            interview_session.pop(session_id, None)
 
         technical = [r for r in session_data["responses"] if r.get("type") == "TECHNICAL"]
         behavioral = [r for r in session_data["responses"] if r.get("type") == "BEHAVIORAL"]
@@ -786,10 +819,25 @@ def register_candidate_interview_routes(app):
     @app.route("/api/candidate/proctor/analyze-frame", methods=["POST"])
     def api_candidate_proctor_analyze_frame():
         data = request.json or {}
-        _, error = _get_candidate_session(data)
+        session_data, error = _get_candidate_session(data)
         if error:
             return error
-        return jsonify({"success": True, "face_count": 1, "flag_count": 0, "flags": []})
+        from src.webcam_proctor import analyze_candidate_frame
+        session_id = data.get("session_id", "")
+        frame_url = data.get("frame", "")
+        res = analyze_candidate_frame(session_id, frame_url)
+        if res.get("flags") and session_data is not None:
+            now = time.time()
+            with session_lock:
+                for f in res["flags"]:
+                    session_data.setdefault("webcam_log", []).append({
+                        "type": f,
+                        "detail": f"Face verification alert: {f}",
+                        "timestamp": now,
+                    })
+                from app.database import save_interview_session
+                save_interview_session(session_id, session_data)
+        return jsonify(res)
 
 
 def register_hr_interview_routes(app):

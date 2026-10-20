@@ -28,11 +28,13 @@ OUTPUT_FOLDER     = data_path("output/reports")
 # HELPER: Call AI model
 # ─────────────────────────────────────────────
 
-def call_ai(system_msg: str, user_msg: str) -> str:
+def call_ai(system_msg: str, user_msg: str, candidate_name: str = "") -> str:
     """
-    Wrapper that calls the Ollama model using user-configured settings.
+    Wrapper that calls the AI model using user-configured settings.
     """
-    return call_ollama(system_msg, user_msg)
+    import config
+    think_setting = getattr(config, "AI_THINKING_INTERVIEW", True)
+    return call_ollama(system_msg, user_msg, think=think_setting, candidate_name=candidate_name)
 
 # ─────────────────────────────────────────────
 # STEP 1: LOAD INTERVIEW TRANSCRIPTS

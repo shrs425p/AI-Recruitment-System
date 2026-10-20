@@ -36,8 +36,18 @@ def call_ai(system_msg: str, user_msg: str, temperature: float | None = None) ->
     """
     Thin wrapper around call_ollama using dynamic model and generation parameters.
     Used internally by all question/evaluation functions in this module.
+    Automatically enforces format='json' when JSON output is requested.
     """
-    return call_ollama(system_msg, user_msg, temperature=temperature)
+    import config
+    think_setting = getattr(config, "AI_THINKING_INTERVIEW", True)
+    is_json = "valid json" in system_msg.lower() or "return only valid json" in user_msg.lower()
+    return call_ollama(
+        system_msg,
+        user_msg,
+        temperature=temperature,
+        think=think_setting,
+        format="json" if is_json else None,
+    )
 
 # ─────────────────────────────────────────────
 # STEP 1: LOAD CONFIRMED CANDIDATES
@@ -212,11 +222,16 @@ def generate_adaptive_followup(question: str, answer: str, job_title: str, domai
         "Ground your follow-up directly in a technology, tool, methodology, scenario, or concept they mentioned (e.g., 'You mentioned Redis for caching; how did you handle cache invalidation during write spikes?' or 'You mentioned reducing customer churn; what specific retention campaigns did you test?'). "
         "Return ONLY the single follow-up question text with no markdown, quotes, or preambles."
     )
+    safe_role = escape_xml_payload(job_title)
+    safe_domain = escape_xml_payload(domain)
+    safe_orig_q = escape_xml_payload(question)
+    safe_cand_ans = escape_xml_payload(answer)
+
     user_msg = (
-        f"Target Role: {job_title}\n"
-        f"Domain: {domain}\n"
-        f"Original Question: {question}\n"
-        f"Candidate Answer: {answer}\n\n"
+        f"Target Role: {safe_role}\n"
+        f"Domain: {safe_domain}\n"
+        f"Original Question: {safe_orig_q}\n"
+        f"<candidate_answer>\n{safe_cand_ans}\n</candidate_answer>\n\n"
         f"Generate a single, direct follow-up probe:"
     )
 
@@ -562,7 +577,11 @@ def generate_interview_question(
     domain: str = ""
 ) -> str:
     """Generate a single personalized interview question based on candidate, job title, domain, skills, topic, and transcript history."""
-    system_msg = "You are a professional HR interviewer. Return ONLY the question text itself. Do not include any intro, outro, greeting, or conversational filler."
+    system_msg = (
+        "You are a professional HR interviewer conducting a fast-paced timed interview. "
+        "Return ONLY the single question text itself (1-2 sentences maximum). "
+        "Do not include any greeting, intro, conversational filler, numbering, or bulleted lists."
+    )
 
     skills_str = ", ".join(skills) if skills else ""
     tech = is_tech_role(job_title, domain)
@@ -583,14 +602,22 @@ def generate_interview_question(
         f"Topic: {topic}\n"
     )
     if transcript:
-        prompt += f"\nConversation History so far:\n{transcript}\n"
-        prompt += f"\nBased on the history and the current topic ({topic}), ask the next logical, deep, and engaging interview question specifically tailored for the {job_title} role in {domain_str}."
+        safe_history = escape_xml_payload(transcript)
+        prompt += f"\nConversation History so far:\n<interview_history>\n{safe_history}\n</interview_history>\n"
+        prompt += f"\nBased on the history and the current topic ({topic}), ask the next logical interview question tailored for the {job_title} role in {domain_str}."
     else:
         prompt += f"\nAsk an introductory question testing their background, core competencies, alignment, and interest in the {job_title} position ({domain_str}), focusing on {topic}."
 
+    prompt += (
+        "\nSTRICT REQUIREMENTS FOR THE QUESTION:\n"
+        "- Output EXACTLY ONE concise, focused interview question (1-2 sentences maximum).\n"
+        "- NEVER output multi-part questions, numbered lists (no 1., 2., 3., etc.), or broad architectural essay prompts.\n"
+        "- The question must test a single concrete scenario, decision, or concept answerable verbally in 2 minutes.\n"
+        "- For technical or system design topics, focus on ONE specific trade-off or component (e.g. caching strategy OR partitioning scheme), NOT an entire platform architecture.\n"
+    )
+
     try:
-        from src.common import call_ollama
-        raw = call_ollama(system_msg, prompt)
+        raw = call_ai(system_msg, prompt)
         if raw:
             # Strip extra quotes or prefixes if the AI generated them
             cleaned = raw.strip().strip('"').strip("'").strip()

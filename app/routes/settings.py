@@ -135,6 +135,8 @@ def register_settings_routes(app):
 
             if "app_mode" in request.form:
                 cfg.APP_MODE = request.form.get("app_mode", "privacy").strip()
+                cfg.AI_THINKING_NLP = request.form.get("ai_thinking_nlp") == "on"
+                cfg.AI_THINKING_INTERVIEW = request.form.get("ai_thinking_interview") == "on"
 
                 def _update_secret_if_changed(current_val: str, form_val: str) -> str:
                     stripped = form_val.strip() if form_val else ""
@@ -160,7 +162,7 @@ def register_settings_routes(app):
                 cfg.GEMINI_MODEL    = request.form.get("gemini_model", "gemini-1.5-flash").strip()
                 cfg.GROQ_MODEL      = request.form.get("groq_model", "llama3-8b-8192").strip()
                 cfg.OPENAI_MODEL    = request.form.get("openai_model", "gpt-4o-mini").strip()
-                cfg.NVIDIA_MODEL    = request.form.get("nvidia_model", "meta/llama-3.1-nemotron-70b-instruct").strip()
+                cfg.NVIDIA_MODEL    = request.form.get("nvidia_model", "openai/gpt-oss-20b").strip()
                 cfg.OPENROUTER_MODEL = request.form.get("openrouter_model", "meta-llama/llama-3.1-8b-instruct:free").strip()
                 cfg.GITHUB_MODEL    = request.form.get("github_model", "gpt-4o-mini").strip()
                 cfg.OLLAMA_CLOUD_MODEL = request.form.get("ollama_cloud_model", cfg.OLLAMA_CLOUD_MODEL).strip()
@@ -348,6 +350,23 @@ def register_settings_routes(app):
         main._save_config(cfg)
         return jsonify({"success": True, "mode": cfg.APP_MODE})
 
+    @app.route("/api/toggle-thinking", methods=["POST"])
+    @login_required
+    def api_toggle_thinking():
+        data = request.json or {}
+        target = data.get("target")
+        if target == "nlp":
+            cfg.AI_THINKING_NLP = not getattr(cfg, "AI_THINKING_NLP", False)
+            res = {"success": True, "ai_thinking_nlp": cfg.AI_THINKING_NLP}
+        elif target == "interview":
+            cfg.AI_THINKING_INTERVIEW = not getattr(cfg, "AI_THINKING_INTERVIEW", True)
+            res = {"success": True, "ai_thinking_interview": cfg.AI_THINKING_INTERVIEW}
+        else:
+            return jsonify({"success": False, "error": "Invalid target"}), 400
+        import main
+        main._save_config(cfg)
+        return jsonify(res)
+
     @app.route("/api/ollama/models", methods=["GET"])
     @login_required
     def api_ollama_models():
@@ -472,4 +491,3 @@ def register_settings_routes(app):
         if success:
             return jsonify({"success": True, "message": "SMTP connection test succeeded!"})
         return jsonify({"success": False, "error": message}), 400
-

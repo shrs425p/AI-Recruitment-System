@@ -22,7 +22,7 @@ All AI calls go to a **local Ollama server** running on your machine. Nothing le
 - Requires Ollama installed and running locally
 - No internet needed (fully offline)
 - Slower — depends on your CPU/GPU
-- Falls back to Anthropic cloud if Ollama times out and `CLOUD_ENABLED` is `True`
+- Strictly air-gapped: zero outbound cloud requests even if Ollama times out
 
 You can switch modes in Settings → AI Providers → App Mode.
 
@@ -60,10 +60,10 @@ The application dynamically fetches live models directly from the providers via 
 4. Copy the key (starts with `nvapi-`)
 5. In Settings → AI Providers → NVIDIA: paste the key and click **Load** to fetch the live catalog. Select a model, then enable it.
 
-> **Note on Vision Models:** Ensure you select a standard text-completion model (like `meta/llama-3.1-8b-instruct`). Specialized models like `nvidia/neva-22b` are Vision-Language Models and will return HTTP 404 errors for standard text chats.
+> **Note on Vision Models:** Ensure you select a standard text-completion model (like `openai/gpt-oss-20b`). Specialized models like `nvidia/neva-22b` are Vision-Language Models and will return HTTP 404 errors for standard text chats.
 
 **Recommended models:**
-- `meta/llama-3.1-8b-instruct` (default, fast, free)
+- `openai/gpt-oss-20b` (default, fast, free)
 - `meta/llama-3.1-70b-instruct` (more capable)
 - `nvidia/llama-3.1-nemotron-70b-instruct` (highly capable text processing)
 

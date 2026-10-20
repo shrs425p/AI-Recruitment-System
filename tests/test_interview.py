@@ -35,7 +35,7 @@ class TestRoleAdaptiveBlueprints:
     def test_technical_role_generates_architecture_and_code_topics(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(
             "src.interview_bot.call_ai",
-            lambda prompt, **kw: "Explain how you optimize database indexing and connection pooling in PostgreSQL.",
+            lambda *args, **kw: "Explain how you optimize database indexing and connection pooling in PostgreSQL.",
         )
         q = generate_interview_question(
             candidate_name="Tech Candidate",
@@ -50,7 +50,7 @@ class TestRoleAdaptiveBlueprints:
     def test_non_technical_role_generates_strategy_topics(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(
             "src.interview_bot.call_ai",
-            lambda prompt, **kw: "Describe a marketing campaign where CAC exceeded targets and how you pivoted.",
+            lambda *args, **kw: "Describe a marketing campaign where CAC exceeded targets and how you pivoted.",
         )
         q = generate_interview_question(
             candidate_name="Marketing Lead",
@@ -143,6 +143,7 @@ class TestInterviewSessionEndpoints:
         import app.routes.interview as int_mod
 
         monkeypatch.setattr(int_mod, "get_interview_token", lambda tok: sample_token_payload)
+        monkeypatch.setattr("src.interview_bot.call_ai", lambda *args, **kw: "Tell me about your background.")
 
         # 1. Start session
         start_res = candidate_client.post(
