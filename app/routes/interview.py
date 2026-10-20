@@ -443,12 +443,12 @@ def register_candidate_interview_routes(app):
                 "session_key":       session_key,
                 "remote_addr":       fingerprint["remote_addr"],
                 "user_agent":        fingerprint["user_agent"],
-                "candidate_name":    token_data["candidate_name"],
-                "source_file":       token_data["source_file"],
+                "candidate_name":    token_data.get("candidate_name") or "Unknown",
+                "source_file":       token_data.get("source_file") or "",
                 "job_title":         job_title,
                 "domain":            domain,
                 "skills":            skills,
-                "ranking_score":     token_data["score"],
+                "ranking_score":     token_data.get("score", 0),
                 "consent_given":     True,
                 "consent_timestamp": time.time(),
                 "responses":         [],
@@ -741,8 +741,8 @@ def register_candidate_interview_routes(app):
         session_data["proctoring_status"] = "PASSED" if flagged < 3 else "SUSPICIOUS"
         session_data["flagged_count"] = flagged
 
-        total_score = sum(r["score"] for r in session_data["responses"])
-        max_score   = len(session_data["responses"]) * 10
+        total_score = sum(int(r.get("score") or 0) for r in session_data.get("responses", []))
+        max_score   = len(session_data.get("responses", [])) * 10
         score_pct   = round((total_score / max_score) * 100, 1) if max_score else 0.0
 
         session_data["total_score"] = total_score
@@ -753,7 +753,8 @@ def register_candidate_interview_routes(app):
         int_output = OUTPUT_FOLDER / "interviews"
         int_output.mkdir(exist_ok=True)
 
-        safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', session_data["candidate_name"])
+        cand_name_raw = str(session_data.get("candidate_name") or "unknown")
+        safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', cand_name_raw)
         ts = int(time.time())
         t_path = int_output / f"interview_{safe_name}_{ts}.json"
 

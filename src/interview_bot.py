@@ -66,10 +66,28 @@ def load_scheduled_candidates(scheduling_folder: Path):
     latest = schedule_files[0]
     logger.info(f"> Loading schedule from: {latest.name}")
 
-    with open(latest, encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        if latest.stat().st_size == 0:
+            logger.warning(f"[WARNING] Schedule file '{latest.name}' is empty (0 bytes).")
+            return [], ""
+        with open(latest, encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"[ERROR] Could not parse schedule file '{latest.name}': {e}")
+        return [], ""
 
-    confirmed = [c for c in data.get("schedule", []) if c["status"] == "CONFIRMED"]
+    if not isinstance(data, dict):
+        logger.warning(f"[WARNING] Schedule data in '{latest.name}' is not a JSON object.")
+        return [], ""
+
+    schedule_list = data.get("schedule", [])
+    if not isinstance(schedule_list, list):
+        return [], ""
+
+    confirmed = [
+        c for c in schedule_list
+        if isinstance(c, dict) and c.get("status") == "CONFIRMED"
+    ]
     job_title = data.get("job_title", "Open Position")
 
     logger.info(f"> Confirmed candidates  : {len(confirmed)}")
@@ -458,14 +476,14 @@ def save_interview_result(result: dict, output_path: Path):
         f.write("=" * 60 + "\n")
         f.write("          INTERVIEW TRANSCRIPT\n")
         f.write("=" * 60 + "\n")
-        f.write(f"Candidate       : {result['candidate_name']} ({result['source_file']})\n")
-        f.write(f"Job Title       : {result['job_title']}\n")
-        f.write(f"Date            : {result['interview_date']}\n")
-        f.write(f"Ranking Score   : {result['ranking_score']}/100\n")
-        f.write(f"Interview Score : {result['total_score']}/{result['max_score']} ({result['percentage']}%)\n")
-        f.write(f"Technical Score : {result['technical_score']}/{result['technical_max']} ({result['technical_pct']}%)\n")
-        f.write(f"Behavioral Score: {result['behavioral_score']}/{result['behavioral_max']} ({result['behavioral_pct']}%)\n")
-        f.write(f"Proctoring      : {result['proctoring_status']} ({result['flagged_count']} flags)\n")
+        f.write(f"Candidate       : {result.get('candidate_name', 'Unknown')} ({result.get('source_file', '')})\n")
+        f.write(f"Job Title       : {result.get('job_title', 'Open Position')}\n")
+        f.write(f"Date            : {result.get('interview_date', '')}\n")
+        f.write(f"Ranking Score   : {result.get('ranking_score', 0)}/100\n")
+        f.write(f"Interview Score : {result.get('total_score', 0)}/{result.get('max_score', 0)} ({result.get('percentage', 0)}%)\n")
+        f.write(f"Technical Score : {result.get('technical_score', 0)}/{result.get('technical_max', 0)} ({result.get('technical_pct', 0)}%)\n")
+        f.write(f"Behavioral Score: {result.get('behavioral_score', 0)}/{result.get('behavioral_max', 0)} ({result.get('behavioral_pct', 0)}%)\n")
+        f.write(f"Proctoring      : {result.get('proctoring_status', 'UNKNOWN')} ({result.get('flagged_count', 0)} flags)\n")
         f.write("=" * 60 + "\n\n")
 
         for r in result["responses"]:

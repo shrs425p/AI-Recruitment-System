@@ -228,7 +228,7 @@ async def call_ollama_async(
                 if attempt < attempts:
                     time.sleep(backoff * attempt)
         return ""
-    return await asyncio.get_event_loop().run_in_executor(None, _sync_call)
+    return await asyncio.get_running_loop().run_in_executor(None, _sync_call)
 
 async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 2048) -> str:
     import config
@@ -238,15 +238,22 @@ async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 204
 
     if not ANTHROPIC_AVAILABLE or not cloud_enabled:
         return ""
-    client = anthropic.AsyncAnthropic(api_key=anthropic_key)
-    msg = await client.messages.create(
-        model=cloud_model,
-        max_tokens=max_tokens,
-        system=system_msg,
-        messages=[{"role": "user", "content": user_msg}]
-    )
-    block = msg.content[0]
-    return getattr(block, "text", str(block))
+    try:
+        client = anthropic.AsyncAnthropic(api_key=anthropic_key)
+        msg = await client.messages.create(
+            model=cloud_model,
+            max_tokens=max_tokens,
+            system=system_msg,
+            messages=[{"role": "user", "content": user_msg}]
+        )
+        if not msg.content:
+            return ""
+        block = msg.content[0]
+        return getattr(block, "text", str(block))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Cloud Anthropic async call error: %s", e)
+        return ""
 
 async def call_ai_async(
     system_msg: str,

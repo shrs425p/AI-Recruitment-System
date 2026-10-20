@@ -119,59 +119,69 @@ def register_scheduling_routes(app):
         pipeline_tasks["scheduling"] = {"status": "running", "started": time.time()}
         _save_tasks()
 
-        ranking_path = OUTPUT_FOLDER / "ranking"
-        output_path  = OUTPUT_FOLDER / "scheduling"
-        output_path.mkdir(exist_ok=True)
+        try:
+            ranking_path = OUTPUT_FOLDER / "ranking"
+            output_path  = OUTPUT_FOLDER / "scheduling"
+            output_path.mkdir(exist_ok=True)
 
-        top_candidates = load_top_candidates(ranking_path, top_n)
-        if not top_candidates:
-            return jsonify({"error": "No ranked candidates found"}), 404
+            top_candidates = load_top_candidates(ranking_path, top_n)
+            if not top_candidates:
+                pipeline_tasks["scheduling"] = {"status": "error", "error": "No ranked candidates found."}
+                _save_tasks()
+                return jsonify({"error": "No ranked candidates found"}), 404
 
-        hr_slots, rejected_slots = _parse_schedule_slots(slots_raw)
-        if len(hr_slots) < SLOTS_TO_OFFER:
-            return jsonify({
-                "error": f"Enter at least {SLOTS_TO_OFFER} valid future slots.",
+            hr_slots, rejected_slots = _parse_schedule_slots(slots_raw)
+            if len(hr_slots) < SLOTS_TO_OFFER:
+                pipeline_tasks["scheduling"] = {"status": "error", "error": "Insufficient HR slots."}
+                _save_tasks()
+                return jsonify({
+                    "error": f"Enter at least {SLOTS_TO_OFFER} valid future slots.",
+                    "rejected_slots": rejected_slots,
+                }), 400
+
+            session_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            scheduled     = assign_slots_to_candidates(top_candidates, hr_slots, SLOTS_TO_OFFER)
+
+            for entry in scheduled:
+                if entry.get("offered_slots"):
+                    entry["selected_slot"] = entry["offered_slots"][0]
+                    entry["status"]        = "CONFIRMED"
+                else:
+                    entry["status"] = "PENDING"
+
+            for entry in scheduled:
+                generate_ics(entry, output_path, hr_name, job_title, session_stamp, hr_email=hr_email)
+
+            metadata = {
+                "top_n": top_n,
+                "slot_count": len(hr_slots),
                 "rejected_slots": rejected_slots,
-            }), 400
+                "hr_name": hr_name,
+                "hr_email": hr_email,
+            }
+            save_schedule_summary(scheduled, output_path, job_title, metadata=metadata)
 
-        session_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        scheduled     = assign_slots_to_candidates(top_candidates, hr_slots, SLOTS_TO_OFFER)
+            sched_run_id = create_run("scheduling", {"job_title": job_title, "count": len(scheduled)})
+            db_save_schedule(sched_run_id, scheduled, job_title)
+            finish_run(sched_run_id, "COMPLETED")
 
-        for entry in scheduled:
-            if entry["offered_slots"]:
-                entry["selected_slot"] = entry["offered_slots"][0]
-                entry["status"]        = "CONFIRMED"
-            else:
-                entry["status"] = "PENDING"
+            pipeline_tasks["scheduling"] = {
+                "status": "done",
+                "result": {
+                    "total": len(scheduled),
+                    "confirmed": sum(1 for entry in scheduled if entry.get("status") == "CONFIRMED"),
+                    "pending": sum(1 for entry in scheduled if entry.get("status") == "PENDING"),
+                    "rejected_slots": rejected_slots,
+                },
+            }
+            _save_tasks()
 
-        for entry in scheduled:
-            generate_ics(entry, output_path, hr_name, job_title, session_stamp, hr_email=hr_email)
-
-        metadata = {
-            "top_n": top_n,
-            "slot_count": len(hr_slots),
-            "rejected_slots": rejected_slots,
-            "hr_name": hr_name,
-            "hr_email": hr_email,
-        }
-        save_schedule_summary(scheduled, output_path, job_title, metadata=metadata)
-
-        sched_run_id = create_run("scheduling", {"job_title": job_title, "count": len(scheduled)})
-        db_save_schedule(sched_run_id, scheduled, job_title)
-        finish_run(sched_run_id, "COMPLETED")
-
-        pipeline_tasks["scheduling"] = {
-            "status": "done",
-            "result": {
-                "total": len(scheduled),
-                "confirmed": sum(1 for entry in scheduled if entry.get("status") == "CONFIRMED"),
-                "pending": sum(1 for entry in scheduled if entry.get("status") == "PENDING"),
-                "rejected_slots": rejected_slots,
-            },
-        }
-        _save_tasks()
-
-        return jsonify({"success": True, "scheduled": scheduled, "rejected_slots": rejected_slots})
+            return jsonify({"success": True, "scheduled": scheduled, "rejected_slots": rejected_slots})
+        except Exception as ex:
+            pipeline_tasks["scheduling"] = {"status": "error", "error": str(ex)}
+            _save_tasks()
+            logger.exception("Scheduling pipeline execution error: %s", ex)
+            return jsonify({"error": f"Scheduling execution error: {ex}"}), 500
 
     @app.route("/api/update-slot", methods=["POST"])
     @login_required

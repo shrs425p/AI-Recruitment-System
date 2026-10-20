@@ -113,37 +113,43 @@ def register_reports_routes(app):
         pipeline_tasks["reports"] = {"status": "running", "started": time.time()}
         _save_tasks()
 
-        all_reports   = []
-        success_count = 0
+        try:
+            all_reports   = []
+            success_count = 0
 
-        for transcript in transcripts:
-            combined_score = calculate_combined_score(transcript)
-            ai_report      = generate_ai_report(transcript)
-            if not ai_report:
-                continue
-            save_report_txt(transcript, ai_report, combined_score, output_path)
-            save_report_json(transcript, ai_report, combined_score, output_path)
-            all_reports.append({
-                "candidate_name":      transcript.get("candidate_name", "Unknown"),
-                "source_file":         transcript.get("source_file", ""),
-                "combined_score":      combined_score,
-                "ranking_score":       transcript.get("ranking_score", 0),
-                "interview_pct":       transcript.get("percentage", 0),
-                "proctoring_status":   transcript.get("proctoring_status", "UNKNOWN"),
-                "hire_recommendation": ai_report.get("hire_recommendation", "N/A"),
-                "risk_level":          ai_report.get("risk_level", "N/A"),
-                "key_strengths":       ai_report.get("key_strengths", []),
-                "key_gaps":            ai_report.get("key_gaps", [])
-            })
-            success_count += 1
+            for transcript in transcripts:
+                combined_score = calculate_combined_score(transcript)
+                ai_report      = generate_ai_report(transcript)
+                if not ai_report:
+                    continue
+                save_report_txt(transcript, ai_report, combined_score, output_path)
+                save_report_json(transcript, ai_report, combined_score, output_path)
+                all_reports.append({
+                    "candidate_name":      transcript.get("candidate_name", "Unknown"),
+                    "source_file":         transcript.get("source_file", ""),
+                    "combined_score":      combined_score,
+                    "ranking_score":       transcript.get("ranking_score", 0),
+                    "interview_pct":       transcript.get("percentage", 0),
+                    "proctoring_status":   transcript.get("proctoring_status", "UNKNOWN"),
+                    "hire_recommendation": ai_report.get("hire_recommendation", "N/A"),
+                    "risk_level":          ai_report.get("risk_level", "N/A"),
+                    "key_strengths":       ai_report.get("key_strengths", []),
+                    "key_gaps":            ai_report.get("key_gaps", [])
+                })
+                success_count += 1
 
-        if all_reports:
-            save_final_summary(all_reports, output_path)
+            if all_reports:
+                save_final_summary(all_reports, output_path)
 
-        pipeline_tasks["reports"] = {"status": "done", "result": {"count": success_count}}
-        _save_tasks()
+            pipeline_tasks["reports"] = {"status": "done", "result": {"count": success_count}}
+            _save_tasks()
 
-        return jsonify({"success": True, "count": success_count, "reports": all_reports})
+            return jsonify({"success": True, "count": success_count, "reports": all_reports})
+        except Exception as ex:
+            pipeline_tasks["reports"] = {"status": "error", "error": str(ex)}
+            _save_tasks()
+            logger.exception("Reports pipeline execution error: %s", ex)
+            return jsonify({"error": f"Reports execution error: {ex}"}), 500
 
     @app.route("/api/report-pdf/<filename>")
     @login_required

@@ -152,64 +152,76 @@ def register_ranking_routes(app):
         output_path.mkdir(exist_ok=True)
 
         try:
-            jd_data = call_ai(build_jd_prompt(jd_text))
-        except Exception as e:
-            return jsonify({
-                "error": f"AI Parsing Error: {e}. If your Cloud API quota is exhausted, switch to Privacy Mode in Settings to use your offline Ollama model without limits."
-            }), 429 if "429" in str(e) else 500
-        if not jd_data:
-            return jsonify({"error": "Failed to parse Job Description. Please try again."}), 500
+            try:
+                jd_data = call_ai(build_jd_prompt(jd_text))
+            except Exception as e:
+                pipeline_tasks["ranking"] = {"status": "error", "error": str(e)}
+                _save_tasks()
+                return jsonify({
+                    "error": f"AI Parsing Error: {e}. If your Cloud API quota is exhausted, switch to Privacy Mode in Settings to use your offline Ollama model without limits."
+                }), 429 if "429" in str(e) else 500
+            if not jd_data:
+                pipeline_tasks["ranking"] = {"status": "error", "error": "Failed to parse Job Description."}
+                _save_tasks()
+                return jsonify({"error": "Failed to parse Job Description. Please try again."}), 500
 
-        # Fallback if AI returned empty template
-        if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
-            from src.ranking_engine import _extract_title_fallback
-            jd_data["job_title"] = _extract_title_fallback(jd_text)
+            # Fallback if AI returned empty template
+            if not jd_data.get("job_title") or jd_data.get("job_title").startswith("<"):
+                from src.ranking_engine import _extract_title_fallback
+                jd_data["job_title"] = _extract_title_fallback(jd_text)
 
-        candidates = load_candidates(nlp_path)
-        if not candidates:
-            return jsonify({"error": "No candidates found"}), 404
+            candidates = load_candidates(nlp_path)
+            if not candidates:
+                pipeline_tasks["ranking"] = {"status": "error", "error": "No candidates found."}
+                _save_tasks()
+                return jsonify({"error": "No candidates found"}), 404
 
-        scored = []
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(score_candidate, c, jd_data, weights=weights, knockout_rules=knockout_rules): c
-                for c in candidates
+            scored = []
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = {
+                    executor.submit(score_candidate, c, jd_data, weights=weights, knockout_rules=knockout_rules): c
+                    for c in candidates
+                }
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result:
+                        scored.append(result)
+
+            ranked = sorted(scored, key=lambda x: x.get("total_score", 0), reverse=True)
+            save_leaderboard_txt(ranked, jd_data, output_path)
+            save_scores_json(ranked, jd_data, output_path, weights=weights, knockout_rules=knockout_rules)
+            shortlist = save_shortlist_report(ranked, jd_data, output_path)
+
+            run_id = create_run("ranking", {"job_title": jd_data.get("job_title"), "count": len(ranked)})
+            for r in ranked:
+                upsert_candidate(
+                    run_id=run_id,
+                    name=r.get("candidate_name", ""),
+                    score=r.get("total_score", 0),
+                )
+            finish_run(run_id, "COMPLETED")
+
+            pipeline_tasks["ranking"] = {
+                "status": "done",
+                "result": {
+                    "count": len(ranked),
+                    "job_title": jd_data.get("job_title"),
+                    "shortlist_report": shortlist.get("files", {}),
+                },
             }
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    scored.append(result)
+            _save_tasks()
 
-        ranked = sorted(scored, key=lambda x: x.get("total_score", 0), reverse=True)
-        save_leaderboard_txt(ranked, jd_data, output_path)
-        save_scores_json(ranked, jd_data, output_path, weights=weights, knockout_rules=knockout_rules)
-        shortlist = save_shortlist_report(ranked, jd_data, output_path)
-
-        run_id = create_run("ranking", {"job_title": jd_data.get("job_title"), "count": len(ranked)})
-        for r in ranked:
-            upsert_candidate(
-                run_id=run_id,
-                name=r.get("candidate_name", ""),
-                score=r.get("total_score", 0),
-            )
-        finish_run(run_id, "COMPLETED")
-
-        pipeline_tasks["ranking"] = {
-            "status": "done",
-            "result": {
-                "count": len(ranked),
+            return jsonify({
+                "success": True,
                 "job_title": jd_data.get("job_title"),
-                "shortlist_report": shortlist.get("files", {}),
-            },
-        }
-        _save_tasks()
-
-        return jsonify({
-            "success": True,
-            "job_title": jd_data.get("job_title"),
-            "ranked": ranked,
-            "shortlist_report": shortlist,
-        })
+                "ranked": ranked,
+                "shortlist_report": shortlist,
+            })
+        except Exception as ex:
+            pipeline_tasks["ranking"] = {"status": "error", "error": str(ex)}
+            _save_tasks()
+            logger.exception("Ranking pipeline execution error: %s", ex)
+            return jsonify({"error": f"Ranking execution error: {ex}"}), 500
 
     @app.route("/api/ranking/export/csv", methods=["GET"])
     @login_required
