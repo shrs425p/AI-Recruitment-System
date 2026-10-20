@@ -117,9 +117,11 @@ def send_interview_email(
         </div>
         """
 
-    body_html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-        <h2 style="color:#18181b;">Interview Invitation</h2>
+    if custom_body:
+        formatted_custom = body_text.replace("\n", "<br>")
+        content_html = f"<div style='line-height:1.6;'>{formatted_custom}</div>"
+    else:
+        content_html = f"""
         <p>Dear <strong>{candidate_name}</strong>,</p>
         <p>We are pleased to inform you that you have been shortlisted for the position of
            <strong>{job_title}</strong>{company_line}.</p>
@@ -127,6 +129,12 @@ def send_interview_email(
         <div style="background:#f4f4f5;padding:16px 20px;border-radius:8px;margin:16px 0;font-size:15px;">
             <strong>{date_display}</strong>
         </div>
+        """
+
+    body_html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+        <h2 style="color:#18181b;">Interview Invitation</h2>
+        {content_html}
         {link_html}
         <p>Please ensure you are available at the above time. If you need to reschedule,
            reply to this email at your earliest convenience.</p>
@@ -137,14 +145,6 @@ def send_interview_email(
         </p>
     </div>
     """
-
-    body_text = (
-        f"Dear {candidate_name},\n\n"
-        f"You have been shortlisted for the position of {job_title}{company_line}.\n\n"
-        f"Interview scheduled: {date_display}\n\n"
-        f"Please ensure availability. Reply to reschedule.\n\n"
-        f"Best regards,\n{hr_line}{company_line}\n"
-    )
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = _sanitize_header(subject)

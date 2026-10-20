@@ -321,13 +321,13 @@ The platform executes an automated 8-stage technical recruitment pipeline:
 - Tracks request timestamps per provider over sliding 60-second windows to calculate Requests Per Minute (RPM).
 - If an enabled provider reaches its RPM threshold, requests route automatically to alternate enabled providers.
 - Catches HTTP 429 (Rate Limit) and HTTP 500 (Service Error) exceptions and retries prompts against alternate providers.
-- If Ollama times out in Privacy Mode and `CLOUD_ENABLED` is `True`, falls back to Anthropic Claude as a secondary failover.
+- In Privacy Mode, the system is strictly zero-network air-gapped and never fails over to external cloud APIs.
 
 ### 7.3 Supported AI Providers Directory
 
 | Provider | Endpoint URL | Key Prefix | Default Model | Free Tier RPM |
 |---|---|---|---|---|
-| NVIDIA NIM | `https://integrate.api.nvidia.com/v1` | `nvapi-` | `meta/llama-3.1-8b-instruct` | ~10 RPM |
+| NVIDIA NIM | `https://integrate.api.nvidia.com/v1` | `nvapi-` | `openai/gpt-oss-20b` | ~10 RPM |
 | Anthropic | `https://api.anthropic.com/v1` | `sk-ant-` | `claude-3-5-haiku-latest` | Pay-as-you-go |
 | Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | `AIza` | `gemini-1.5-flash` | 15 RPM |
 | Groq | `https://api.groq.com/openai/v1` | `gsk_` | `llama3-8b-8192` | 30 RPM |
@@ -620,7 +620,7 @@ Dynamic configuration keys stored in the `app_settings` table in SQLite:
 | `OLLAMA_MODEL` | `'llama3.2:3b'` | String | No | Model tag used for local on-device inference. |
 | `NVIDIA_ENABLED` | `True` | Boolean | No | Toggles NVIDIA NIM cloud provider in ProviderRouter pool. |
 | `NVIDIA_KEY` | `''` | String | Yes | API authentication key for NVIDIA NIM catalog. |
-| `NVIDIA_MODEL` | `'meta/llama-3.1-8b-instruct'` | String | No | Active model tag for NVIDIA inference. |
+| `NVIDIA_MODEL` | `'openai/gpt-oss-20b'` | String | No | Active model tag for NVIDIA inference. |
 | `GROQ_ENABLED` | `False` | Boolean | No | Toggles Groq provider in ProviderRouter pool. |
 | `GROQ_KEY` | `''` | String | Yes | API authentication key for Groq Cloud. |
 | `GROQ_MODEL` | `'llama3-8b-8192'` | String | No | Active model tag for Groq inference. |

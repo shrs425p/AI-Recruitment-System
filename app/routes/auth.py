@@ -99,11 +99,7 @@ def register_auth_routes(app):
         error = None
         if request.method == "POST":
             # SEC-02: Rate limiting on authentication attempts
-            client_ip = (
-                request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1")
-                .split(",")[0]
-                .strip()
-            )
+            client_ip = request.remote_addr or "127.0.0.1"
             if not login_rate_limiter.is_allowed(client_ip):
                 return render_template(
                     "login.html",

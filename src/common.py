@@ -94,28 +94,57 @@ def clean_json_response(text: str) -> dict:
     text = re.sub(r"```json", "", text, flags=re.IGNORECASE)
     text = re.sub(r"```", "", text)
     text = text.strip()
+    if not text:
+        return {}
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         try:
             return json.loads(_repair_json_string(text))
         except json.JSONDecodeError:
+            pass
+
+    start = text.find("{")
+    if start != -1:
+        decoder = json.JSONDecoder()
+        try:
+            obj, _ = decoder.raw_decode(text[start:])
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+        try:
+            obj, _ = decoder.raw_decode(_repair_json_string(text[start:]))
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+
+        end = text.rfind("}")
+        if end > start:
+            json_str = text[start:end + 1]
             try:
-                start = text.index("{")
-                end   = text.rindex("}") + 1
-                json_str = text[start:end]
+                return json.loads(json_str)
+            except json.JSONDecodeError:
                 try:
-                    return json.loads(json_str)
-                except json.JSONDecodeError:
                     return json.loads(_repair_json_string(json_str))
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"  [WARNING] JSON parse failed: {e}")
-                return {}
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"  [WARNING] JSON parse failed: {e}")
+                    return {}
+
+    return {}
 
 clean_json = clean_json_response
 
-async def call_ollama_async(system_msg: str, user_msg: str, temperature: float | None = None, num_predict: int | None = None) -> str:
+async def call_ollama_async(
+    system_msg: str,
+    user_msg: str,
+    temperature: float | None = None,
+    num_predict: int | None = None,
+    think: bool | None = None,
+    format: str | None = None,
+) -> str:
     import logging
 
     import config
@@ -159,14 +188,20 @@ async def call_ollama_async(system_msg: str, user_msg: str, temperature: float |
         t0 = time.time()
         for attempt in range(1, attempts + 1):
             try:
-                response = _ollama().chat(
-                    model=current_model,
-                    messages=[
+                chat_kwargs = {
+                    "model": current_model,
+                    "messages": [
                         {"role": "system", "content": system_msg},
                         {"role": "user",   "content": user_msg},
                     ],
-                    options=call_options,
-                )
+                    "options": call_options,
+                }
+                if think is not None:
+                    chat_kwargs["think"] = think
+                if format is not None:
+                    chat_kwargs["format"] = format
+
+                response = _ollama().chat(**chat_kwargs)
                 content = response["message"]["content"]
                 if not content and response.get("done_reason") == "length" and fallback_model and current_model != fallback_model:
                     logger.warning("  [WARNING] Model '%s' returned empty output (done_reason=length). Attempting configured fallback model '%s'...", current_model, fallback_model)
@@ -213,45 +248,51 @@ async def call_cloud_async(system_msg: str, user_msg: str, max_tokens: int = 204
     block = msg.content[0]
     return getattr(block, "text", str(block))
 
-async def call_ai_async(system_msg: str, user_msg: str, temperature: float | None = None, num_predict: int | None = None, local_timeout: float = 300.0) -> str:
+async def call_ai_async(
+    system_msg: str,
+    user_msg: str,
+    temperature: float | None = None,
+    num_predict: int | None = None,
+    local_timeout: float = 300.0,
+    think: bool | None = None,
+    format: str | None = None,
+    candidate_name: str = "",
+) -> str:
     import logging
     logger = logging.getLogger(__name__)
     mode = get_app_mode()
     if mode == "privacy":
         try:
             return await asyncio.wait_for(
-                call_ollama_async(system_msg, user_msg, temperature, num_predict),
+                call_ollama_async(system_msg, user_msg, temperature=temperature, num_predict=num_predict, think=think, format=format),
                 timeout=local_timeout
             )
         except asyncio.TimeoutError:
             logger.warning(f"  [WARNING] Local Ollama call timed out ({local_timeout}s).")
-            import config
-            cloud_enabled = getattr(config, "CLOUD_ENABLED", False)
-            anthropic_key = getattr(config, "ANTHROPIC_KEY", "")
-            if cloud_enabled and ANTHROPIC_AVAILABLE and anthropic_key and anthropic_key != 'sk-ant-...':
-                logger.info("  [INFO] Attempting Cloud Fallback (Anthropic) because local Ollama timed out...")
-                try:
-                    return await call_cloud_async(system_msg, user_msg, num_predict or 2048)
-                except Exception as ce:
-                    logger.error(f"  [ERROR] Cloud fallback failed: {ce}")
             return ""
         except Exception as e:
             logger.error(f"  [ERROR] Local Ollama call failed: {e}")
-            import config
-            cloud_enabled = getattr(config, "CLOUD_ENABLED", False)
-            anthropic_key = getattr(config, "ANTHROPIC_KEY", "")
-            if cloud_enabled and ANTHROPIC_AVAILABLE and anthropic_key and anthropic_key != 'sk-ant-...':
-                logger.info("  [INFO] Attempting Cloud Fallback (Anthropic) due to local failure...")
-                try:
-                    return await call_cloud_async(system_msg, user_msg, num_predict or 2048)
-                except Exception as ce:
-                    logger.error(f"  [ERROR] Cloud fallback failed: {ce}")
             return ""
     else:
         from src.provider_router import router
-        return await router.call(system_msg, user_msg, max_tokens=num_predict or 2048)
+        return await router.call(
+            system_msg,
+            user_msg,
+            max_tokens=num_predict or 2048,
+            candidate_name=candidate_name,
+            think=think,
+            format=format,
+        )
 
-def call_ollama(system_msg: str, user_msg: str, temperature: float | None = None, num_predict: int | None = None) -> str:
+def call_ollama(
+    system_msg: str,
+    user_msg: str,
+    temperature: float | None = None,
+    num_predict: int | None = None,
+    think: bool | None = None,
+    format: str | None = None,
+    candidate_name: str = "",
+) -> str:
     import asyncio
     import logging
     import threading
@@ -263,7 +304,15 @@ def call_ollama(system_msg: str, user_msg: str, temperature: float | None = None
     def _worker():
         nonlocal result, exception
         try:
-            result = asyncio.run(call_ai_async(system_msg, user_msg, temperature, num_predict))
+            result = asyncio.run(call_ai_async(
+                system_msg,
+                user_msg,
+                temperature=temperature,
+                num_predict=num_predict,
+                think=think,
+                format=format,
+                candidate_name=candidate_name,
+            ))
         except Exception as e:
             exception = e
 
@@ -284,7 +333,15 @@ def call_ollama(system_msg: str, user_msg: str, temperature: float | None = None
             raise exception
     else:
         try:
-            result = asyncio.run(call_ai_async(system_msg, user_msg, temperature, num_predict))
+            result = asyncio.run(call_ai_async(
+                system_msg,
+                user_msg,
+                temperature=temperature,
+                num_predict=num_predict,
+                think=think,
+                format=format,
+                candidate_name=candidate_name,
+            ))
         except Exception as e:
             logger.error(f"  [ERROR] AI call failed: {e}")
             raise

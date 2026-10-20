@@ -72,7 +72,12 @@ class TestNlpEntityExtraction:
             "domain": "Computer Science",
         }
 
-        monkeypatch.setattr("src.nlp_extractor.call_ollama", lambda sys_msg, usr_msg: json.dumps(mock_output))
+        called_kwargs = {}
+        def mock_call_ollama(sys_msg, usr_msg, *args, **kwargs):
+            called_kwargs.update(kwargs)
+            return json.dumps(mock_output)
+
+        monkeypatch.setattr("src.nlp_extractor.call_ollama", mock_call_ollama)
 
         sample_resume_text = (
             "Alan Turing\nEmail: alan@example.com\n"
@@ -85,6 +90,8 @@ class TestNlpEntityExtraction:
         assert result["total_experience_years"] == 8.0
         assert "Cryptography" in result["skills"]
         assert result["education"][0]["degree"] == "PhD"
+        assert called_kwargs.get("format") == "json"
+        assert called_kwargs.get("think") is False
 
     def test_nlp_save_output_creates_atomic_files(self, tmp_path: Path):
         data = {
@@ -125,3 +132,74 @@ class TestAiProviderRouter:
 
         with pytest.raises(RuntimeError, match="Unsupported provider endpoint scheme"):
             pr._validate_endpoint("ftp://example.com")
+
+
+class TestThinkingConfiguration:
+    """Tests the task-based AI reasoning and thinking controls across NLP and Interview modules."""
+
+    def test_thinking_settings_defaults(self):
+        import config
+        assert getattr(config, "AI_THINKING_NLP", None) is False
+        assert getattr(config, "AI_THINKING_INTERVIEW", None) is True
+
+    def test_extract_with_ai_respects_custom_thinking_setting(self, monkeypatch: pytest.MonkeyPatch):
+        import config
+        from src.nlp_extractor import extract_with_ai
+
+        captured = {}
+        def mock_call(sys_msg, usr_msg, *args, **kwargs):
+            captured.update(kwargs)
+            return '{"name": "Ada Lovelace"}'
+
+        monkeypatch.setattr("src.nlp_extractor.call_ollama", mock_call)
+
+        # Toggle to True
+        monkeypatch.setattr(config, "AI_THINKING_NLP", True)
+        res = extract_with_ai("Sample resume")
+        assert res["name"] == "Ada Lovelace"
+        assert captured.get("think") is True
+        assert captured.get("format") == "json"
+
+        # Toggle to False
+        monkeypatch.setattr(config, "AI_THINKING_NLP", False)
+        extract_with_ai("Sample resume")
+        assert captured.get("think") is False
+
+    def test_report_generator_uses_interview_thinking_setting(self, monkeypatch: pytest.MonkeyPatch):
+        import config
+        from src.report_generator import call_ai
+
+        captured = {}
+        def mock_call(sys_msg, usr_msg, *args, **kwargs):
+            captured.update(kwargs)
+            return "Evaluation text"
+
+        monkeypatch.setattr("src.report_generator.call_ollama", mock_call)
+
+        # Default is True
+        call_ai("system prompt", "user prompt")
+        assert captured.get("think") is True
+
+        # Toggle to False
+        monkeypatch.setattr(config, "AI_THINKING_INTERVIEW", False)
+        call_ai("system prompt", "user prompt")
+        assert captured.get("think") is False
+    def test_interview_bot_uses_interview_thinking_setting(self, monkeypatch: pytest.MonkeyPatch):
+        import config
+        from src.interview_bot import call_ai
+
+        captured = {}
+        def mock_call(sys_msg, usr_msg, *args, **kwargs):
+            captured.update(kwargs)
+            return "Interview question"
+
+        monkeypatch.setattr("src.interview_bot.call_ollama", mock_call)
+
+        # Default is True
+        call_ai("system prompt", "user prompt")
+        assert captured.get("think") is True
+
+        # Toggle to False
+        monkeypatch.setattr(config, "AI_THINKING_INTERVIEW", False)
+        call_ai("system prompt", "user prompt")
+        assert captured.get("think") is False

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from src.common import data_path, install_path, resource_path
+from src.security import decrypt_bytes, encrypt_bytes
 
 # Google API libraries
 try:
@@ -75,9 +76,18 @@ def _get_credentials():
     token_file = _token_file()
     credentials_file = _credentials_file()
 
-    # Step 1: Try to load previously saved token
+    # Step 1: Try to load previously saved token (transparently decrypt if encrypted)
     if token_file.exists():
-        creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+        try:
+            raw_bytes = token_file.read_bytes()
+            dec_bytes = decrypt_bytes(raw_bytes)
+            import json as _json
+            creds = Credentials.from_authorized_user_info(_json.loads(dec_bytes.decode("utf-8")), SCOPES)
+        except Exception:
+            try:
+                creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+            except Exception:
+                creds = None
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -100,9 +110,9 @@ def _get_credentials():
             flow = InstalledAppFlow.from_client_secrets_file(str(credentials_file), SCOPES)
             creds = flow.run_local_server(port=0)  # port=0 = pick any free port
 
-        # Step 4: Save token so the next run doesn't need the browser
-        with open(token_file, 'w') as f:
-            f.write(creds.to_json())
+        # Step 4: Save encrypted token so credentials are protected at rest
+        enc_token = encrypt_bytes(creds.to_json().encode("utf-8"))
+        token_file.write_bytes(enc_token)
 
     return creds
 

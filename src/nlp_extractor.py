@@ -1,5 +1,7 @@
 import logging
 
+from src.security import escape_xml_payload
+
 logger = logging.getLogger(__name__)
 
 import json  # Serialize / deserialize JSON (saving NLP output)
@@ -29,7 +31,11 @@ WATCH_INTERVAL_SECONDS = 5
 # PROMPT TEMPLATE
 # ─────────────────────────────────────────────
 
+
+
+
 def build_prompt(resume_text: str) -> str:
+    safe_resume = escape_xml_payload(resume_text)
     return f"""
 You are an expert HR analyst and resume parser. You work across ALL industries including but not limited to:
 IT, Software, Finance, Banking, Medical, Healthcare, Law, Legal, Marketing, Sales, HR, Education,
@@ -51,7 +57,7 @@ STRICT RULES:
 
 RESUME TEXT:
 <untrusted_resume_text>
-{resume_text}
+{safe_resume}
 </untrusted_resume_text>
 
 Return EXACTLY this JSON structure:
@@ -132,13 +138,24 @@ def extract_with_ai(resume_text: str) -> dict:
     Returns an empty dict {} if the AI call fails or JSON is unparseable.
     Raises RuntimeError with provider error details if the AI call itself fails.
     """
+    import config
+    think_setting = getattr(config, "AI_THINKING_NLP", False)
+
     system = (
         "You are a precise resume parser that extracts structured data "
         "from resumes of ALL professional domains. Always return valid JSON only."
     )
+    if not think_setting:
+        system += " Output valid raw JSON only without any reasoning or internal thinking."
+
     # call_ollama handles retries; clean_json_response strips markdown fences
     try:
-        raw = call_ollama(system, build_prompt(resume_text))
+        raw = call_ollama(
+            system,
+            build_prompt(resume_text),
+            think=think_setting,
+            format="json",
+        )
     except Exception as e:
         raise RuntimeError(f"AI provider error: {e}") from e
     return clean_json_response(raw) if raw else {}

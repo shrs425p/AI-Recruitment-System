@@ -937,7 +937,7 @@ def save_candidate_offer(
         return int(cur.lastrowid or 0)
 
 
-def get_candidate_offers(candidate_name: str = None) -> list[dict]:
+def get_candidate_offers(candidate_name: str | None = None) -> list[dict]:
     """Fetch candidate offers, optionally filtered by candidate name, ordered newest first."""
     with db_session() as conn:
         if candidate_name:

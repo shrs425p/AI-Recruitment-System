@@ -233,7 +233,8 @@ domain_match ({active_weights['domain_match']} pts max):
   0 pts   — Completely unrelated domain
 
 skills_match ({active_weights['skills_match']} pts max):
-  Score proportionally based on what % of required_skills are present.
+  Score proportionally based on what % of required_skills are explicitly present in candidate skills.
+  CRITICAL: Count ONLY skills explicitly listed under candidate skills. Do NOT hallucinate skills that are not listed.
   Also give partial credit for related skills (e.g. PyTorch counts for a TensorFlow requirement).
   Group related skills together: ML/DL/AI frameworks are equivalent, SQL/NoSQL are equivalent.
   {active_weights['skills_match']} pts — 80%+ of required skills present
@@ -243,12 +244,12 @@ skills_match ({active_weights['skills_match']} pts max):
   0 pts   — No relevant skills
 
 experience_years ({active_weights['experience_years']} pts max):
-  Use these EXACT bands — do not deviate:
+  Use these EXACT bands for RELEVANT experience in the role's field/domain:
   {active_weights['experience_years']} pts — 5+ years of relevant experience
   {round(active_weights['experience_years'] * 0.9)} pts — 2–5 years of relevant experience
   {round(active_weights['experience_years'] * 0.7)} pts — 0–2 years of relevant experience
   {round(active_weights['experience_years'] * 0.5)} pts — Fresher / experience not mentioned (do NOT give 0)
-  0 pts   — Clearly irrelevant experience only
+  0 pts   — Clearly irrelevant experience only (e.g. 20 years in Finance when role is Software Developer)
 
 education ({active_weights['education']} pts max):
   {active_weights['education']} pts — PhD or Doctorate
@@ -258,9 +259,10 @@ education ({active_weights['education']} pts max):
   0 pts   — No education information
 
 certifications ({active_weights['certifications']} pts max):
+  Certifications must directly apply to the JD role/domain (e.g. AWS/CKA for Software/Cloud). Unrelated certifications (e.g. CPA/CFA for Software) must receive 0 pts.
   {active_weights['certifications']} pts — 3+ relevant certifications
   {round(active_weights['certifications'] * 0.6)} pts — 1–2 relevant certifications
-  0 pts   — No certifications
+  0 pts   — No relevant certifications
 
 STRICT RULES:
 - Follow rubric bands exactly.
@@ -276,6 +278,7 @@ JOB DESCRIPTION:
 
 CANDIDATE:
 <candidate_profile>
+- Candidate ID: [BLIND_EVALUATION]
 - Domain: {safe_domain}
 - Skills: {safe_skills}
 - Experience: {safe_exp}
@@ -311,11 +314,15 @@ Return EXACTLY this JSON:
 def call_ai(prompt: str) -> dict:
     """
     Wrapper that sends a single-string prompt to the AI and returns parsed JSON.
-    Uses a strict system message to minimise non-JSON output from the model.
+    Enforces format='json' and adheres to AI_THINKING_NLP setting.
     """
+    import config
+    think_flag = getattr(config, "AI_THINKING_NLP", False)
     raw = call_ollama(
         "You are a precise HR analyst. Always return valid JSON only.",
-        prompt
+        prompt,
+        format="json",
+        think=think_flag,
     )
     return clean_json_response(raw) if raw else {}
 
@@ -464,12 +471,15 @@ def score_candidate(
         score_result = call_ai(prompt)
 
         if not score_result:
+            logger.warning(f"  [RETRY] Retrying evaluation for {name}...")
+            score_result = call_ai(prompt)
+
+        if not score_result:
             logger.info(f"  [FAILED]  {name}")
             return None
 
-        # Fill candidate_name if AI left it blank
-        if not score_result.get("candidate_name"):
-            score_result["candidate_name"] = name
+        # Always enforce real candidate name from NLP parsing (protects against AI placeholders like [CANDIDATE_NAME])
+        score_result["candidate_name"] = name
 
         # Carry source file, domain, confidence, and knockout status into result
         score_result["_source_file"]   = candidate.get("_source_file", "")

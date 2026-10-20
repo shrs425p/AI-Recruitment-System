@@ -686,6 +686,38 @@
             </div>
         </div>
 
+        <!-- AI Reasoning & Thinking Behavior Card -->
+        <div class="card" style="margin-top:16px;">
+            <div class="card-title">AI Reasoning &amp; Thinking Behavior</div>
+            <div class="card-desc">Control whether reasoning/thinking models (such as Qwen 3, DeepSeek R1, Claude 3.7 Sonnet, or Gemini 2.5) generate extended internal reasoning chains before answering. Operates across all active providers (Local Ollama &amp; Cloud).</div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-top:16px;">
+                <!-- NLP Resume Parsing Toggle -->
+                <div style="background:var(--gray-50, #f9fafb); border:1px solid var(--gray-200, #e5e7eb); border-radius:10px; padding:16px;">
+                    <label style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; font-weight:600; font-size:0.95rem;">
+                        <span>Resume NLP Extraction Thinking</span>
+                        <input type="checkbox" name="ai_thinking_nlp" {% if cfg.AI_THINKING_NLP %}checked{% endif %}
+                            style="width:18px; height:18px; accent-color:#18181b;">
+                    </label>
+                    <p style="font-size:0.8rem; color:var(--gray-500, #6b7280); margin:8px 0 0 0; line-height:1.45;">
+                        <strong style="color:#059669;">Recommended: OFF</strong>. Disabling thinking extracts resumes into structured JSON in <strong>2–4 seconds</strong> and prevents empty-response token exhaustion timeouts.
+                    </p>
+                </div>
+
+                <!-- Interview Evaluation & Scoring Toggle -->
+                <div style="background:var(--gray-50, #f9fafb); border:1px solid var(--gray-200, #e5e7eb); border-radius:10px; padding:16px;">
+                    <label style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; font-weight:600; font-size:0.95rem;">
+                        <span>Interview Evaluation &amp; Scoring Thinking</span>
+                        <input type="checkbox" name="ai_thinking_interview" {% if cfg.AI_THINKING_INTERVIEW %}checked{% endif %}
+                            style="width:18px; height:18px; accent-color:#18181b;">
+                    </label>
+                    <p style="font-size:0.8rem; color:var(--gray-500, #6b7280); margin:8px 0 0 0; line-height:1.45;">
+                        <strong style="color:#4f46e5;">Recommended: ON</strong>. Enables multi-step logical deduction when evaluating candidate interview transcripts, coding answers, and technical reasoning.
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <!-- ============================================= -->
         <!-- PANEL: PRIVACY MODE                           -->
         <!-- ============================================= -->
