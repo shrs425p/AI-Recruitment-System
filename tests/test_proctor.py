@@ -5,7 +5,9 @@ server-verified response timing, instant paste detection, and browser anti-cheat
 """
 
 import time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+import numpy as np
 
 import app.routes.interview as interview_routes
 from src.webcam_proctor import (
@@ -33,7 +35,10 @@ def test_proctor_start_cascade_missing():
     session = WebcamProctor("sess_no_cascade")
     mock_cascade = MagicMock()
     mock_cascade.empty.return_value = True
-    with patch("cv2.CascadeClassifier", return_value=mock_cascade):
+    with (
+        patch("src.webcam_proctor._MP_AVAILABLE", False),
+        patch("cv2.CascadeClassifier", return_value=mock_cascade),
+    ):
         result = session.start()
         assert result["success"] is False
         assert "Haar cascade not found" in result["error"]
@@ -44,7 +49,11 @@ def test_proctor_start_webcam_unavailable():
     session = WebcamProctor("sess_no_cam")
     mock_cascade = MagicMock()
     mock_cascade.empty.return_value = False
-    with patch("cv2.CascadeClassifier", return_value=mock_cascade), patch("cv2.VideoCapture") as mock_cap_cls:
+    with (
+        patch("src.webcam_proctor._MP_AVAILABLE", False),
+        patch("cv2.CascadeClassifier", return_value=mock_cascade),
+        patch("cv2.VideoCapture") as mock_cap_cls,
+    ):
         mock_cap = MagicMock()
         mock_cap.isOpened.return_value = False
         mock_cap_cls.return_value = mock_cap
@@ -60,9 +69,10 @@ def test_proctor_start_webcam_success():
     mock_cascade = MagicMock()
     mock_cascade.empty.return_value = False
     with (
+        patch("src.webcam_proctor._MP_AVAILABLE", False),
         patch("cv2.CascadeClassifier", return_value=mock_cascade),
         patch("cv2.VideoCapture") as mock_cap_cls,
-        patch("threading.Thread") as mock_thread_cls,
+        patch("src.webcam_proctor.threading.Thread") as mock_thread_cls,
     ):
         mock_cap = MagicMock()
         mock_cap.isOpened.return_value = True
@@ -150,9 +160,10 @@ def test_proctor_module_session_lifecycle():
     mock_cascade = MagicMock()
     mock_cascade.empty.return_value = False
     with (
+        patch("src.webcam_proctor._MP_AVAILABLE", False),
         patch("cv2.CascadeClassifier", return_value=mock_cascade),
         patch("cv2.VideoCapture") as mock_cap_cls,
-        patch("threading.Thread"),
+        patch("src.webcam_proctor.threading.Thread"),
     ):
         mock_cap = MagicMock()
         mock_cap.isOpened.return_value = True
@@ -341,3 +352,52 @@ def test_reasonable_response_interval_no_timing_flags(candidate_app, candidate_c
     assert "INSTANT_PASTE_DETECTED" not in flags
     assert "PROLONGED_RESPONSE_DELAY" not in flags
     assert "SUSPICIOUSLY_FAST_ANSWER" not in flags
+
+
+def test_proctor_mediapipe_tasks_live_or_mocked():
+    session = WebcamProctor("sess_mp_tasks")
+    assert session._init_detector() is True
+    blank_frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    assert session.detect_faces_in_frame(blank_frame) == 0
+    res = session.process_frame_image(blank_frame)
+    assert res["success"] is True
+    assert res["face_count"] == 0
+    session.stop()
+
+
+def test_proctor_mediapipe_solutions_mode():
+    session = WebcamProctor("sess_mp_solutions")
+    mock_detector = MagicMock()
+    mock_res = MagicMock()
+    mock_res.detections = []
+    mock_detector.process.return_value = mock_res
+    mock_mp_face = MagicMock()
+    mock_mp_face.FaceDetection.return_value = mock_detector
+
+    with (
+        patch("src.webcam_proctor._MP_AVAILABLE", True),
+        patch("src.webcam_proctor._MP_MODE", "solutions"),
+        patch("src.webcam_proctor._MP_FACE", mock_mp_face),
+    ):
+        assert session._init_detector() is True
+        blank_frame = np.zeros((240, 320, 3), dtype=np.uint8)
+        assert session.detect_faces_in_frame(blank_frame) == 0
+        res = session.process_frame_image(blank_frame)
+        assert res["success"] is True
+        assert res["face_count"] == 0
+        session.stop()
+
+
+def test_proctor_tasks_missing_model_fallback():
+    session = WebcamProctor("sess_model_missing")
+    mock_cascade = MagicMock()
+    mock_cascade.empty.return_value = False
+    fake_model = Path("non_existent_blaze_face.tflite")
+    with (
+        patch("src.webcam_proctor._MP_AVAILABLE", True),
+        patch("src.webcam_proctor._MP_MODE", "tasks"),
+        patch("src.webcam_proctor._MODEL_PATH", fake_model),
+        patch("cv2.CascadeClassifier", return_value=mock_cascade),
+    ):
+        assert session._init_detector() is True
+        assert session._detector == mock_cascade
