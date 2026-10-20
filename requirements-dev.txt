@@ -2,7 +2,7 @@
 # Install with:  pip install -r requirements-dev.txt
 
 # Linting & formatting
-ruff>=0.16.9
+ruff>=0.17.1
 black>=24.0.0
 
 # Type checking
