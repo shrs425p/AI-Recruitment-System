@@ -33,8 +33,15 @@ def call_ai(system_msg: str, user_msg: str, candidate_name: str = "") -> str:
     Wrapper that calls the AI model using user-configured settings.
     """
     import config
-    think_setting = getattr(config, "AI_THINKING_INTERVIEW", True)
-    return call_ollama(system_msg, user_msg, think=think_setting, candidate_name=candidate_name)
+    is_json = "valid json" in system_msg.lower() or "return only valid json" in user_msg.lower()
+    think_setting = getattr(config, "AI_THINKING_INTERVIEW", False)
+    return call_ollama(
+        system_msg,
+        user_msg,
+        think=False if is_json else think_setting,
+        format="json" if is_json else None,
+        candidate_name=candidate_name
+    )
 
 # ─────────────────────────────────────────────
 # STEP 1: LOAD INTERVIEW TRANSCRIPTS

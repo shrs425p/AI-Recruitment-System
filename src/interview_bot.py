@@ -39,13 +39,13 @@ def call_ai(system_msg: str, user_msg: str, temperature: float | None = None) ->
     Automatically enforces format='json' when JSON output is requested.
     """
     import config
-    think_setting = getattr(config, "AI_THINKING_INTERVIEW", True)
+    think_setting = getattr(config, "AI_THINKING_INTERVIEW", False)
     is_json = "valid json" in system_msg.lower() or "return only valid json" in user_msg.lower()
     return call_ollama(
         system_msg,
         user_msg,
         temperature=temperature,
-        think=think_setting,
+        think=False if is_json else think_setting,
         format="json" if is_json else None,
     )
 

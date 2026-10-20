@@ -197,7 +197,9 @@ async def call_ollama_async(
                     "options": call_options,
                 }
                 if think is not None:
-                    chat_kwargs["think"] = think
+                    chat_kwargs["think"] = False if format == "json" else think
+                elif format == "json":
+                    chat_kwargs["think"] = False
                 if format is not None:
                     chat_kwargs["format"] = format
 
