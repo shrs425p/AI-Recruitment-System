@@ -586,6 +586,8 @@
         .proctor-flags {
             padding-top: 8px;
             border-top: 1px solid var(--gray-100);
+            max-height: 140px;
+            overflow-y: auto;
         }
 
         /* Voice mode */
@@ -1371,7 +1373,7 @@
 
                 if (data.face_count === 0) {
                     faceIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
-                    faceText.textContent = 'No face detected';
+                    faceText.textContent = 'No face detected — center camera';
                     indicator.className = 'proctor-indicator proctor-danger';
                 } else if (data.face_count > 1) {
                     faceIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
@@ -1384,13 +1386,17 @@
                 }
 
                 flagCount = data.flag_count || 0;
-                const flagList = document.getElementById('flagList');
                 if (data.flags && data.flags.length > 0) {
-                    flagList.innerHTML = data.flags.slice(-3).map(function(f) {
-                        return '<div style="color:var(--red); font-size:12px; margin-bottom:2px;"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); margin-right:6px; vertical-align:middle;"></span>' + f.type.replace(/_/g, ' ') + '</div>';
-                    }).join('');
-                } else {
-                    flagList.textContent = 'None';
+                    data.flags.forEach(function(f) {
+                        const t = typeof f === 'string' ? f : (f.type || '');
+                        if (t && !flagCountsByType[t]) {
+                            flagCountsByType[t] = 1;
+                        }
+                    });
+                    renderFlags();
+                } else if (Object.keys(flagCountsByType).length === 0) {
+                    const flagList = document.getElementById('flagList');
+                    if (flagList) flagList.textContent = 'None';
                 }
             } catch (e) { /* ignore analysis errors */ }
         }
@@ -1547,30 +1553,79 @@
         }
 
         // ───────── ANTI-CHEAT ─────────
+        const flagCountsByType = {};
+        let lastVisibilityFlagTime = 0;
+        let lastCopyFlagTime = 0;
+        let lastPasteFlagTime = 0;
+        let lastScreenshotFlagTime = 0;
+
         document.addEventListener("visibilitychange", () => {
-            if (document.hidden && sessionId) logFlag("TAB_SWITCHED_OR_MINIMIZED");
+            if (document.hidden && sessionId) {
+                const now = Date.now();
+                if (now - lastVisibilityFlagTime > 5000) {
+                    lastVisibilityFlagTime = now;
+                    logFlag("TAB_SWITCHED_OR_MINIMIZED");
+                }
+            }
         });
-        document.addEventListener("copy", () => { if (sessionId) logFlag("COPY_DETECTED"); });
-        document.addEventListener("paste", () => { if (sessionId) logFlag("PASTE_DETECTED"); });
+        document.addEventListener("copy", () => {
+            if (sessionId) {
+                const now = Date.now();
+                if (now - lastCopyFlagTime > 3000) {
+                    lastCopyFlagTime = now;
+                    logFlag("COPY_DETECTED");
+                }
+            }
+        });
+        document.addEventListener("paste", () => {
+            if (sessionId) {
+                const now = Date.now();
+                if (now - lastPasteFlagTime > 3000) {
+                    lastPasteFlagTime = now;
+                    logFlag("PASTE_DETECTED");
+                }
+            }
+        });
         window.addEventListener("keyup", (e) => {
-            if (e.key === "PrintScreen" && sessionId) logFlag("SCREENSHOT_DETECTED");
+            if (e.key === "PrintScreen" && sessionId) {
+                const now = Date.now();
+                if (now - lastScreenshotFlagTime > 3000) {
+                    lastScreenshotFlagTime = now;
+                    logFlag("SCREENSHOT_DETECTED");
+                }
+            }
         });
+
+        function renderFlags() {
+            const flagList = document.getElementById('flagList');
+            if (!flagList) return;
+            const entries = Object.entries(flagCountsByType);
+            if (entries.length === 0) {
+                flagList.textContent = 'None';
+                return;
+            }
+            flagList.innerHTML = entries.map(([type, count]) => {
+                const label = type.replace(/_/g, ' ') + (count > 1 ? ' (x' + count + ')' : '');
+                return '<div style="color:var(--red); font-size:12px; margin-bottom:3px; display:flex; align-items:center;"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); margin-right:6px; flex-shrink:0;"></span>' + label + '</div>';
+            }).join('');
+        }
 
         async function logFlag(flagType) {
             if (!sessionId) return;
 
-            // Update flag list visually
             flagCount++;
-            const flagList = document.getElementById('flagList');
-            const flagHtml = '<div style="color:var(--red); font-size:12px; margin-bottom:2px;"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--red); margin-right:6px; vertical-align:middle;"></span>' + flagType.replace(/_/g, ' ') + '</div>';
-            if (flagList.textContent === 'None') flagList.innerHTML = flagHtml;
-            else flagList.innerHTML += flagHtml;
+            flagCountsByType[flagType] = (flagCountsByType[flagType] || 0) + 1;
+            renderFlags();
 
-            await fetch('/api/candidate/proctor/browser_flag', {
-                method: 'POST',
-                headers: interviewHeaders(),
-                body: JSON.stringify(withSession({ type: flagType }))
-            });
+            try {
+                await fetch('/api/candidate/proctor/browser_flag', {
+                    method: 'POST',
+                    headers: interviewHeaders(),
+                    body: JSON.stringify(withSession({ type: flagType }))
+                });
+            } catch (err) {
+                console.debug('Failed to transmit browser proctor flag:', err);
+            }
         }
     </script>
     {% endif %}

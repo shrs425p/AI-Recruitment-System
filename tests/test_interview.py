@@ -133,6 +133,47 @@ class TestEvaluationRubric:
         assert result["relevance"] <= 3
         assert result["depth"] <= 3
 
+    def test_evaluate_answer_rejects_profanity_with_zero_score(self, monkeypatch: pytest.MonkeyPatch):
+        # Should not invoke call_ai at all
+        ai_called = False
+        def fake_call_ai(*args, **kwargs):
+            nonlocal ai_called
+            ai_called = True
+            return "{}"
+        monkeypatch.setattr("src.interview_bot.call_ai", fake_call_ai)
+
+        for profane in ["fuck u", "STFU", "bullshit answer", "fcking nonsense"]:
+            result = evaluate_answer(
+                question="Can you explain problem solving?",
+                answer=profane,
+                job_title="Backend Engineer",
+                domain="Backend",
+            )
+            assert result["total"] == 0
+            assert result["relevance"] == 0
+            assert result["depth"] == 0
+            assert "vulgarity" in result["feedback"].lower() or "profanity" in result["feedback"].lower()
+        assert not ai_called
+
+    def test_evaluate_answer_rejects_trivial_non_answers(self, monkeypatch: pytest.MonkeyPatch):
+        ai_called = False
+        def fake_call_ai(*args, **kwargs):
+            nonlocal ai_called
+            ai_called = True
+            return "{}"
+        monkeypatch.setattr("src.interview_bot.call_ai", fake_call_ai)
+
+        for trivial in ["idk", "pass", "skip", "none", "no idea", "n/a", "asdf"]:
+            result = evaluate_answer(
+                question="Explain Python decorators",
+                answer=trivial,
+                job_title="Python Developer",
+                domain="Software Engineering",
+            )
+            assert result["total"] == 0
+            assert "substantive" in result["feedback"].lower()
+        assert not ai_called
+
 
 class TestInterviewSessionEndpoints:
     """Tests HTTP endpoints for candidate interview initialization and answer submissions."""

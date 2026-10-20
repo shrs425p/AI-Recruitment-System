@@ -6,19 +6,19 @@ python-docx>=1.2.0
 numpy>=1.26
 
 # AI / LLM
-ollama>=0.1.7
-anthropic>=1.8.0
+ollama>=0.6.3
+anthropic>=1.15.0
 
 # GUI / Web
 pywebview>=5.0
-Flask>=3.0
+Flask>=3.1
 waitress>=3.0
 
 # Calendar
 icalendar>=7.3.0
 
 # Face detection
-mediapipe>=1.0.1
+mediapipe>=0.10.30
 opencv-python>=4.9
 
 # Voice / Speech
@@ -26,14 +26,14 @@ pyttsx3>=2.90
 SpeechRecognition>=3.10
 
 # Google Calendar integration
-google-api-python-client>=2.200.0
-google-auth-httplib2>=0.4.2
-google-auth-oauthlib>=1.4.1
-cryptography>=50.0.1
+google-api-python-client>=2.201.0
+google-auth-httplib2>=0.4.4
+google-auth-oauthlib>=1.5.0
+cryptography>=50.0.2
 pyopenssl>=24.0
 
 # PDF export
-fpdf2>=2.7
+fpdf2>=2.8.9
 
 # Offline open-source speech recognition (Apache 2.0, no API key)
 # After pip install, run:   python scripts/setup_vosk.py
