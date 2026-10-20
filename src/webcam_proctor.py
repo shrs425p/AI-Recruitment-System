@@ -5,12 +5,11 @@ import base64  # Encode JPEG frame to base64 string for HTTP transport
 import threading  # Background proctoring thread
 import time  # sleep() in the capture loop
 from datetime import datetime  # Timestamps for flag events
+from pathlib import Path
 from typing import Any
 
 import cv2  # OpenCV — webcam capture, frame processing, Haar cascade
 import numpy as np  # NumPy arrays used by OpenCV face detection results
-
-from pathlib import Path
 
 # Try to import MediaPipe for high-accuracy face detection
 _MP_MODE = None  # 'solutions', 'tasks', or None
