@@ -1,75 +1,144 @@
-# AI Recruitment System
+# AI Recruitment System (ARS)
+
+> Privacy-first, offline-capable technical recruitment and remote proctoring platform.
 
 <div align="center">
   <img src="media/logo.png" alt="AI Recruitment System" width="85%">
-  
+
   <br><br>
 
   <p>
-    <a href="DOCUMENTATION.md">System Documentation</a> | 
-    <a href="docs/getting-started.md">Getting Started</a> | 
-    <a href="docs/index.md">Documentation Hub</a> | 
-    <a href="https://github.com/shrs425p/AI-Recruitment-System">GitHub Repository</a>
+    <a href="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/ci.yml"><img src="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/ci.yml/badge.svg" alt="CI Workflow"></a>
+    <a href="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/security.yml"><img src="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/security.yml/badge.svg" alt="Security Scan"></a>
+    <a href="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/codeql.yml"><img src="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Analysis"></a>
+    <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+">
+    <img src="https://img.shields.io/badge/tests-197%20passed-brightgreen.svg?style=flat-square" alt="Tests 197 Passed">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"></a>
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/status-stable-orange?style=flat-square" alt="Status">
-    <img src="https://img.shields.io/github/v/release/shrs425p/AI-Recruitment-System?style=flat-square&label=latest" alt="Latest Version">
-    <img src="https://img.shields.io/badge/license-MIT-red?style=flat-square" alt="License">
-    <img src="https://img.shields.io/badge/tests-140%20passed-brightgreen?style=flat-square" alt="Tests">
-    <img src="https://img.shields.io/badge/python-3.10%2B-yellow?style=flat-square" alt="Python">
-    <img src="https://img.shields.io/badge/platform-Windows-blue?style=flat-square" alt="Platform">
-    <img src="https://img.shields.io/badge/security-verified-brightgreen?style=flat-square" alt="Security">
-  </p>
-
-  <br>
-
-  <p>
-    <b>Core Technology Stack:</b><br>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-    <img src="https://img.shields.io/badge/Flask-Web_Framework-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
-    <img src="https://img.shields.io/badge/pywebview-Desktop_Shell-0284C7?style=for-the-badge" alt="pywebview">
-    <img src="https://img.shields.io/badge/SQLite-Local_Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
-    <img src="https://img.shields.io/badge/Ollama-Local_LLM-white?style=for-the-badge&logo=ollama&logoColor=black" alt="Ollama">
-    <img src="https://img.shields.io/badge/NVIDIA-NIM_Cloud-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="NVIDIA">
-    <img src="https://img.shields.io/badge/OpenCV-Computer_Vision-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white" alt="OpenCV">
-    <img src="https://img.shields.io/badge/MediaPipe-Face_Detection-0073E6?style=for-the-badge" alt="MediaPipe">
-    <img src="https://img.shields.io/badge/Tesseract-OCR_Engine-4285F4?style=for-the-badge" alt="Tesseract">
-    <img src="https://img.shields.io/badge/python--docx-Word_Parsing-2B579A?style=for-the-badge" alt="python-docx">
-    <img src="https://img.shields.io/badge/pypdf-PDF_Parsing-306998?style=for-the-badge" alt="pypdf">
-    <img src="https://img.shields.io/badge/fpdf2-Report_Generation-D32F2F?style=for-the-badge" alt="fpdf2">
+    <a href="https://github.com/shrs425p/AI-Recruitment-System/releases/latest"><b>Download Windows Installer (.exe)</b></a> &nbsp;|&nbsp;
+    <a href="docs/index.md"><b>Documentation Hub</b></a> &nbsp;|&nbsp;
+    <a href="DOCUMENTATION.md"><b>System Documentation</b></a> &nbsp;|&nbsp;
+    <a href="https://github.com/shrs425p"><b>Follow @shrs425p (Maintainer)</b></a>
   </p>
 </div>
 
 ---
 
-## What Is the AI Recruitment System?
+## Application Showcase
 
-The **AI Recruitment System (ARS)** is an offline-capable, privacy-first desktop application designed to automate and orchestrate the complete technical hiring workflow. Built for talent acquisition specialists, engineering hiring managers, and recruitment operators, the system automates resume ingestion, attribute extraction, applicant ranking, calendar scheduling, proctored live technical assessments, evaluation scoring, and talent intelligence analytics.
-
-The platform operates under a local data sovereignty architecture: all resumes, contact information, interview video/audio analyses, transcripts, evaluation scorecards, and system configurations are stored locally on the operator's machine. The application can run in a 100% air-gapped environment with zero outbound network calls using bundled fonts, local charting libraries, local OCR engines, local speech recognizers, and on-device large language models via Ollama.
-
----
-
-## What It Does
-
-Traditional recruitment requires juggling fragmented tools for resume screening, spreadsheet ranking, manual calendar coordination, third-party video conferencing, and manual interview evaluations. The AI Recruitment System unifies this entire journey into a single automated pipeline:
-
-1. **Ingests & Normalizes Resumes:** Ingests candidate applications in digital PDF, scanned PDF, Microsoft Word (`.docx`), and image formats (`.png`, `.jpg`), recovering text via native parsers and bundled OCR.
-2. **Extracts Structured Profiles:** Transforms unstructured resume text into a normalized JSON schema capturing personal details, technical and soft skills, career history, education, projects, certifications, and domain classifications.
-3. **Ranks Candidates & Enforces Knockouts:** Scores candidates across 5 weighted dimensions (Skills, Experience, Education, Projects, Domain) against any job description, normalizes criteria weights dynamically, and applies automated tenure and skill knockout filters.
-4. **Coordinates Schedules & Sends Invitations:** Shortlists top candidates, allocates discrete interview slots across upcoming weekdays, synchronizes with Google Calendar, generates `.ics` files, and dispatches automated invitation emails via SMTP STARTTLS.
-5. **Conducts Proctored Technical Assessments:** Hosts an isolated, token-authenticated HTTPS portal on Port 5000 where candidates answer role-adaptive questions under real-time MediaPipe computer vision proctoring and server-enforced elapsed timers.
-6. **Probes & Evaluates Answers:** Adapts question blueprints to role archetypes, dynamically injects targeted follow-up probing questions for shallow answers, and supports voice transcription.
-7. **Synthesizes Combined Fit Scores:** Evaluates interview transcripts across 4 rubric dimensions (Technical Accuracy, Communication Clarity, Problem-Solving Depth, Behavioral Alignment) and calculates a final Combined Fit Score (40% resume fit + 60% interview performance).
-8. **Generates Multi-Page PDF Reports:** Automatically compiles standardized, monochrome Material Design 3 PDF evaluation reports and issues instant desktop notifications to HR upon assessment completion.
-9. **Delivers Talent Intelligence & Analytics:** Provides 384-dimensional vector semantic search, 4-way candidate comparison matrices, personalized candidate feedback letters, and 6 visual talent analytics modules.
+| Operator Desktop Dashboard | Candidate Assessment & Rubric Scoring |
+| :---: | :---: |
+| ![Desktop Dashboard](media/dashboard.png) | ![Candidate Evaluation](media/candidate_evaluation.png) |
+| **Natural Language Candidate Retrieval** | **Standardized Post-Interview PDF Report** |
+| ![Talent Intelligence](media/talent_intelligence.png) | ![PDF Report](media/pdf_report.png) |
 
 ---
 
-## System Architecture & How It Works
+## Overview
 
-The platform uses a strict two-server isolated architecture that segregates administrative control from public candidate assessment interactions:
+Traditional recruitment pipelines force teams to juggle disparate tools for resume screening, spreadsheet ranking, calendar booking, third-party video meetings, and subjective interview evaluations.
+
+The **AI Recruitment System (ARS)** consolidates this entire workflow into a single local-first desktop application. From multi-format resume parsing and automated 5-dimension candidate ranking to token-secured live AI interviews, real-time computer vision proctoring, and comprehensive executive PDF reporting, ARS ensures fast, consistent, and privacy-compliant hiring.
+
+---
+
+## Table of Contents
+
+- [Key Capabilities](#key-capabilities)
+- [Quick Start](#quick-start)
+  - [Option A: Windows Desktop Installer](#option-a-windows-desktop-installer-recommended-for-recruiters)
+  - [Option B: Run from Source](#option-b-run-from-source-for-developers)
+- [Interview Portal & Network Access](#interview-portal--network-access)
+- [System Architecture](#system-architecture)
+- [Supported AI Providers & Air-Gapped Mode](#supported-ai-providers--air-gapped-mode)
+- [Limitations & Responsible AI Use](#limitations--responsible-ai-use)
+- [Roadmap](#roadmap)
+- [Testing & Quality Verification](#testing--quality-verification)
+- [Documentation Index](#documentation-index)
+- [License & Commercial Terms](#license--commercial-terms)
+- [Contributing & Security](#contributing--security)
+
+---
+
+## Key Capabilities
+
+| Capability | Module | Technical Implementation |
+| :--- | :--- | :--- |
+| **Multi-Format Ingestion** | Resume Parsing | Native `.docx` XML parsing via `python-docx`, digital PDF extraction via `pypdf`, and optical character recognition via Google Tesseract OCR 5.3. |
+| **Structured NLP Extraction** | Profile Extraction | Normalizes unstructured resumes into validated JSON capturing skills, chronological experience, credentials, projects, certifications, and domain classifications. |
+| **5-Dimension Candidate Ranking** | Applicant Ranking | Weighted scoring across Skills (35%), Experience (25%), Education (15%), Projects (15%), and Domain (10%) with dynamic weight normalization and hard knockout filters. |
+| **Automated Interview Scheduling** | Coordination | Automatic weekday slot allocation, Google Calendar OAuth 2.0 Free/Busy conflict checks, RFC 5545 `.ics` generation, and automated SMTP STARTTLS invitation dispatch. |
+| **Isolated Candidate Assessment** | Candidate Portal | Isolated HTTPS service on Port 5000 with single-use token lifecycle, server-pacing rules, and strict elapsed question timers. |
+| **Real-Time Remote Proctoring** | Computer Vision | MediaPipe Face Mesh tracking 468 facial landmarks with OpenCV Haar cascade fallback; monitors face absence, multiple faces, tab switching, and copy-paste events. |
+| **Adaptive Interview Bot** | Technical Assessment | Role-adaptive blueprints, configurable technical and behavioral questions, dynamic follow-up probing, and dual-layer voice input via Web Speech API or offline Vosk. |
+| **Combined Fit Scoring & Reports** | Executive Reporting | Evaluates transcripts across 4 rubric dimensions, computes 40/60 combined fit score (40% resume + 60% interview), and compiles standardized Material Design 3 PDF dossiers via FPDF2. |
+| **Talent Intelligence & Analytics** | Strategic Insights | 384-dimensional vector semantic search, multi-candidate comparison matrix, automated feedback letters, and 6 talent analytics visual modules. |
+| **100% Air-Gapped Operation** | Local Data Sovereignty | Zero external CDN calls; bundled Inter and JetBrains Mono fonts; bundled local Chart.js bundle; on-device LLM inference via Ollama (`qwen3.5:0.8b` / `llama3.2:3b`). |
+
+---
+
+## Quick Start
+
+### Option A: Windows Desktop Installer (Recommended for Recruiters)
+
+For recruiters and HR operators who want a ready-to-run desktop application without managing Python environments:
+
+1. Download the latest installer `ARS_Setup_3.0.0.exe` from [GitHub Releases](https://github.com/shrs425p/AI-Recruitment-System/releases/latest).
+2. Run the setup executable and follow the installation wizard.
+3. Launch the application via the desktop shortcut or Start Menu.
+4. The desktop administration console will start automatically on `http://127.0.0.1:5001`.
+
+---
+
+### Option B: Run from Source (For Developers)
+
+#### Prerequisites
+- Windows 10/11 (64-bit)
+- Python 3.10+ (tested up to Python 3.14)
+- Git
+- Optional for local AI: [Ollama](https://ollama.ai) installed with `ollama pull qwen3.5:0.8b` (or `llama3.2:3b`)
+
+#### 1. Clone Repository & Setup Virtual Environment
+```bash
+git clone https://github.com/shrs425p/AI-Recruitment-System.git
+cd AI-Recruitment-System
+
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+#### 2. Download Offline Models (Optional for Air-Gapped Voice)
+To enable offline speech recognition without cloud Web Speech dependencies, download the bundled Vosk acoustic model:
+```bash
+python scripts/setup_vosk.py
+```
+
+#### 3. Launch the Application
+```bash
+python main.py
+```
+- The native desktop administration window (`pywebview`) will launch automatically via loopback Waitress on `http://127.0.0.1:5001`.
+- The public candidate assessment server will initialize on `https://<your-lan-ip>:5000`.
+
+---
+
+## Interview Portal & Network Access
+
+The candidate assessment portal runs on **Port 5000** over HTTPS to satisfy modern browser security constraints for webcam and microphone streaming.
+
+> [!IMPORTANT]
+> **Browser Security Notice for Candidates**:
+> The portal utilizes a local self-signed TLS certificate generated at startup. When candidates open their unique assessment link (e.g. `https://192.168.1.50:5000/candidate-interview/<token>`), browsers will display a standard warning: *"Your connection is not private"* or *"Potential Security Risk"*.
+> Candidates must click **Advanced** -> **Proceed to [IP] (unsafe)** to accept the local certificate and enter the interview room.
+
+---
+
+## System Architecture
+
+The platform enforces a strict two-server network isolation model to prevent candidates from accessing administrative endpoints:
 
 ```
 [ Operator Desktop Window (pywebview) ]
@@ -77,124 +146,137 @@ The platform uses a strict two-server isolated architecture that segregates admi
                ▼ Loopback HTTP (Port 5001)
      [ Waitress WSGI Server ]
                │
-               ├── Flask Administrative App (app/routes/api.py, intelligence.py, etc.)
-               ├── Relational Storage (SQLite ars.db - 13 Tables)
-               ├── Encryption at Rest (Hardware Machine-GUID AES-Fernet)
-               └── AI Provider Router (Ollama Local / NVIDIA NIM / Anthropic / Gemini / Groq)
+               ├── Flask Admin Engine (routes/api.py, intelligence.py, etc.)
+               ├── Relational SQLite Database (ars.db - 13 Tables)
+               ├── Machine-GUID AES-Fernet Encryption at Rest
+               └── AI Provider Router (Ollama / NVIDIA NIM / Anthropic / Gemini / Groq)
 
                                     * * *
 
-[ Candidate Devices on Local Network / VPN ]
+[ Candidate Devices on Local Area Network / VPN ]
                │
                ▼ Inbound HTTPS with Self-Signed TLS (Port 5000)
-    [ Flask Candidate Portal Server ]
+     [ Flask Candidate Assessment Server ]
                │
-               ├── Token Authentication (interview_tokens table, single-use burn)
-               ├── Server Pacing & Anti-Tampering Engine (Linear progression)
-               ├── Computer Vision Proctoring (MediaPipe Face Mesh + Haar Cascade fallback)
-               └── Voice Processing (HTML5 Web Speech API + Offline Vosk/pyttsx3 fallbacks)
+               ├── Single-Use Token Authentication (interview_tokens)
+               ├── Server Pacing Engine & Enforced Timers
+               ├── Real-Time MediaPipe Face Mesh & Proctoring Monitors
+               └── Dual-Layer Speech Engine (HTML5 Web Speech + Offline Vosk)
 ```
-
-### The 8-Stage Recruitment Workflow
-
-1. **Upload & Ingestion:** The operator adds resume files (`.pdf`, `.docx`, `.png`, `.jpg`) to `data/resumes/`. Files are validated against magic byte signatures, sanitized against path traversal, and limited to 16 MB.
-2. **Text Extraction & OCR:** Digital PDFs are parsed via `pypdf`, Word documents are parsed via `python-docx` (traversing paragraphs and tables), and scanned documents are rasterized and processed via bundled Tesseract OCR 5.3.
-3. **Structured NLP Extraction:** Segmented text is encapsulated in XML boundaries (`<resume_text>`) and converted by the AI engine into standardized candidate profile JSON records.
-4. **Candidate Ranking:** Profiles are evaluated against the target job description across 5 criteria. Knockout rules filter out unqualified applicants, scores are normalized, candidate tiers are assigned, notes and triage tags are recorded, and leaderboards can be exported to CSV.
-5. **Interview Scheduling:** Top N shortlisted candidates are allocated sequential interview slots across working weekdays. Free/busy slots are scanned via Google Calendar API, `.ics` calendar files are created, and invitation emails are dispatched via SMTP STARTTLS.
-6. **Candidate Assessment:** Candidates open their unique URL on Port 5000, review onboarding disclosures, grant webcam/microphone permissions, and complete sequential questions under server-enforced timers.
-7. **Computer Vision Proctoring:** Real-time facial landmark tracking monitors face absence, multiple faces, window focus loss, copy-paste attempts, and timeouts, calculating an overall Proctoring Integrity Score.
-8. **Evaluation & Reporting:** Transcripts are scored across 4 rubric dimensions, the 40/60 combined fit score is computed, a comprehensive PDF report is generated, and a desktop pop-up notification is delivered to the HR manager.
 
 ---
 
-## Key Features
+## Supported AI Providers & Air-Gapped Mode
 
-| Category | Capability | Technical Details |
-|---|---|---|
-| Document Parsing | Multi-Format Ingestion | Native `.docx` XML parsing via `python-docx`, digital PDF extraction via `pypdf`, bundled Google Tesseract OCR 5.3 for scanned documents and images. |
-| NLP Extraction | Structured Candidate Profiles | Normalizes skills (technical vs. soft), work chronology, tenure in years, academic credentials, projects, certifications, and domain classifications. |
-| Candidate Ranking | 5-Criterion Weighted Scoring | Weighted scoring across Skills (35%), Experience (25%), Education (15%), Projects (15%), and Domain (10%) with dynamic weight normalization. |
-| Knockout Filters | Automated Screening Rules | Minimum tenure knockout threshold (`MIN_EXPERIENCE_YEARS`) and mandatory required skills filter. |
-| Recruiter Tools | Notes, Tags & CSV Export | In-place recruiter notes and triage tags saved directly to SQLite; single-click RFC 4180 candidate spreadsheet export. |
-| Scheduling | Automated Timetables | Weekday slot generation, Google Calendar OAuth 2.0 FreeBusy conflict resolution, RFC 5545 `.ics` file generation, and SMTP STARTTLS email dispatch. |
-| Candidate Portal | Isolated HTTPS Service | Dedicated Port 5000 server with auto-generated self-signed TLS certificates, single-use token lifecycle, and server-enforced question timers. |
-| Proctoring | Real-Time Computer Vision | MediaPipe Face Mesh tracking 468 landmarks (with OpenCV Haar cascade fallback); detects face absence, multiple faces, tab switching, and copy-paste injections. |
-| Adaptive Interviews | Dynamic Question Blueprints | Role-adaptive blueprints (technical vs. non-technical), configurable question counts (3–10 technical, 1–5 behavioral), configurable timers (60s–180s), and dynamic follow-up probing. |
-| Voice System | Dual-Layer Voice Support | In-browser HTML5 Web Speech API (`SpeechSynthesis` + `SpeechRecognition`) with offline local Vosk and `pyttsx3` fallbacks. |
-| Reporting | PDF Evaluation Reports | Standardized monochrome Material Design 3 PDF reports compiled via FPDF2 with Latin-1 font sanitization, rubric scorecards, proctoring breakdown, and transcripts. |
-| Notifications | Real-Time Completion Alerts | Native Windows desktop pop-up notifications and persistent in-app SQLite notification tray (`hr_notifications`). |
-| Talent Intelligence | Semantic Search & Analytics | 384-dimensional vector semantic search, 4-way candidate comparison matrix, personalized feedback letters, and 6 talent analytics visual modules. |
-| Air-Gapped Operation | 100% Offline Clean | Zero external CDN calls; bundled Inter and JetBrains Mono fonts; bundled local Chart.js library; local on-device inference via Ollama (`llama3.2:3b`). |
-| Multi-Provider AI | Flexible Model Execution | Cloud Mode with ProviderRouter load balancing, RPM tracking, and automatic failover across 8 providers (NVIDIA NIM, Anthropic, Gemini, Groq, OpenAI, OpenRouter, GitHub, Ollama). |
-| Security & Privacy | Cryptographic Hardening | AES-Fernet encryption at rest derived from Windows hardware Machine GUID and persistent salt via PBKDF2; CSRF token validation; rate limiting; desktop nonces; GDPR purge. |
+The system features a centralized `ProviderRouter` supporting **8 AI providers** with automatic failover, request-per-minute (RPM) rate tracking, and fallback tiers:
+
+1. **Ollama** (Local on-device inference; zero external data transfer)
+2. **NVIDIA NIM** (High-throughput cloud inference)
+3. **Anthropic** (Claude series)
+4. **Google Gemini** (Gemini 2.5 / 1.5 series)
+5. **Groq** (Low-latency LPU inference)
+6. **OpenAI** (GPT-4o series)
+7. **OpenRouter** (Multi-model routing)
+8. **GitHub Models** (Azure AI infrastructure)
+
+> [!NOTE]
+> Default model identifiers are dynamically configurable. See [docs/ai-providers.md](docs/ai-providers.md) for full configuration flags, API key placement, and latency benchmarks.
 
 ---
 
-## Quick Start
+## Limitations & Responsible AI Use
 
-### 1. Clone the Repository and Setup Environment
+The AI Recruitment System is designed to support, not replace, human recruiters. When deploying automated hiring systems, operators must adhere to responsible AI principles:
+
+1. **Human-in-the-Loop Decision Support**:
+   - AI-generated candidate ranking scores, interview rubric evaluations, and hiring recommendations are **decision-support advisory metrics**.
+   - ARS must not be configured to autonomously hire or reject applicants without final human oversight and verification by a qualified hiring manager.
+
+2. **Algorithmic Bias Mitigation**:
+   - Pre-trained language models can reflect societal or historical biases in training data.
+   - ARS mitigates evaluation bias through:
+     - **Blind Screening Mode**: Anonymizes candidate names, contact information, gender indicators, and demographic references prior to LLM evaluation.
+     - **Deterministic Knockouts**: Enforces hard objective criteria (e.g. required skills, minimum tenure) before subjective scoring occurs.
+     - **Standardized Rubrics**: Evaluates all candidate interview answers against identical, rubric-grounded criteria.
+   - Operators should periodically audit scoring distributions across demographic cohorts.
+
+3. **Candidate Consent & Proctoring Privacy (GDPR / CCPA)**:
+   - Live video proctoring, facial landmark tracking, and audio transcription require candidate informed consent.
+   - All computer vision proctoring calculations (face presence, gaze angle, tab loss) are executed **locally in the browser and server memory in real time**. No raw video feeds or continuous audio recordings are uploaded to third-party cloud servers.
+   - Anonymization and GDPR-compliant candidate data purge capabilities are built into the data management layer.
+
+4. **Data Sovereignty & Airgap Guarantees**:
+   - When running in Privacy Mode with local Ollama models, all resumes, transcripts, scores, and candidate data remain strictly on the host workstation with zero outbound telemetry.
+
+---
+
+## Roadmap
+
+- [x] Multi-format resume parsing (`.docx`, `.pdf`, `.png`, `.jpg` via OCR).
+- [x] 5-dimension applicant ranking with configurable knockout rules.
+- [x] Token-authenticated live candidate interview portal.
+- [x] Real-time MediaPipe computer vision proctoring and integrity scoring.
+- [x] Standardized monochrome Material Design 3 PDF evaluation reports.
+- [x] 384-dimensional vector semantic candidate search and intelligence matrix.
+- [x] 100% offline air-gapped deployment mode with local fonts, charts, and models.
+- [x] 197-unit automated verification test suite.
+- [ ] Webhook integration for external ATS platforms (Greenhouse, Lever, Workday).
+- [ ] Multi-language interview voice models (Spanish, German, Japanese).
+- [ ] Distributed cloud database synchronization for multi-recruiter teams.
+
+---
+
+## Testing & Quality Verification
+
+The platform maintains comprehensive test coverage across 15 domain-scoped test suites covering security, air-gap enforcement, encryption, candidate offers, proctoring, and interview workflows.
+
+To run the automated test suite:
 
 ```bash
-git clone https://github.com/shrs425p/AI-Recruitment-System.git
-cd AI-Recruitment-System
-
-python -m venv venv
-venv\Scripts\activate
-
-pip install -r requirements.txt
+venv\Scripts\pytest -v
 ```
 
-### 2. Launch the Application
-
-```bash
-python main.py
+```text
+======================= 197 passed in 86.85s (0:01:26) ========================
 ```
-
-- The native desktop application window will open automatically, served locally via Waitress on `http://127.0.0.1:5001`.
-- The public candidate interview portal runs on `https://<your-lan-ip>:5000`.
-
-### 3. Run Automated Verification Tests
-
-```bash
-venv\Scripts\python.exe -m pytest -v --no-cov
-```
-
-All 140 automated tests across the 14 domain-scoped test modules will execute and verify the application.
 
 ---
 
 ## Documentation Index
 
-Comprehensive guides, architectural diagrams, and operational specifications are available:
+Detailed architectural breakdowns, security models, and administrative specifications are available in the documentation library:
 
 | Document | Focus & Contents |
-|---|---|
-| [System Documentation](DOCUMENTATION.md) | Single-file technical documentation covering architecture, setup, APIs, schemas, security, and troubleshooting. |
-| [Getting Started](docs/getting-started.md) | Installation prerequisites, environment verification, first-run guide, and initial setup. |
-| [Architecture](docs/architecture.md) | Two-server network isolation model, subsystem boundaries, data flow, and threading topology. |
-| [Pipeline Guide](docs/pipeline.md) | Step-by-step walkthrough of all 8 recruitment pipeline stages from upload to report generation. |
-| [Talent Intelligence](docs/talent-intelligence.md) | 384-dimensional vector semantic search, candidate comparison matrix, feedback letters, and the 6 analytics modules. |
-| [Air-Gapped Operation](docs/airgap.md) | Zero-outbound CDN architecture, bundled fonts, local Chart.js bundle, and offline deployment. |
-| [Interview System](docs/interview-system.md) | Token authentication, question blueprints, adaptive probing, timers, voice mode, and proctoring. |
-| [Reports Guide](docs/reports.md) | 40/60 combined fit scoring formula, Latin-1 PDF compilation, recruiter notes, and HR desktop alerts. |
-| [Configuration](docs/configuration.md) | Database-backed settings schema (`app_settings`), default values, and operational impacts. |
-| [AI Providers](docs/ai-providers.md) | Cloud Mode vs. Privacy Mode, ProviderRouter load balancing, API keys, and dynamic model fetching. |
-| [Security & Privacy](docs/security.md) | Machine-GUID AES-Fernet encryption at rest, CSRF protection, rate limiting, and GDPR purging. |
-| [API Reference](docs/api-reference.md) | Complete HTTP route specifications, authentication headers, request bodies, and response schemas. |
-| [Testing Guide](docs/testing.md) | Test suite architecture, 14 domain modules, 140 tests, mocking strategies, and Ruff static analysis. |
-| [Google Calendar](docs/google-calendar.md) | OAuth 2.0 integration, credentials placement, and automated FreeBusy conflict resolution. |
-| [Email Setup](docs/email-setup.md) | SMTP STARTTLS configuration, provider setup (Gmail, Outlook, Yahoo), and template variables. |
-| [Data Formats](docs/data-formats.md) | Relational DDL for all 13 SQLite tables, NLP JSON profile schema, and ranking scorecards. |
-| [Customization](docs/customization.md) | Tuning parameters: scoring weights, knockout thresholds, interview timers, and question counts. |
-| [Data Management](docs/data-management.md) | Backup, restore, reset commands, candidate PII purging, and database inspection. |
-| [Deployment Guide](docs/deployment.md) | Building the standalone executable via PyInstaller and the Inno Setup Windows installer. |
-| [Troubleshooting](docs/troubleshooting.md) | Step-by-step diagnostic and resolution workflows for common operational issues. |
-| [FAQ](docs/faq.md) | Frequently asked questions regarding offline use, network access, and features. |
-| [Contributing](docs/contributing.md) | Code conventions, 14 domain test structure, Ruff lint rules, and air-gap requirements. |
+| :--- | :--- |
+| [System Documentation](DOCUMENTATION.md) | Comprehensive single-file reference for architecture, APIs, schemas, and operations. |
+| [Getting Started](docs/getting-started.md) | Installation prerequisites, environment validation, and first-run guide. |
+| [Architecture Guide](docs/architecture.md) | Two-server network isolation model, subsystem boundaries, and thread topologies. |
+| [Pipeline Guide](docs/pipeline.md) | Step-by-step walkthrough of all recruitment pipeline stages from upload to hire. |
+| [Talent Intelligence](docs/talent-intelligence.md) | Semantic candidate retrieval, multi-candidate comparison, and visual analytics. |
+| [Air-Gapped Operation](docs/airgap.md) | Zero-outbound CDN architecture, bundled fonts, local Chart.js, and offline deployment. |
+| [Interview System](docs/interview-system.md) | Token authentication, question blueprints, adaptive follow-ups, timers, and proctoring. |
+| [Reports Guide](docs/reports.md) | 40/60 combined fit scoring formula, PDF report compilation, and HR notifications. |
+| [Configuration](docs/configuration.md) | Database-backed application settings (`app_settings`) and tuning parameters. |
+| [AI Providers](docs/ai-providers.md) | ProviderRouter load balancing, failover tiers, API keys, and model configuration. |
+| [Security & Privacy](docs/security.md) | Machine-GUID AES-Fernet encryption, CSRF protection, rate limiting, and GDPR purge. |
+| [API Reference](docs/api-reference.md) | Complete HTTP route specifications, authentication headers, request bodies, and schemas. |
+| [Contributing Guide](CONTRIBUTING.md) | Development standards, test guidelines, pull request protocols, and code styles. |
+| [Security Policy](SECURITY.md) | Vulnerability disclosure protocols and privacy governance guidelines. |
 
 ---
 
-## License
+## License & Commercial Terms
 
-MIT License — see [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+> [!NOTE]
+> **Commercial & Enterprise Inquiries**:
+> If you are interested in commercial licensing, enterprise deployment support, custom ATS integrations, or proprietary source-available agreements, please contact the maintainer directly via [GitHub Profile](https://github.com/shrs425p).
+
+---
+
+## Contributing & Security
+
+- **Contributing**: Please review the [Contributing Guide](CONTRIBUTING.md) before submitting pull requests.
+- **Security Vulnerabilities**: Please review our [Security Policy](SECURITY.md) for responsible disclosure procedures.
+- **Maintainer**: Shreyas Pawar ([@shrs425p](https://github.com/shrs425p))
