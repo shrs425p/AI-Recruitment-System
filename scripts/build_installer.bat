@@ -2,8 +2,8 @@
 REM ===========================================================
 REM  BUILD SCRIPT — AI Recruitment System (DUAL RELEASE)
 REM  Creates:
-REM  1. installer_output\ARS_Setup_3.0.0_Public.exe (NO CREDENTIALS)
-REM  2. installer_output\ARS_Setup_3.0.0_Private.exe (BUNDLED CREDENTIALS)
+REM  1. installer_output\ARS_Setup_4.0.0_Public.exe (NO CREDENTIALS)
+REM  2. installer_output\ARS_Setup_4.0.0_Private.exe (BUNDLED CREDENTIALS)
 REM ===========================================================
 
 cd /d "%~dp0.."
@@ -13,7 +13,7 @@ if "%DISPLAY_OUTPUT%"=="" set "DISPLAY_OUTPUT=installer_output"
 
 echo.
 echo +-----------------------------------------------+
-echo ^|   AI Recruitment System - Dual Installer Build  ^|
+echo ^|   AI Recruitment System - Installer Build       ^|
 echo +-----------------------------------------------+
 echo.
 
@@ -21,7 +21,7 @@ echo [1/4] Activating virtual environment...
 call venv\Scripts\activate.bat
 if errorlevel 1 (
     echo ERROR: Could not activate venv.
-    pause
+    if not "%CI%"=="true" pause
     exit /b 1
 )
 
@@ -37,7 +37,7 @@ if exist "%~dp0..\Inno Setup 6\ISCC.exe" (
     where ISCC >nul 2>&1
     if errorlevel 1 (
         echo ERROR: Inno Setup not found. Install from https://jrsoftware.org/isdl.php
-        pause
+        if not "%CI%"=="true" pause
         exit /b 1
     )
     set "ISCC=ISCC"
@@ -48,7 +48,7 @@ if not exist "venv\Scripts\pyinstaller.exe" (
     venv\Scripts\python.exe -m pip install pyinstaller
     if errorlevel 1 (
         echo ERROR: Could not install PyInstaller.
-        pause
+        if not "%CI%"=="true" pause
         exit /b 1
     )
 )
@@ -63,14 +63,14 @@ set BUNDLE_CREDS=0
 venv\Scripts\pyinstaller.exe --clean --noconfirm scripts\build.spec
 if errorlevel 1 (
     echo ERROR: PyInstaller failed on Public build.
-    pause
+    if not "%CI%"=="true" pause
     exit /b 1
 )
 
-"%ISCC%" /F"ARS_Setup_3.0.0_Public" scripts\installer.iss
+"%ISCC%" /F"ARS_Setup_4.0.0_Public" scripts\installer.iss
 if errorlevel 1 (
     echo ERROR: Inno Setup failed on Public build.
-    pause
+    if not "%CI%"=="true" pause
     exit /b 1
 )
 
@@ -78,35 +78,40 @@ REM ===========================================================
 REM BUILD 2: PRIVATE (Bundled Credentials)
 REM ===========================================================
 echo.
-echo [3/4] Building PRIVATE release (Bundled credentials)...
-set BUNDLE_CREDS=1
+if exist "credentials.json" (
+    echo [3/4] Building PRIVATE release (Bundled credentials)...
+    set BUNDLE_CREDS=1
 
-venv\Scripts\pyinstaller.exe --clean --noconfirm scripts\build.spec
-if errorlevel 1 (
-    echo ERROR: PyInstaller failed on Private build.
-    pause
-    exit /b 1
-)
+    venv\Scripts\pyinstaller.exe --clean --noconfirm scripts\build.spec
+    if errorlevel 1 (
+        echo ERROR: PyInstaller failed on Private build.
+        if not "%CI%"=="true" pause
+        exit /b 1
+    )
 
-"%ISCC%" /F"ARS_Setup_3.0.0_Private" scripts\installer.iss
-if errorlevel 1 (
-    echo ERROR: Inno Setup failed on Private build.
-    pause
-    exit /b 1
+    "%ISCC%" /F"ARS_Setup_4.0.0_Private" scripts\installer.iss
+    if errorlevel 1 (
+        echo ERROR: Inno Setup failed on Private build.
+        if not "%CI%"=="true" pause
+        exit /b 1
+    )
+) else (
+    echo [3/4] credentials.json not found - skipping redundant Private build.
+    echo       To build Private release, place credentials.json in project root.
 )
 
 REM ===========================================================
-REM FINISH
+REM CHECKSUMS & FINISH
 REM ===========================================================
 echo.
-echo [4/4] Build Complete! Both installers generated.
+echo [4/4] Calculating SHA-256 checksums...
 echo.
+echo Build Complete!
 echo -----------------------------------------------------------
-echo  PUBLIC RELEASE (Safe for GitHub/Web):
-echo  %DISPLAY_OUTPUT%\ARS_Setup_3.0.0_Public.exe
-echo.
-echo  PRIVATE RELEASE (For internal HR team only):
-echo  %DISPLAY_OUTPUT%\ARS_Setup_3.0.0_Private.exe
+venv\Scripts\python.exe scripts\generate_checksums.py
+echo  SMARTSCREEN NOTE:
+echo  Unsigned installers trigger Windows SmartScreen ("Windows protected your PC").
+echo  Recruiters should click "More info" -^> "Run anyway" to proceed.
 echo -----------------------------------------------------------
 echo.
-pause
+if not "%CI%"=="true" pause
