@@ -94,11 +94,20 @@ def purge_candidate_files(candidate_info: dict):
     name = candidate_info.get("name", "")
     source_file = candidate_info.get("source_file", "")
     stem = Path(source_file).stem if source_file else ""
+    if stem.endswith("_nlp"):
+        stem = stem[:-4]
     safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", name) if name else ""
 
     # 1. Resumes folder
     if source_file:
         for f in [RESUMES_FOLDER / source_file, RESUMES_FOLDER / f"{source_file}.enc"]:
+            if f.exists():
+                try:
+                    f.unlink()
+                except Exception as e:
+                    logger.warning("Failed to delete resume file %s: %s", f, e)
+    if stem:
+        for f in RESUMES_FOLDER.glob(f"{stem}.*"):
             if f.exists():
                 try:
                     f.unlink()

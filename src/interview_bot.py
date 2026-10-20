@@ -88,11 +88,23 @@ def load_candidate_nlp(source_file: str, nlp_folder: Path) -> dict:
     Returns {} if the file does not exist (interview can still continue
     with generic questions).
     """
-    nlp_file = nlp_folder / f"{source_file}.json"
-    if not nlp_file.exists():
-        return {}  # No NLP data — questions will be generic
-    with open(nlp_file, encoding="utf-8") as f:
-        return json.load(f)
+    stem = Path(source_file).stem if source_file else ""
+    clean_stem = stem[:-4] if stem.endswith("_nlp") else stem
+    candidates = [
+        nlp_folder / f"{clean_stem}_nlp.json",
+        nlp_folder / f"{clean_stem}.json",
+        nlp_folder / f"{source_file}.json",
+        nlp_folder / f"{stem}_nlp.json",
+        nlp_folder / f"{stem}.json",
+    ]
+    for nlp_file in candidates:
+        if nlp_file.is_file():
+            try:
+                with open(nlp_file, encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.debug("Failed loading candidate NLP JSON from %s: %s", nlp_file, e)
+    return {}
 
 # ─────────────────────────────────────────────
 # STEP 3: GENERATE PERSONALIZED QUESTIONS

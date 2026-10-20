@@ -1,14 +1,13 @@
+import json
 import logging
+import re
+import time
+from pathlib import Path
 
+from src.common import call_ollama, clean_json_response, data_path
 from src.security import escape_xml_payload
 
 logger = logging.getLogger(__name__)
-
-import json  # Serialize / deserialize JSON (saving NLP output)
-import time  # Sleep between polling cycles in the watcher loop
-from pathlib import Path  # Cross-platform file/folder path handling
-
-from src.common import call_ollama, clean_json_response, data_path  # Shared AI calling utilities
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -27,15 +26,277 @@ UNKNOWN_NAME           = "CANDIDATE_UNKNOWN"
 # How often (seconds) the watcher loop polls for new .txt files
 WATCH_INTERVAL_SECONDS = 5
 
+# Maximum character boundary on resume text ingested into prompt templates (DoS prevention)
+MAX_RESUME_TEXT_CHARS  = 24000
+
+# ─────────────────────────────────────────────
+# DETERMINISTIC SKILLS & DOMAIN TAXONOMY
+# ─────────────────────────────────────────────
+
+COMMON_SKILLS_TAXONOMY = [
+    # Languages
+    "python", "java", "javascript", "typescript", "c++", "c#", "golang", "go", "rust",
+    "ruby", "php", "swift", "kotlin", "scala", "r", "matlab", "dart", "sql", "html", "css",
+    "bash", "shell", "powershell",
+    # Web & Backend Frameworks
+    "react", "angular", "vue", "next.js", "node.js", "nodejs", "express", "django",
+    "flask", "fastapi", "spring", "spring boot", "asp.net", "laravel", "ruby on rails",
+    # Cloud & DevOps
+    "aws", "amazon web services", "azure", "gcp", "google cloud", "docker", "kubernetes",
+    "k8s", "terraform", "ansible", "jenkins", "ci/cd", "git", "github", "gitlab", "linux",
+    "helm", "prometheus", "grafana", "nginx", "apache",
+    # Databases & Caching
+    "postgresql", "postgres", "mysql", "sqlite", "mongodb", "redis", "cassandra",
+    "elasticsearch", "dynamodb", "snowflake", "bigquery", "oracle",
+    # Data & AI / ML
+    "machine learning", "deep learning", "nlp", "computer vision", "pytorch", "tensorflow",
+    "keras", "scikit-learn", "sklearn", "pandas", "numpy", "spark", "apache spark",
+    "kafka", "hadoop", "tableau", "power bi",
+    # Architecture & Methodologies
+    "agile", "scrum", "kanban", "jira", "microservices", "rest api", "graphql", "grpc",
+    "unit testing", "system design", "tdd", "ci/cd pipeline",
+]
+
+DEGREE_PATTERNS = [
+    r"\b(?:Ph\.?D\.?|Doctorate|Doctor of Philosophy)\b",
+    r"\b(?:M\.?Tech\.?|M\.?E\.?|Master of Technology|Master of Engineering)\b",
+    r"\b(?:M\.?S\.?|Master of Science|M\.?Sc\.?)\b",
+    r"\b(?:M\.?B\.?A\.?|Master of Business Administration)\b",
+    r"\b(?:B\.?Tech\.?|B\.?E\.?|Bachelor of Technology|Bachelor of Engineering)\b",
+    r"\b(?:B\.?S\.?|Bachelor of Science|B\.?Sc\.?)\b",
+    r"\b(?:B\.?C\.?A\.?|M\.?C\.?A\.?)\b",
+    r"\b(?:Bachelor|Master|Diploma|Associate Degree)\b",
+]
+
+DOMAIN_KEYWORDS = {
+    "Software Engineering": [
+        "software", "developer", "backend", "frontend", "fullstack", "full stack",
+        "web developer", "python", "java", "javascript", "c++", "c#", "django", "react", "fastapi"
+    ],
+    "Data Science & AI": [
+        "data scientist", "machine learning", "deep learning", "ai", "artificial intelligence",
+        "data analyst", "data engineer", "pytorch", "tensorflow", "nlp", "computer vision", "analytics"
+    ],
+    "Cloud & DevOps": [
+        "devops", "cloud", "aws", "azure", "gcp", "kubernetes", "docker", "terraform",
+        "infrastructure", "sre", "ci/cd", "sysadmin", "linux"
+    ],
+    "Product Management": [
+        "product manager", "product owner", "scrum master", "roadmap", "user stories", "backlog"
+    ],
+    "UX/UI Design": [
+        "ui/ux", "ux designer", "ui designer", "figma", "wireframes", "user experience", "user interface"
+    ],
+    "Finance & Accounting": [
+        "finance", "financial", "accounting", "accountant", "cpa", "cfa", "audit", "tax", "banking"
+    ],
+    "Marketing & Sales": [
+        "marketing", "seo", "sem", "growth", "sales", "business development", "content writer", "social media"
+    ],
+    "Human Resources": [
+        "human resources", "talent acquisition", "recruiter", "recruitment", "hr manager", "people operations"
+    ],
+    "Healthcare & Medical": [
+        "doctor", "nurse", "physician", "clinical", "healthcare", "medical", "hospital", "patient"
+    ],
+}
+
+# ─────────────────────────────────────────────
+# CONTACT & HEURISTIC EXTRACTION HELPERS
+# ─────────────────────────────────────────────
+
+def extract_contact_info(text: str) -> dict:
+    """Extract email, phone, and professional URLs from plain text via deterministic regex."""
+    if not text:
+        return {"email": "", "phone": "", "linkedin": "", "portfolio_or_github": ""}
+
+    email_match = re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", text)
+    email = email_match.group(0).strip() if email_match else ""
+
+    phone = ""
+    phone_match = re.search(r"(?:\+?\d{1,3}[-.\s]*)?\(?\d{3}\)?[-.\s]+\d{3}[-.\s]+\d{4}\b", text)
+    if not phone_match:
+        phone_match = re.search(r"(?:\+?\d{1,3}[-.\s]*)?\b\d{3}[-.]\d{3}[-.]\d{4}\b", text)
+    if not phone_match:
+        phone_match = re.search(r"(?:\+?\d{1,3}[-.\s]*)?\b\d{10,12}\b", text)
+    if phone_match:
+        phone = phone_match.group(0).strip()
+
+    linkedin_match = re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/in/[A-Za-z0-9_-]+/?", text, re.IGNORECASE)
+    linkedin = linkedin_match.group(0).strip() if linkedin_match else ""
+
+    github_match = re.search(r"(?:https?://)?(?:www\.)?github\.com/[A-Za-z0-9_-]+/?", text, re.IGNORECASE)
+    portfolio = github_match.group(0).strip() if github_match else ""
+
+    return {
+        "email": email,
+        "phone": phone,
+        "linkedin": linkedin,
+        "portfolio_or_github": portfolio,
+    }
+
+
+def restore_contact_info(data: dict, resume_text: str) -> dict:
+    """
+    Ensure contact details are not lost due to cloud PII redaction or AI omissions.
+    If email or phone is missing, empty, or equals '[EMAIL_REDACTED]' / '[PHONE_REDACTED]',
+    restore from local text via regex.
+    """
+    pi = data.setdefault("personal_info", {})
+    local_contacts = extract_contact_info(resume_text)
+
+    curr_email = str(pi.get("email") or "").strip()
+    if not curr_email or curr_email.upper() in {"[EMAIL_REDACTED]", "N/A", "NULL", "NONE"}:
+        if local_contacts["email"]:
+            pi["email"] = local_contacts["email"]
+
+    curr_phone = str(pi.get("phone") or "").strip()
+    if not curr_phone or curr_phone.upper() in {"[PHONE_REDACTED]", "N/A", "NULL", "NONE"}:
+        if local_contacts["phone"]:
+            pi["phone"] = local_contacts["phone"]
+
+    if not pi.get("linkedin") and local_contacts["linkedin"]:
+        pi["linkedin"] = local_contacts["linkedin"]
+
+    if not pi.get("portfolio_or_github") and local_contacts["portfolio_or_github"]:
+        pi["portfolio_or_github"] = local_contacts["portfolio_or_github"]
+
+    return data
+
+
+def extract_candidate_name(text: str, stem: str = "") -> str:
+    """Extract candidate name from header lines or fallback to clean file stem."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    invalid_keywords = {
+        "resume", "curriculum", "vitae", "cv", "profile", "contact",
+        "experience", "education", "skills", "summary", "email", "phone"
+    }
+    for line in lines[:5]:
+        words = line.split()
+        if 2 <= len(words) <= 4:
+            if not any(char.isdigit() or char in ":@/\\|" for char in line):
+                if not any(w.lower() in invalid_keywords for w in words):
+                    if all(w[0].isupper() for w in words if w.isalpha()):
+                        return line
+    if stem:
+        clean_stem = re.sub(r"[_\-]+", " ", stem).strip().title()
+        return clean_stem
+    return ""
+
+
+def extract_experience_years(text: str) -> float | None:
+    """Extract total career experience in years from explicit statements or date ranges."""
+    m = re.search(r"\b(\d+(?:\.\d+)?)\+?\s*years?(?:\s+of)?\s+(?:work\s+)?experience\b", text, re.IGNORECASE)
+    if m:
+        try:
+            return float(m.group(1))
+        except (ValueError, TypeError):
+            pass
+
+    current_year = 2026
+    ranges = re.findall(r"\b(19\d\d|20\d\d)\s*[-–—to]+\s*(19\d\d|20\d\d|present|current)\b", text, re.IGNORECASE)
+    if ranges:
+        total_yrs = 0.0
+        for start_str, end_str in ranges:
+            try:
+                start_yr = int(start_str)
+                end_yr = current_year if end_str.lower() in {"present", "current"} else int(end_str)
+                if 1970 <= start_yr <= current_year and start_yr <= end_yr <= current_year + 1:
+                    total_yrs += max(0.5, float(end_yr - start_yr))
+            except (ValueError, TypeError):
+                continue
+        if total_yrs > 0:
+            return round(min(total_yrs, 40.0), 1)
+    return None
+
+
+def extract_domain(text: str) -> str:
+    """Classify professional domain based on keyword frequency."""
+    text_lower = text.lower()
+    scores = {}
+    for domain, kws in DOMAIN_KEYWORDS.items():
+        score = sum(1 for kw in kws if kw in text_lower)
+        if score > 0:
+            scores[domain] = score
+    if scores:
+        return max(scores, key=lambda d: scores[d])
+    return "General"
+
+
+def extract_with_heuristics(resume_text: str, stem: str = "") -> dict:
+    """
+    Deterministic rule-based entity extractor providing an offline safety net
+    when AI models are unavailable, timing out, or return empty responses.
+    """
+    contacts = extract_contact_info(resume_text)
+    name = extract_candidate_name(resume_text, stem)
+    domain = extract_domain(resume_text)
+    exp_years = extract_experience_years(resume_text)
+
+    # Skills detection
+    text_lower = resume_text.lower()
+    detected_skills = []
+    for skill in COMMON_SKILLS_TAXONOMY:
+        pattern = r"\b" + re.escape(skill) + r"\b"
+        if re.search(pattern, text_lower):
+            detected_skills.append(skill.title() if len(skill) > 3 else skill.upper())
+
+    # Education detection
+    detected_edu = []
+    for deg_pat in DEGREE_PATTERNS:
+        match = re.search(deg_pat, resume_text, re.IGNORECASE)
+        if match:
+            deg_name = match.group(0).strip()
+            detected_edu.append({
+                "degree": deg_name,
+                "field_of_study": domain,
+                "institution": "",
+                "year_of_completion": "",
+                "grade_or_cgpa": "",
+            })
+
+    first_few_lines = [ln.strip() for ln in resume_text.splitlines() if ln.strip()][:4]
+    summary_text = " ".join(first_few_lines)
+
+    return {
+        "personal_info": {
+            "name": name or f"{UNKNOWN_NAME}_{stem}",
+            "email": contacts["email"],
+            "phone": contacts["phone"],
+            "location": "",
+            "linkedin": contacts["linkedin"],
+            "portfolio_or_github": contacts["portfolio_or_github"],
+        },
+        "domain": domain,
+        "summary": summary_text[:300],
+        "total_experience_years": exp_years,
+        "skills": {
+            "technical_skills": detected_skills,
+            "tools_and_technologies": [],
+            "soft_skills": [],
+            "domain_specific_skills": [],
+            "languages_known": [],
+        },
+        "education": detected_edu,
+        "work_experience": [],
+        "projects": [],
+        "certifications": [],
+        "awards_and_achievements": [],
+        "publications_or_research": [],
+        "volunteer_or_extracurricular": [],
+        "languages": [],
+        "candidate_strength_summary": f"Candidate in {domain} with {exp_years or 0} years experience and skills in {', '.join(detected_skills[:5])}.",
+    }
+
 # ─────────────────────────────────────────────
 # PROMPT TEMPLATE
 # ─────────────────────────────────────────────
 
-
-
-
 def build_prompt(resume_text: str) -> str:
-    safe_resume = escape_xml_payload(resume_text)
+    cleaned = (resume_text or "").strip()
+    if len(cleaned) > MAX_RESUME_TEXT_CHARS:
+        cleaned = cleaned[:MAX_RESUME_TEXT_CHARS] + "\n[TRUNCATED FOR LENGTH]"
+    safe_resume = escape_xml_payload(cleaned)
     return f"""
 You are an expert HR analyst and resume parser. You work across ALL industries including but not limited to:
 IT, Software, Finance, Banking, Medical, Healthcare, Law, Legal, Marketing, Sales, HR, Education,
@@ -153,6 +414,8 @@ def extract_with_ai(resume_text: str) -> dict:
         raw = call_ollama(
             system,
             build_prompt(resume_text),
+            temperature=0.0,
+            num_predict=4096,
             think=think_setting,
             format="json",
         )
@@ -175,27 +438,20 @@ def save_output(data: dict, output_file: Path, stem: str):
       - Only renames to the final names after BOTH writes succeed.
       - If anything fails, temp files are deleted so no partial output exists.
     """
-    # Final output file paths
     json_file    = output_file.with_suffix(".json")
     summary_file = output_file.with_suffix(".txt")
 
-    # Temporary files written to first (prevents corrupted output on crash/error)
     tmp_json     = output_file.with_suffix(".tmp_json")
     tmp_txt      = output_file.with_suffix(".tmp_txt")
 
     try:
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        # ── Step 1: Write JSON to a temp file ──
-        # ensure_ascii=False keeps non-ASCII characters (e.g. accented names) intact
         with open(tmp_json, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
 
-        # ── Step 2: Write a human-readable TXT summary to a temp file ──
         with open(tmp_txt, "w", encoding="utf-8") as f:
             f.write(f"=== NLP EXTRACTION RESULT: {stem} ===\n\n")
 
-            # Use 'or {}' to handle cases where AI returns null for personal_info
-            # (some AI models set the field to null instead of an empty object)
             pi = data.get("personal_info") or {}
             f.write(f"NAME             : {pi.get('name', 'N/A')}\n")
             f.write(f"EMAIL            : {pi.get('email', 'N/A')}\n")
@@ -209,37 +465,54 @@ def save_output(data: dict, output_file: Path, stem: str):
 
             skills = data.get("skills") or {}
             f.write("\nSKILLS:\n")
-            for category, items in skills.items():
-                if items:
-                    # str(i) safely converts non-string skill items (e.g. ints) to text
-                    f.write(f"  {category.upper()}: {', '.join(str(i) for i in items)}\n")
+            if isinstance(skills, dict):
+                for category, items in skills.items():
+                    if items:
+                        if isinstance(items, list):
+                            f.write(f"  {category.upper()}: {', '.join(str(i) for i in items)}\n")
+                        else:
+                            f.write(f"  {category.upper()}: {items}\n")
+            elif isinstance(skills, list):
+                f.write(f"  TECHNICAL_SKILLS: {', '.join(str(i) for i in skills)}\n")
 
             education = data.get("education") or []
             f.write("\nEDUCATION:\n")
             for edu in education:
-                f.write(f"  - {edu.get('degree', '')} in {edu.get('field_of_study', '')} "
-                        f"from {edu.get('institution', '')} ({edu.get('year_of_completion', '')})\n")
+                if isinstance(edu, dict):
+                    f.write(f"  - {edu.get('degree', '')} in {edu.get('field_of_study', '')} "
+                            f"from {edu.get('institution', '')} ({edu.get('year_of_completion', '')})\n")
+                else:
+                    f.write(f"  - {edu}\n")
 
             experience = data.get("work_experience") or []
             f.write("\nWORK EXPERIENCE:\n")
             for exp in experience:
-                f.write(f"  - {exp.get('job_title', '')} at {exp.get('company', '')} "
-                        f"[{exp.get('start_date', '')} - {exp.get('end_date', '')}]\n")
-                for resp in exp.get("responsibilities", [])[:3]:
-                    f.write(f"      . {resp}\n")
+                if isinstance(exp, dict):
+                    f.write(f"  - {exp.get('job_title', '')} at {exp.get('company', '')} "
+                            f"[{exp.get('start_date', '')} - {exp.get('end_date', '')}]\n")
+                    for resp in exp.get("responsibilities", [])[:3]:
+                        f.write(f"      . {resp}\n")
+                else:
+                    f.write(f"  - {exp}\n")
 
             projects = data.get("projects") or []
             if projects:
                 f.write("\nPROJECTS:\n")
                 for proj in projects:
-                    desc = proj.get('description', '') or ''
-                    f.write(f"  - {proj.get('title', '')}: {desc[:100]}...\n")
+                    if isinstance(proj, dict):
+                        desc = proj.get('description', '') or ''
+                        f.write(f"  - {proj.get('title', '')}: {desc[:100]}...\n")
+                    else:
+                        f.write(f"  - {proj}\n")
 
             certifications = data.get("certifications") or []
             if certifications:
                 f.write("\nCERTIFICATIONS:\n")
                 for cert in certifications:
-                    f.write(f"  - {cert.get('name', '')} by {cert.get('issuer', '')} ({cert.get('year', '')})\n")
+                    if isinstance(cert, dict):
+                        f.write(f"  - {cert.get('name', '')} by {cert.get('issuer', '')} ({cert.get('year', '')})\n")
+                    else:
+                        f.write(f"  - {cert}\n")
 
             awards = data.get("awards_and_achievements") or []
             if awards:
@@ -257,18 +530,15 @@ def save_output(data: dict, output_file: Path, stem: str):
             if strength:
                 f.write(f"\nCANDIDATE STRENGTH SUMMARY:\n{strength}\n")
 
-        # ── Step 3: Atomically rename temp files to final names ──
-        # Only reached if both writes above succeeded — prevents partial outputs
         tmp_json.rename(json_file)
         tmp_txt.rename(summary_file)
 
     except Exception as e:
-        # Clean up temp files so a failed run does not leave behind partial files
         if tmp_json.exists():
             tmp_json.unlink()
         if tmp_txt.exists():
             tmp_txt.unlink()
-        raise e  # Re-raise so process_file() can log the error correctly
+        raise e
 
 # ─────────────────────────────────────────────
 # PROCESS A SINGLE TXT FILE
@@ -283,18 +553,15 @@ def process_file(txt_file: Path, output_path: Path) -> tuple:
       (False, None)        — skipped (already done).
       (False, error_str)   — processing failed; error_str explains why.
     """
-    # Check if this file was already processed — avoids duplicate AI calls
     if (output_path / f"{txt_file.stem}_nlp.json").exists():
         return False, None
 
     logger.info(f"> Processing: {txt_file.name}...")
 
     try:
-        # Read the plain-text resume content
         with open(txt_file, encoding="utf-8") as f:
             resume_text = f.read()
 
-        # Guard against empty files (e.g. OCR produced nothing)
         if not resume_text.strip():
             logger.info("> Empty file, skipping.")
             return False, "File is empty (OCR produced no text)"
@@ -303,25 +570,27 @@ def process_file(txt_file: Path, output_path: Path) -> tuple:
         try:
             extracted_data = extract_with_ai(resume_text)
         except RuntimeError as e:
-            # Provider-level error (HTTP 404, auth failure, wrong model etc.)
-            error_msg = str(e)
-            logger.error(f"> AI provider error for {txt_file.name}: {error_msg}")
-            logger.error("  Tip: Go to Settings → AI Providers and select a different model.")
-            return False, error_msg
+            logger.warning(f"> AI provider error for {txt_file.name}: {e}. Applying heuristic fallback extraction.")
+            extracted_data = {}
 
         if not extracted_data:
-            logger.info("> No data extracted (AI returned empty response).")
+            logger.info(f"> AI extraction yielded empty response for {txt_file.name}. Applying heuristic fallback extraction.")
+            extracted_data = extract_with_heuristics(resume_text, txt_file.stem)
+
+        if not extracted_data:
+            logger.info("> No data extracted (both AI and heuristic parsing yielded empty result).")
             return False, "AI returned an empty response — the model may not support this task"
 
-        # Ensure personal_info is a dict even if AI returned null for that field
-        personal_info = extracted_data.get("personal_info") or {}
-        if not personal_info.get("name") or str(personal_info.get("name", "")).strip() == "":
-            # Fall back to using the filename as the candidate identifier
-            extracted_data["personal_info"] = personal_info
-            extracted_data["personal_info"]["name"] = f"{UNKNOWN_NAME}_{txt_file.stem}"
-            logger.info("\n  [INFO] Name not found — using filename as identifier.")
+        # Restore genuine contact information if cloud provider redacted it
+        extracted_data = restore_contact_info(extracted_data, resume_text)
 
-        # Build the output path prefix (suffix is added by save_output)
+        # Ensure personal_info is a dict and candidate name is valid
+        personal_info = extracted_data.setdefault("personal_info", {})
+        cand_name = str(personal_info.get("name") or "").strip()
+        if not cand_name or cand_name.lower() in {"n/a", "unknown", "null", "none", "[candidate_name]"}:
+            extracted_data["personal_info"]["name"] = f"{UNKNOWN_NAME}_{txt_file.stem}"
+            logger.info("  [INFO] Name not found — using filename as identifier.")
+
         output_file = output_path / f"{txt_file.stem}_nlp"
         save_output(extracted_data, output_file, txt_file.stem)
 
@@ -339,12 +608,11 @@ def process_file(txt_file: Path, output_path: Path) -> tuple:
 def run_watcher():
     """
     Poll the output/txt/ folder continuously and run AI extraction on
-    any new .txt files found.  Runs forever until Ctrl+C is pressed.
+    any new .txt files found. Runs forever until Ctrl+C is pressed.
     """
     input_path  = Path(INPUT_FOLDER)
     output_path = Path(OUTPUT_FOLDER)
 
-    # Create directories if they do not exist (first-time setup)
     input_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -408,5 +676,8 @@ if __name__ == "__main__":
 async def process_file_async(txt_file: Path, output_path: Path) -> tuple:
     """Asynchronous wrapper for process_file to run without blocking the event loop."""
     import asyncio
-    loop = asyncio.get_event_loop()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, process_file, txt_file, output_path)
