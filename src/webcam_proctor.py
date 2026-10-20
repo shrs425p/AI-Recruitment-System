@@ -10,16 +10,47 @@ from typing import Any
 import cv2  # OpenCV — webcam capture, frame processing, Haar cascade
 import numpy as np  # NumPy arrays used by OpenCV face detection results
 
+from pathlib import Path
+
 # Try to import MediaPipe for high-accuracy face detection
+_MP_MODE = None  # 'solutions', 'tasks', or None
+_MP_AVAILABLE = False
+_MP_FACE = None
+_MP_DRAW = None
+_MP_DETECTOR_CLASS = None
+_MP_IMAGE = None
+_MP_IMAGE_FORMAT = None
+try:
+    from src.common import resource_path
+    _MODEL_PATH = resource_path("models/blaze_face_short_range.tflite")
+except ImportError:
+    _MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "blaze_face_short_range.tflite"
+
 try:
     import mediapipe as mp
-    _MP_FACE  = mp.solutions.face_detection  # MediaPipe face detection module
-    _MP_DRAW  = mp.solutions.drawing_utils   # Utility to draw detection boxes
-    _MP_AVAILABLE = True
-except (ImportError, AttributeError):
-    _MP_AVAILABLE = False  # Fall back to Haar cascade (mediapipe missing or incompatible version)
+    _MP_IMAGE = getattr(mp, 'Image', None)
+    _MP_IMAGE_FORMAT = getattr(mp, 'ImageFormat', None)
+    if hasattr(mp, 'solutions') and hasattr(mp.solutions, 'face_detection'):
+        _MP_FACE  = mp.solutions.face_detection
+        _MP_DRAW  = getattr(mp.solutions, 'drawing_utils', None)
+        _MP_MODE = 'solutions'
+        _MP_AVAILABLE = True
+        logger.info("[PROCTOR] MediaPipe face detection loaded (Solutions API).")
+        print("[PROCTOR] MediaPipe face detection loaded (Solutions API).")
+    else:
+        # Modern MediaPipe tasks API (v0.10.30+ / v1.x)
+        from mediapipe.tasks.python.vision import FaceDetector
+        _MP_DETECTOR_CLASS = FaceDetector
+        _MP_MODE = 'tasks'
+        _MP_AVAILABLE = True
+        logger.info("[PROCTOR] MediaPipe face detection loaded (Tasks API).")
+        print("[PROCTOR] MediaPipe face detection loaded (Tasks API).")
+except (ImportError, AttributeError, Exception) as exc:
+    _MP_AVAILABLE = False
+    _MP_MODE = None
+    logger.warning("[PROCTOR] MediaPipe unavailable (%s) — falling back to Haar cascade.", exc)
     print("[PROCTOR] mediapipe unavailable — falling back to Haar cascade.")
-    print("  For mediapipe support install: pip install mediapipe>=0.10.9")
+    print("  For mediapipe support install: pip install mediapipe")
 
 # ─────────────────────────────────────────────
 # CONFIGURATION
@@ -96,14 +127,58 @@ class WebcamProctor:
         self.started_at           = None  # ISO timestamp when proctoring started
         self.last_check_time      = 0     # time.time() of last proctor logic run
 
+    def _extract_face_boxes(self, detector, frame, fw: int, fh: int) -> list:
+        face_boxes = []
+        if hasattr(detector, 'detectMultiScale'):
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = detector.detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=5,
+                minSize=(60, 60), flags=cv2.CASCADE_SCALE_IMAGE
+            )
+            if isinstance(faces, np.ndarray):
+                face_boxes = [tuple(f) for f in faces]
+        elif _MP_AVAILABLE and detector:
+            if _MP_MODE == 'solutions' and hasattr(detector, 'process'):
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                result = detector.process(rgb)
+                for det in (result.detections or []):
+                    bb = det.location_data.relative_bounding_box
+                    x = max(0, int(bb.xmin * fw))
+                    y = max(0, int(bb.ymin * fh))
+                    bw = int(bb.width * fw)
+                    bh = int(bb.height * fh)
+                    face_boxes.append((x, y, bw, bh))
+            elif _MP_MODE == 'tasks' and hasattr(detector, 'detect') and _MP_IMAGE and _MP_IMAGE_FORMAT:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                mp_img = _MP_IMAGE(image_format=_MP_IMAGE_FORMAT.SRGB, data=rgb)
+                result = detector.detect(mp_img)
+                for det in (result.detections or []):
+                    bb = det.bounding_box
+                    x = max(0, int(bb.origin_x))
+                    y = max(0, int(bb.origin_y))
+                    bw = int(bb.width)
+                    bh = int(bb.height)
+                    face_boxes.append((x, y, bw, bh))
+        return face_boxes
+
     def _init_detector(self) -> bool:
         if self._detector is not None:
             return True
         try:
             if _MP_AVAILABLE:
-                self._detector = _MP_FACE.FaceDetection(
-                    model_selection=0, min_detection_confidence=0.5
-                )
+                if _MP_MODE == 'solutions':
+                    self._detector = _MP_FACE.FaceDetection(
+                        model_selection=0, min_detection_confidence=0.5
+                    )
+                elif _MP_MODE == 'tasks':
+                    if _MODEL_PATH.exists():
+                        self._detector = _MP_DETECTOR_CLASS.create_from_model_path(str(_MODEL_PATH))
+                    else:
+                        logger.warning("MediaPipe model not found at %s, falling back to Haar cascade.", _MODEL_PATH)
+                        cascade = cv2.CascadeClassifier(CASCADE_PATH)
+                        if cascade.empty():
+                            return False
+                        self._detector = cascade
             else:
                 cascade = cv2.CascadeClassifier(CASCADE_PATH)
                 if cascade.empty():
@@ -117,25 +192,7 @@ class WebcamProctor:
         if not self._init_detector() or self._detector is None:
             return 1
         fh, fw = frame.shape[:2]
-        face_boxes = []
-        if _MP_AVAILABLE:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            result = self._detector.process(rgb)
-            for det in (result.detections or []):
-                bb = det.location_data.relative_bounding_box
-                x = max(0, int(bb.xmin * fw))
-                y = max(0, int(bb.ymin * fh))
-                bw = int(bb.width * fw)
-                bh = int(bb.height * fh)
-                face_boxes.append((x, y, bw, bh))
-        else:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self._detector.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5,
-                minSize=(60, 60), flags=cv2.CASCADE_SCALE_IMAGE
-            )
-            if isinstance(faces, np.ndarray):
-                face_boxes = [tuple(f) for f in faces]
+        face_boxes = self._extract_face_boxes(self._detector, frame, fw, fh)
         return len(face_boxes)
 
     def process_frame_image(self, frame) -> dict:
@@ -201,7 +258,10 @@ class WebcamProctor:
         if self.cap:
             self.cap.release()  # release the webcam so other apps can use it
         if _MP_AVAILABLE and self._detector:
-            self._detector.close()  # free MediaPipe resources
+            try:
+                self._detector.close()
+            except Exception:
+                pass
 
         return self.get_summary()
 
@@ -236,31 +296,7 @@ class WebcamProctor:
 
                 # ── Face detection ──────────────────────────────────
                 fh, fw = frame.shape[:2]  # frame height and width in pixels
-                face_boxes = []  # list of (x, y, w, h) tuples for each detected face
-
-                if _MP_AVAILABLE:
-                    # Convert BGR (OpenCV format) to RGB (MediaPipe format)
-                    rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    result = self._detector.process(rgb)
-                    for det in (result.detections or []):
-                        # MediaPipe returns relative coordinates (0.0–1.0)
-                        # Multiply by frame dimensions to get pixel coordinates
-                        bb = det.location_data.relative_bounding_box
-                        x  = max(0, int(bb.xmin * fw))
-                        y  = max(0, int(bb.ymin * fh))
-                        bw = int(bb.width  * fw)
-                        bh = int(bb.height * fh)
-                        face_boxes.append((x, y, bw, bh))
-                else:
-                    # Haar cascade expects a grayscale image
-                    gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    faces = self._detector.detectMultiScale(
-                        gray, scaleFactor=1.1, minNeighbors=5,
-                        minSize=(60, 60), flags=cv2.CASCADE_SCALE_IMAGE
-                    )
-                    if isinstance(faces, np.ndarray):
-                        face_boxes = [tuple(f) for f in faces]  # convert to list of tuples
-
+                face_boxes = self._extract_face_boxes(self._detector, frame, fw, fh)
                 n_faces = len(face_boxes)  # 0 = no one, 1 = normal, 2+ = suspicious
 
                 # ── Annotate frame with status text and face boxes ──
