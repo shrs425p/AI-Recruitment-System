@@ -135,13 +135,39 @@ def _run_nlp_stage(results):
             if nlp_json.exists():
                 try:
                     ndata = json.loads(nlp_json.read_text(encoding="utf-8"))
-                    pi = ndata.get("personal_info", {})
+                    pi = ndata.get("personal_info") or {}
+                    cand_name = str(pi.get("name") or "").strip()
+                    if not cand_name or cand_name.lower() in {"n/a", "unknown", "null", "none", "[candidate_name]"}:
+                        cand_name = f"CANDIDATE_UNKNOWN_{txt_file.stem}"
+
+                    cand_email = str(pi.get("email") or "").strip()
+                    if cand_email.lower() in {"[email_redacted]", "n/a", "unknown", "null", "none"}:
+                        cand_email = ""
+
+                    matching_resumes = list(RESUMES_FOLDER.glob(f"{txt_file.stem}.*"))
+                    if matching_resumes:
+                        real_source = matching_resumes[0].name
+                    else:
+                        real_source = txt_file.name
+
+                    skills_raw = ndata.get("skills") or []
+                    if isinstance(skills_raw, dict):
+                        cand_skills = (
+                            skills_raw.get("technical_skills", [])
+                            + skills_raw.get("tools_and_technologies", [])
+                            + skills_raw.get("domain_specific_skills", [])
+                        )
+                    elif isinstance(skills_raw, list):
+                        cand_skills = skills_raw
+                    else:
+                        cand_skills = []
+
                     upsert_candidate(
                         run_id=run_id,
-                        name=pi.get("name", txt_file.stem),
-                        email=pi.get("email", ""),
-                        source_file=txt_file.name,
-                        skills=ndata.get("skills", {}).get("technical_skills", []),
+                        name=cand_name,
+                        email=cand_email,
+                        source_file=real_source,
+                        skills=cand_skills,
                     )
                 except Exception as e:
                     logger.warning('Caught exception: %s', e, exc_info=True)

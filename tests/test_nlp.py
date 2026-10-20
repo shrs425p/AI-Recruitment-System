@@ -203,3 +203,163 @@ class TestThinkingConfiguration:
         monkeypatch.setattr(config, "AI_THINKING_INTERVIEW", False)
         call_ai("system prompt", "user prompt")
         assert captured.get("think") is False
+
+
+class TestNlpHardeningAndHeuristics:
+    """Tests contact information restoration, heuristic fallback parsing, and polymorphic schema handling."""
+
+    def test_nlp_restores_contact_info_when_cloud_redacts(self):
+        from src.nlp_extractor import restore_contact_info
+
+        sample_resume = (
+            "Diana Prince\n"
+            "Email: diana.prince@themyscira.gov\n"
+            "Phone: +1 555-738-9201\n"
+            "LinkedIn: https://linkedin.com/in/dianaprince\n"
+            "GitHub: https://github.com/dianaprince\n\n"
+            "Security Analyst with 5 years experience in threat modeling and cryptography."
+        )
+
+        redacted_ai_output = {
+            "personal_info": {
+                "name": "Diana Prince",
+                "email": "[EMAIL_REDACTED]",
+                "phone": "[PHONE_REDACTED]",
+                "location": "",
+                "linkedin": "",
+                "portfolio_or_github": "",
+            },
+            "domain": "Cybersecurity",
+            "total_experience_years": 5.0,
+        }
+
+        restored = restore_contact_info(redacted_ai_output, sample_resume)
+        assert restored["personal_info"]["email"] == "diana.prince@themyscira.gov"
+        assert restored["personal_info"]["phone"] == "+1 555-738-9201"
+        assert restored["personal_info"]["linkedin"] == "https://linkedin.com/in/dianaprince"
+        assert restored["personal_info"]["portfolio_or_github"] == "https://github.com/dianaprince"
+
+    def test_extract_with_heuristics_full_pipeline(self):
+        from src.nlp_extractor import extract_with_heuristics
+
+        sample_resume = (
+            "Bruce Wayne\n"
+            "Email: bwayne@wayneenterprises.com\n"
+            "Phone: (555) 928-1029\n"
+            "GitHub: https://github.com/bwayne\n\n"
+            "Lead Software Architect with 8 years of experience building secure distributed systems.\n"
+            "Core competencies: Python, Go, Docker, Kubernetes, AWS, PostgreSQL, Redis, Microservices.\n"
+            "Education: M.Tech in Computer Engineering from Gotham University."
+        )
+
+        data = extract_with_heuristics(sample_resume, "bruce_wayne")
+        assert data["personal_info"]["name"] == "Bruce Wayne"
+        assert data["personal_info"]["email"] == "bwayne@wayneenterprises.com"
+        assert data["personal_info"]["phone"] == "(555) 928-1029"
+        assert data["domain"] in {"Software Engineering", "Cloud & DevOps"}
+        assert data["total_experience_years"] == 8.0
+        assert "Python" in data["skills"]["technical_skills"]
+        assert "Kubernetes" in data["skills"]["technical_skills"]
+        assert any(e["degree"] == "M.Tech" for e in data["education"])
+
+    def test_extract_with_ai_passes_token_budget_and_temperature(self, monkeypatch: pytest.MonkeyPatch):
+        from src.nlp_extractor import extract_with_ai
+
+        captured = {}
+        def mock_call_ollama(sys_msg, usr_msg, *args, **kwargs):
+            captured.update(kwargs)
+            return json.dumps({"personal_info": {"name": "Test Candidate"}})
+
+        monkeypatch.setattr("src.nlp_extractor.call_ollama", mock_call_ollama)
+
+        res = extract_with_ai("Sample resume text")
+        assert res["personal_info"]["name"] == "Test Candidate"
+        assert captured.get("temperature") == 0.0
+        assert captured.get("num_predict") == 4096
+        assert captured.get("format") == "json"
+
+    def test_save_output_handles_polymorphic_schema(self, tmp_path: Path):
+        from src.nlp_extractor import save_output
+
+        polymorphic_data = {
+            "personal_info": {
+                "name": "Poly Dev",
+                "email": "poly@example.com",
+            },
+            "domain": "Software",
+            "skills": ["Python", "FastAPI", "PostgreSQL"],
+            "education": ["B.S. in Computer Science (2020)"],
+            "work_experience": ["Software Engineer at TechCorp (2020-2024)"],
+            "projects": ["Distributed Cache in Go"],
+            "certifications": ["AWS Certified Developer"],
+        }
+
+        out_base = tmp_path / "poly_dev_nlp"
+        save_output(polymorphic_data, out_base, "poly_dev")
+
+        json_out = out_base.with_suffix(".json")
+        txt_out = out_base.with_suffix(".txt")
+
+        assert json_out.exists()
+        assert txt_out.exists()
+        txt_content = txt_out.read_text(encoding="utf-8")
+        assert "Python, FastAPI, PostgreSQL" in txt_content
+        assert "B.S. in Computer Science" in txt_content
+        assert "Distributed Cache in Go" in txt_content
+
+    def test_prompt_truncation_enforces_max_length(self):
+        from src.nlp_extractor import MAX_RESUME_TEXT_CHARS, build_prompt
+
+        huge_resume = "Word " * 10000  # 50,000 chars
+        prompt = build_prompt(huge_resume)
+        assert "[TRUNCATED FOR LENGTH]" in prompt
+        assert len(huge_resume) > MAX_RESUME_TEXT_CHARS
+
+    def test_process_file_fallback_to_heuristics_on_ai_failure(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        from src.nlp_extractor import process_file
+
+        sample_txt = tmp_path / "fallback_cand.txt"
+        sample_txt.write_text(
+            "Clark Kent\nEmail: clark.kent@dailyplanet.com\nPhone: 555-123-4567\n"
+            "Software Developer with 4 years experience in Python and Django.\n"
+            "B.S. in Computer Science.",
+            encoding="utf-8"
+        )
+
+        out_dir = tmp_path / "nlp_out"
+        out_dir.mkdir()
+
+        # Simulate AI raising RuntimeError
+        def mock_extract_fail(text):
+            raise RuntimeError("Ollama daemon unreachable")
+
+        monkeypatch.setattr("src.nlp_extractor.extract_with_ai", mock_extract_fail)
+
+        success, err = process_file(sample_txt, out_dir)
+        assert success is True
+        assert err is None
+
+        json_file = out_dir / "fallback_cand_nlp.json"
+        assert json_file.exists()
+        saved = json.loads(json_file.read_text(encoding="utf-8"))
+        assert saved["personal_info"]["name"] == "Clark Kent"
+        assert saved["personal_info"]["email"] == "clark.kent@dailyplanet.com"
+        assert "Python" in saved["skills"]["technical_skills"]
+
+    def test_load_candidate_nlp_filename_variants(self, tmp_path: Path):
+        from src.interview_bot import load_candidate_nlp
+
+        nlp_file = tmp_path / "barry_allen_nlp.json"
+        nlp_file.write_text(json.dumps({"name": "Barry Allen", "domain": "Physics"}), encoding="utf-8")
+
+        # Variant 1: "barry_allen.pdf"
+        res1 = load_candidate_nlp("barry_allen.pdf", tmp_path)
+        assert res1.get("name") == "Barry Allen"
+
+        # Variant 2: "barry_allen"
+        res2 = load_candidate_nlp("barry_allen", tmp_path)
+        assert res2.get("name") == "Barry Allen"
+
+        # Variant 3: "barry_allen_nlp"
+        res3 = load_candidate_nlp("barry_allen_nlp", tmp_path)
+        assert res3.get("name") == "Barry Allen"
