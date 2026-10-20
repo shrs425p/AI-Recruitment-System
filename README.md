@@ -12,7 +12,6 @@
     <a href="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/security.yml"><img src="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/security.yml/badge.svg" alt="Security Scan"></a>
     <a href="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/codeql.yml"><img src="https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/codeql.yml/badge.svg" alt="CodeQL Analysis"></a>
     <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square" alt="Python 3.10+">
-    <img src="https://img.shields.io/badge/tests-197%20passed-brightgreen.svg?style=flat-square" alt="Tests 197 Passed">
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"></a>
   </p>
 
@@ -219,7 +218,7 @@ The AI Recruitment System is designed to support, not replace, human recruiters.
 - [x] Standardized monochrome Material Design 3 PDF evaluation reports.
 - [x] 384-dimensional vector semantic candidate search and intelligence matrix.
 - [x] 100% offline air-gapped deployment mode with local fonts, charts, and models.
-- [x] 197-unit automated verification test suite.
+- [x] Automated test suite covering all core subsystems and security boundaries.
 - [ ] Webhook integration for external ATS platforms (Greenhouse, Lever, Workday).
 - [ ] Multi-language interview voice models (Spanish, German, Japanese).
 - [ ] Distributed cloud database synchronization for multi-recruiter teams.
@@ -228,17 +227,15 @@ The AI Recruitment System is designed to support, not replace, human recruiters.
 
 ## Testing & Quality Verification
 
-The platform maintains comprehensive test coverage across 15 domain-scoped test suites covering security, air-gap enforcement, encryption, candidate offers, proctoring, and interview workflows.
+The platform maintains comprehensive test coverage across domain-scoped test suites covering security, air-gap enforcement, encryption, candidate offers, proctoring, and interview workflows.
 
-To run the automated test suite:
+To run the automated test suite locally:
 
 ```bash
 venv\Scripts\pytest -v
 ```
 
-```text
-======================= 197 passed in 86.85s (0:01:26) ========================
-```
+All pull requests and commits are continuously verified via the [GitHub Actions CI Pipeline](https://github.com/shrs425p/AI-Recruitment-System/actions/workflows/ci.yml).
 
 ---
 
