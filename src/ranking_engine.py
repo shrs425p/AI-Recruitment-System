@@ -116,7 +116,7 @@ def check_knockout_rules(candidate: dict, knockout_rules: dict | None = None) ->
         )
     else:
         cand_skills = skills_raw if isinstance(skills_raw, list) else []
-    cand_skills_canon = set(_canonicalize_skill(s) for s in cand_skills if str(s).strip())
+    cand_skills_canon = {_canonicalize_skill(s) for s in cand_skills if str(s).strip()}
 
     # 2. Mandatory Skills Knockout
     req_skills = knockout_rules.get("required_skills") or []
@@ -137,10 +137,10 @@ def check_knockout_rules(candidate: dict, knockout_rules: dict | None = None) ->
         req_certs = [c.strip() for c in req_certs.split(",") if c.strip()]
     if isinstance(req_certs, list) and req_certs:
         certs_raw = candidate.get("certifications") or []
-        cand_certs_canon = set(
+        cand_certs_canon = {
             _canonicalize_skill(c.get("name", str(c)) if isinstance(c, dict) else str(c))
             for c in certs_raw
-        )
+        }
         for req in req_certs:
             req_canon = _canonicalize_skill(req)
             if not req_canon:
