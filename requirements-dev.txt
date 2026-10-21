@@ -3,7 +3,7 @@
 
 # Linting & formatting
 ruff>=0.17.1
-black>=24.0.0
+black>=26.10.1
 
 # Type checking
 mypy>=1.10.0
