@@ -87,6 +87,31 @@ class TestKnockoutDisqualificationRules:
         assert ko_invalid is True
         assert "Docker" in reason or "AWS" in reason or "missing" in reason.lower()
 
+    def test_canonical_skill_matching_avoids_substring_false_positives(self):
+        """ARS-001: Verifies that skills are matched exactly, not as substrings."""
+        # Django contains "go", C++ contains "c". Previously, this would incorrectly pass.
+        candidate = {"skills": ["Django", "C++"]}
+
+        # Test 1: Require 'Go', candidate has 'Django' -> Should fail
+        ko_rules_go = {"required_skills": ["Go"]}
+        ko_go, reason_go = check_knockout_rules(candidate, ko_rules_go)
+        assert ko_go is True
+        assert "Go" in reason_go
+
+        # Test 2: Require 'C', candidate has 'C++' -> Should fail
+        ko_rules_c = {"required_skills": ["C"]}
+        ko_c, reason_c = check_knockout_rules(candidate, ko_rules_c)
+        assert ko_c is True
+        assert "C" in reason_c
+
+    def test_canonical_skill_matching_uses_alias_map(self):
+        """ARS-001: Verifies that alias mappings (e.g., js -> javascript) work correctly."""
+        candidate = {"skills": ["JS"]}
+        ko_rules = {"required_skills": ["JavaScript"]}
+        ko_valid, reason = check_knockout_rules(candidate, ko_rules)
+        assert ko_valid is False
+        assert reason is None or reason == ""
+
     def test_empty_knockout_rules_pass_all_candidates(self):
         candidate = {"total_experience_years": 0.5, "skills": []}
         ko, reason = check_knockout_rules(candidate, {})
