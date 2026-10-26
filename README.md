@@ -15,8 +15,6 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT"></a>
   </p>
 
-  <a href="https://www.producthunt.com/products/ai-recruitment-system?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-ai-recruitment-system"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1293593&amp;theme=dark&amp;t=1793034752381"></a>
-
   <p>
     <a href="https://github.com/shrs425p/AI-Recruitment-System/releases/latest"><b>Download Windows Installer (.exe)</b></a> &nbsp;|&nbsp;
     <a href="docs/index.md"><b>Documentation Hub</b></a> &nbsp;|&nbsp;
@@ -287,3 +285,5 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 - **Contributing**: Please review the [Contributing Guide](CONTRIBUTING.md) before submitting pull requests.
 - **Security Vulnerabilities**: Please review our [Security Policy](SECURITY.md) for responsible disclosure procedures.
 - **Maintainer**: Shreyas Pawar ([@shrs425p](https://github.com/shrs425p))
+
+<a href="https://www.producthunt.com/products/ai-recruitment-system?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-ai-recruitment-system"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1293593&amp;theme=dark&amp;t=1793034752381"></a>
